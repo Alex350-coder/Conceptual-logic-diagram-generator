@@ -1,0 +1,46 @@
+{
+  "plan": "fase-1-domain",
+  "phase": "P2",
+  "label": "Fase 1 de ejecucion — Dominio (paquete shared)",
+  "purpose": "Recursos ECC seleccionados y cargados para desarrollar la fase de dominio (T2-01..T2-07). Seleccionados desde ~/.claude/resources/ecc-index.json el 2026-09-10.",
+  "selectionNotes": [
+    "Fase 1 del protocolo de ejecucion por fases = P2 del plan (Dominio). Rama: phase/01-domain.",
+    "Sin cargo de agentes/comandos extra fuera de la fase; los recursos de maximo valor para modelar tipos TS + invariantes + TDD.",
+    "Las skills se adaptan al proyecto (vitest, unidades de dominio) citando su origen ECC.",
+    "Agentes y comandos se materializan como activos en .opencode/agent|command (mecanismo real de opencode).",
+    "Las rules se registran via el array instructions de opencode.json."
+  ],
+  "resources": {
+    "skills": [
+      { "name": "tdd-workflow", "source": "ecc-library/skills/ecc/tdd-workflow/SKILL.md", "target": "PlanningFiles/skills/tdd-workflow/SKILL.md" },
+      { "name": "error-handling", "source": "ecc-library/skills/ecc/error-handling/SKILL.md", "target": "PlanningFiles/skills/error-handling/SKILL.md" },
+      { "name": "coding-standards", "source": "ecc-library/skills/ecc/coding-standards/SKILL.md", "target": "PlanningFiles/skills/coding-standards/SKILL.md" }
+    ],
+    "agents": [
+      { "name": "typescript-reviewer", "source": "ecc-library/agents/typescript-reviewer.md", "target": ".opencode/agent/typescript-reviewer.md" },
+      { "name": "type-design-analyzer", "source": "ecc-library/agents/type-design-analyzer.md", "target": ".opencode/agent/type-design-analyzer.md" }
+    ],
+    "commands": [
+      { "name": "build-fix", "source": "ecc-library/commands/build-fix.md", "target": ".opencode/command/build-fix.md" },
+      { "name": "checkpoint", "source": "ecc-library/commands/checkpoint.md", "target": ".opencode/command/checkpoint.md" },
+      { "name": "test-coverage", "source": "ecc-library/commands/test-coverage.md", "target": ".opencode/command/test-coverage.md" }
+    ],
+    "rules": [
+      { "name": "typescript/coding-style", "source": "ecc-library/rules/typescript/coding-style.md", "target": "PlanningFiles/rules/typescript/coding-style.md" },
+      { "name": "typescript/security", "source": "ecc-library/rules/typescript/security.md", "target": "PlanningFiles/rules/typescript/security.md" },
+      { "name": "typescript/testing", "source": "ecc-library/rules/typescript/testing.md", "target": "PlanningFiles/rules/typescript/testing.md" }
+    ]
+  },
+  "activation": {
+    "skills_path": "PlanningFiles/skills",
+    "agents_path": ".opencode/agent",
+    "commands_path": ".opencode/command",
+    "instructions": [
+      "PlanningFiles/rules/typescript/coding-style.md",
+      "PlanningFiles/rules/typescript/security.md",
+      "PlanningFiles/rules/typescript/testing.md"
+    ],
+    "config_file": "opencode.json"
+  },
+  "next_phase": "La fase 2 no activa recursos adicionales; se re-evalua la seleccion al llegar a P3 (infraestructura, rama phase/02-infra? no: P3 = infraestructura de cliente/servidor)."
+}
