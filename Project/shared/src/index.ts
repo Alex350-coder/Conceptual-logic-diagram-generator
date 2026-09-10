@@ -1,0 +1,1 @@
+export { CURRENT_SCHEMA_VERSION, DOCUMENT_KIND } from './constants'

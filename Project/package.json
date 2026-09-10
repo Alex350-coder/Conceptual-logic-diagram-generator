@@ -1,0 +1,16 @@
+{
+  "name": "erd-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck -w @erd-studio/shared",
+    "test": "npm run test -w @erd-studio/shared"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
