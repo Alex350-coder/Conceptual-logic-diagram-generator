@@ -46,4 +46,35 @@ Verificaciones puntuales adicionales: E2E 1–23 cubiertos sin solapamiento entr
 
 ---
 
+## 2026-09-10 — Fase P2 (dominio, `Project/shared`) — cierre
+
+Rama `phase/01-domain`, commits `49a57` (recursos) → `fa6eb` (T2-01) → `92b81` (T2-02) → `5a950` (T2-03) → `eb740` (T2-04) → `723b3` (T2-05) → `65e21` (T2-06) → `ee50f` (T2-07).
+
+### Decisiones registradas (resumen)
+- **D-DOM-01 (bloqueo en comandos):** `BLOCKING_CODES = {V-001, V-002, V-003, V-008}`. El resto (V-004…V-013, L-002/L-004 por comando) son advertencias no bloqueantes que el editor puede aceptar transitoriamente. Un comando fallido devuelve `DomainError('MODEL_INVALID', msg, { violations })` sin mutar el modelo.
+- **D-DOM-02 (bloqueo en documento):** el documento persistido debe ser estructuralmente válido: bloquean V-001/002/003/008 + L-002 + V-014/L-008 (lógico). Los estados semánticos transitorios (V-007 weak, V-004 aridad, etc.) se guardan y cargan (round-trip fiel del editor).
+- **D-DOM-03 (nombres):** `setDiagramName` NO es comando de modelo (metadato del documento → P8). `V-013` se implementa estricto salvo el matiz D-CC-09 (entidades/relaciones del diagrama conceptual).
+- **D-DOM-04 (historial):** operaciones `commands` (comandos inversos, LIFO) para ops pequeñas; `snapshot` para destrucciones/no inversibles (`deleteEntity`, `deleteAttribute`, `deleteRelationship`, `deleteSpecialization`, `nestAttribute`, `moveAttribute`, `removeEndpoint`, `duplicateSelection`) y superado el umbral `SNAPSHOT_ELEMENT_THRESHOLD = 50` (ADR-ARC-006). `applyCommands` es atómico (fallo → sesión intacta).
+
+### Hallazgos y correcciones aplicadas (TDD)
+1. Test de undo con `createWeakModel`: undo deshace el lote completo (una operación); corregido aplicando cada comando como operación propia y validando invariantes por paso.
+2. LIFO «agregar/quitar extremos»: estado esperado tras `undo` corregido (el fixture ya tenía `e3` como subtipo; `addEndpoint` añade un extremo, no lo sustituye).
+3. **Bug real encontrado por tests:** `inverseOf(addEndpoint)` calculaba el índice del extremo como `endpoints.length - 1` (apuntaba al penúltimo). Corregido a `endpoints.length` (índice anexado).
+4. `parseDiagramDocument` no expone el raw de entrada en errores; `sanitizeJson` descarta `__proto__`/`constructor`/`prototype` (p-added test de prototype-pollution).
+5. `schemaVersion` del `LogicalModel` se castea a literal tras `asInteger` (tipado del decoder).
+
+### Desviaciones del plan
+- **T3-04 adelantada:** git se inicializó en P2 (rama `phase/01-domain`) y se adoptó el protocolo por fases con commits por unidad. Prevalece la regla de fases del protocolo; al hacer T3-04 en P3 se registrará el ajuste.
+- **Sin hot-reload de skills:** se adoptó materialización de recursos en `PlanningFiles/` + activación por fases (manifest) en lugar de la ruta dinámica inicial.
+
+### Verificación de cierre
+- `npm run typecheck` (workspace shared): limpio.
+- `npm run test`: **95 tests verdes** en 6 suites; **cobertura 85.4 %** statements (objetivo 80 %). Detalle: domain 96.2 %, serialize 91.5 %, validate 87.5 %, commands 84.5 %, history 80.9 %.
+
+### Pendiente P2 → P3
+- Registrar en P3 (T3-04) el cambio de plan (git inicializado en P2).
+- lint/eslint/prettier y harness de cobertura raíz llegan en P3 (T3-01/T3-02).
+
+---
+
 > **Norma de uso:** cualquier cambio relevante posterior (decisión, hallazgo de auditoría, corrección de contradicción documental, cambio de dependencias) se añade aquí con fecha y motivo. Las decisiones de aplazamiento (auth, rate limiting avanzado, purga física, colaboración) quedan registradas en `Security.md` §6.

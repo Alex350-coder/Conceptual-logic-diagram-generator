@@ -34,7 +34,7 @@
     {
       "id": "P2",
       "name": "Dominio (paquete shared)",
-      "status": "pending",
+      "status": "completed",
       "summary": "Modelo conceptual/lógico, validadores, comandos, serialización versionada e historial en TS puro.",
       "objectives": [
         "shared compila con TS estricto y 0 deps runtime",
@@ -45,13 +45,13 @@
       "dependencies": ["P1"],
       "definitionOfDoneRef": "DefinitionOfDone.md §1-2; Testing.md §2",
       "tasks": [
-        { "id": "T2-01", "title": "Esqueleto del paquete shared", "status": "pending" },
-        { "id": "T2-02", "title": "Tipos de dominio (conceptual, logical, ids, layout, envelope)", "status": "pending" },
-        { "id": "T2-03", "title": "Validadores e invariantes (V-*/L-*)", "status": "pending" },
-        { "id": "T2-04", "title": "Comandos y reducers (applyCommand + Result)", "status": "pending" },
-        { "id": "T2-05", "title": "Serialización (serialize/parse) + migraciones v1", "status": "pending" },
-        { "id": "T2-06", "title": "Historial EditorSession", "status": "pending" },
-        { "id": "T2-07", "title": "Unit tests de dominio/validadores/serialización", "status": "pending" }
+        { "id": "T2-01", "title": "Esqueleto del paquete shared", "status": "completed" },
+        { "id": "T2-02", "title": "Tipos de dominio (conceptual, logical, ids, layout, envelope)", "status": "completed" },
+        { "id": "T2-03", "title": "Validadores e invariantes (V-*/L-*)", "status": "completed" },
+        { "id": "T2-04", "title": "Comandos y reducers (applyCommand + Result)", "status": "completed" },
+        { "id": "T2-05", "title": "Serialización (serialize/parse) + migraciones v1", "status": "completed" },
+        { "id": "T2-06", "title": "Historial EditorSession", "status": "completed" },
+        { "id": "T2-07", "title": "Unit tests de dominio/validadores/serialización", "status": "completed" }
       ]
     },
     {

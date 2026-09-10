@@ -6,7 +6,7 @@ Regla: no se inicia una tarea cuya fase dependiente no está cerrada (ver `Devel
 
 ---
 
-## FASE P1 — Planificación y documentación *(fase actual)*
+## FASE P1 — Planificación y documentación *(cerrada)*
 
 | ID | Tarea | Verificación |
 |---|---|---|
@@ -22,17 +22,17 @@ Regla: no se inicia una tarea cuya fase dependiente no está cerrada (ver `Devel
 | T1-10 | Plan final (fases + `Tasks.md` + `phase-plan.json` + DoD + riesgos) | trazabilidad completa |
 | T1-11 | Revisión cruzada (§26) y cierre P1 | hallazgos en `Audit.md`, cero contradicciones abiertas |
 
-## FASE P2 — Dominio (`shared`)
+## FASE P2 — Dominio (`shared`) *(cerrada 2026-09-10)*
 
-| ID | Tarea | Depende de |
-|---|---|---|
-| T2-01 | Esqueleto del paquete `shared` (package.json, tsconfig, vitest) | P1 |
-| T2-02 | Tipos de dominio: conceptual, logical, ids, layout, DocumentEnvelope | T2-01 |
-| T2-03 | Validadores e invariantes V-*/límites L-* (`shared/src/validate`) | T2-02 |
-| T2-04 | Comandos y reducers («applyCommand») con Result | T2-03 |
-| T2-05 | Serialización: `serialize`/`parseDiagram` (envelope) + migraciones (v1) | T2-04 |
-| T2-06 | Historial `EditorSession` (op inversa + snapshot umbral) | T2-04 |
-| T2-07 | Unit tests de dominio, validadores, serialización | T2-05, T2-06 |
+| ID | Tarea | Depende de | Estado |
+|---|---|---|---|
+| T2-01 | Esqueleto del paquete `shared` (package.json, tsconfig, vitest) | P1 | ✅ |
+| T2-02 | Tipos de dominio: conceptual, logical, ids, layout, DocumentEnvelope | T2-01 | ✅ |
+| T2-03 | Validadores e invariantes V-*/límites L-* (`shared/src/validate`) | T2-02 | ✅ |
+| T2-04 | Comandos y reducers («applyCommand») con Result | T2-03 | ✅ |
+| T2-05 | Serialización: `serialize`/`parseDiagram` (envelope) + migraciones (v1) | T2-04 | ✅ |
+| T2-06 | Historial `EditorSession` (op inversa + snapshot umbral) | T2-04 | ✅ |
+| T2-07 | Unit tests de dominio, validadores, serialización | T2-05, T2-06 | ✅ |
 
 ## FASE P3 — Esqueleto del monorepo
 
