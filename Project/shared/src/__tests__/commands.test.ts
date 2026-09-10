@@ -3,6 +3,7 @@ import { applyCommand, type ApplyOutcome, type DomainCommand } from '../commands
 import { createEmptyConceptualModel, type ConceptualModel } from '../domain/conceptual'
 import { toNodeId } from '../domain/ids'
 import { isDomainError } from '../errors'
+import { LIMITS } from '../validate/limits'
 
 describe('applyCommand: entidades', () => {
   it('createEntity añade la entidad con layout por defecto', () => {
@@ -379,6 +380,59 @@ describe('applyCommand: duplicación de selección', () => {
   it('duplicateSelection sin entidades válidas rechaza', () => {
     const outcome = applyCommand(withEntities(), { type: 'duplicateSelection', payload: { sourceIds: [toNodeId('ghost')] } })
     expect(outcome.result.ok).toBe(false)
+  })
+})
+
+describe('applyCommand: rutas de error', () => {
+  it('operaciones sobre inexistentes fallan de forma uniforme', () => {
+    const base = withEntities()
+    const cases: DomainCommand[] = [
+      { type: 'deleteEntity', payload: { id: toNodeId('ghost') } },
+      { type: 'deleteRelationship', payload: { id: toNodeId('ghost') } },
+      { type: 'deleteAttribute', payload: { id: toNodeId('ghost') } },
+      { type: 'deleteSpecialization', payload: { id: toNodeId('ghost') } },
+      { type: 'setDisjointness', payload: { id: toNodeId('ghost'), disjointness: 'OVERLAP' } },
+      { type: 'setCompleteness', payload: { id: toNodeId('ghost'), completeness: 'TOTAL' } },
+      { type: 'removeSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e1') } },
+      { type: 'setIsIdentifying', payload: { id: toNodeId('ghost'), isIdentifying: true } },
+      { type: 'moveNode', payload: { id: toNodeId('ghost'), x: 1, y: 1 } },
+    ]
+    for (const command of cases) {
+      const outcome = applyCommand(base, command)
+      expect(outcome.result.ok).toBe(false)
+      expect(outcome.model).toBe(base)
+    }
+  })
+
+  it('límites: moveNode no finito y endpoint fuera de rango', () => {
+    const base = withRelationship()
+    expect(applyCommand(base, { type: 'moveNode', payload: { id: toNodeId('e1'), x: Number.NaN, y: 0 } }).result.ok).toBe(false)
+    expect(
+      applyCommand(base, { type: 'setEndpointParticipation', payload: { relationshipId: toNodeId('r1'), endpointIndex: 9, participation: 'TOTAL' } }).result.ok,
+    ).toBe(false)
+    expect(
+      applyCommand(base, { type: 'moveEndpoint', payload: { relationshipId: toNodeId('r1'), endpointIndex: 0, entityId: toNodeId('ghost') } }).result.ok,
+    ).toBe(false)
+  })
+
+  it('moveAttribute a contenedor inexistente falla', () => {
+    const outcome = applyCommand(withEntitiesAndAttrs(), {
+      type: 'moveAttribute',
+      payload: { id: toNodeId('a1'), toOwnerId: toNodeId('ghost') },
+    })
+    expect(outcome.result.ok).toBe(false)
+  })
+
+  it('L-002: no se crean entidades sobre el límite de nodos', () => {
+    let model = createEmptyConceptualModel()
+    for (let index = 0; index < LIMITS.maxNodesPerDiagram + 1; index += 1) {
+      const outcome = applyCommand(model, { type: 'createEntity', payload: { id: toNodeId(`big${index}`), name: `E${index}` } })
+      expect(outcome.result.ok).toBe(true)
+      model = outcome.model
+    }
+    const rejected = applyCommand(model, { type: 'createEntity', payload: { id: toNodeId('overflow'), name: 'Extra' } })
+    expect(rejected.result.ok).toBe(false)
+    expect(rejected.result.ok === false && rejected.result.error.code).toBe('MODEL_INVALID')
   })
 })
 
