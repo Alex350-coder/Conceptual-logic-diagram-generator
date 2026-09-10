@@ -1,1 +1,5 @@
 export { CURRENT_SCHEMA_VERSION, DOCUMENT_KIND } from './constants'
+export * from './domain/conceptual'
+export * from './domain/diagram'
+export * from './domain/ids'
+export * from './domain/logical'
