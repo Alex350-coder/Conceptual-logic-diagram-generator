@@ -64,9 +64,9 @@ jobs:
         working-directory: Project
         shell: bash
         run: |
-          if [ -d client ] && [ -f client/package.json ]; then
+          if [ -f client/playwright.config.ts ]; then
             npx playwright install --with-deps chromium
             npm run e2e
           else
-            echo "client workspace not present yet (ships in P5); skipping e2e"
+            echo "playwright config not present yet (ships in P6 UI phase); skipping e2e"
           fi
