@@ -9,7 +9,7 @@ export const IdParamsSchema = Type.Object({
 export const NameSchema = Type.String({ minLength: 1, maxLength: 120 })
 
 export const DocumentEnvelopeSchema = Type.Object({
-  schemaVersion: Type.Number(),
+  schemaVersion: Type.Integer({ minimum: 1 }),
   kind: Type.Literal('erd-studio/diagram'),
   data: Type.Object({
     model: Type.Unknown(),

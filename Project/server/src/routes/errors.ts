@@ -42,7 +42,7 @@ export function registerErrorHandler(app: FastifyInstance, logger: ServerLogger)
         .status(413)
         .send(errorBody('PAYLOAD_TOO_LARGE', 'El documento excede el tamaño máximo permitido.'))
     }
-    logger.error('internal_error', { code: 'INTERNAL' })
+    logger.error('internal_error', { code: 'INTERNAL', cause: error.message })
     return reply.status(500).send(errorBody('INTERNAL', 'Error interno del servidor'))
   })
 

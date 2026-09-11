@@ -12,6 +12,7 @@ export function openDatabase(dbPath: string): Database.Database {
   }
   const db = new Database(dbPath)
   db.pragma('foreign_keys = ON')
+  db.pragma('busy_timeout = 5000')
   if (dbPath !== ':memory:') {
     db.pragma('journal_mode = WAL')
   }

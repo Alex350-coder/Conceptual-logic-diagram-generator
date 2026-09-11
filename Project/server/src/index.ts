@@ -14,9 +14,23 @@ async function main(): Promise<void> {
     await app.listen({ port: config.port, host: '0.0.0.0' })
     logger.info('server_started', { port: config.port })
   } catch {
+    db.close()
     logger.error('fatal', { code: 'INTERNAL' })
     process.exit(1)
   }
+
+  let closing = false
+  const shutdown = (signal: string): void => {
+    if (closing) return
+    closing = true
+    logger.info('server_shutdown', { signal })
+    Promise.resolve(app.close())
+      .then(() => db.close())
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1))
+  }
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
 }
 
 void main()

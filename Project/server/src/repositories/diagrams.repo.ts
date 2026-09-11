@@ -6,6 +6,7 @@ import {
   makeEnvelope,
   createEmptyConceptualModel,
   serializeDiagramDocument,
+  parseDiagramDocument,
 } from '@erd-studio/shared'
 
 export interface DiagramSummary {
@@ -105,7 +106,7 @@ export function createDiagramsRepository(db: Database.Database): DiagramsReposit
     }
     return {
       ...toSummary(row),
-      document: JSON.parse(raw.document) as DocumentEnvelope,
+      document: parseDiagramDocument(raw.document),
     }
   }
 
@@ -170,13 +171,14 @@ export function createDiagramsRepository(db: Database.Database): DiagramsReposit
       const normalized = normalizeName(name)
       const envelope = document ?? makeEnvelope(createEmptyConceptualModel(), null)
       const serialized = serializeDiagramDocument(envelope)
+      const canonical = parseDiagramDocument(serialized)
       const timestamp = nowIso()
       const id = randomUUID() as DiagramId
       const diagram: InsertableDiagram = {
         id,
         name: normalized,
         document: serialized,
-        schemaVersion: envelope.schemaVersion,
+        schemaVersion: canonical.schemaVersion,
         version: 1,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -189,24 +191,25 @@ export function createDiagramsRepository(db: Database.Database): DiagramsReposit
       return {
         id,
         name: normalized,
-        schemaVersion: envelope.schemaVersion,
+        schemaVersion: canonical.schemaVersion,
         version: 1,
         createdAt: timestamp,
         updatedAt: timestamp,
-        document: envelope,
+        document: canonical,
       }
     },
 
     update(id: DiagramId, expectedVersion: number, input: UpdateDiagramInput): DiagramFull {
       const current = requireRow(id)
       const name = input.name === undefined ? current.name : normalizeName(input.name)
-      const document = serializeDiagramDocument(input.document)
+      const serialized = serializeDiagramDocument(input.document)
+      const canonical = parseDiagramDocument(serialized)
       const now = nowIso()
       const result = db
         .prepare(
           'UPDATE diagrams SET name = ?, document = ?, schema_version = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ? AND deleted_at IS NULL',
         )
-        .run(name, document, input.document.schemaVersion, now, id, expectedVersion)
+        .run(name, serialized, canonical.schemaVersion, now, id, expectedVersion)
       if (result.changes === 0) {
         if (getByIdRow(id) === undefined) {
           throw new DomainError('NOT_FOUND', 'El diagrama no existe.')

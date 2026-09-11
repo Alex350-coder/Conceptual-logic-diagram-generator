@@ -39,6 +39,20 @@ describe('diagrams repository (T4-03)', () => {
     expect(row.schema_version).toBe(1)
   })
 
+  it('create stores the canonical schema version and document, not the client input', () => {
+    const { db, repo } = setup()
+    const forged = { ...emptyDoc, schemaVersion: 999 }
+    const created = repo.create('Con versión falsa', forged)
+    const row = db.prepare('SELECT document, schema_version FROM diagrams').get() as {
+      document: string
+      schema_version: number
+    }
+    expect(row.schema_version).toBe(1)
+    expect(created.schemaVersion).toBe(1)
+    expect(created.document.schemaVersion).toBe(1)
+    expect(JSON.parse(row.document)).not.toEqual(forged)
+  })
+
   it('rejects empty or >120 chars names with INVALID_REQUEST', () => {
     const { repo } = setup()
     expect(() => repo.create('   ')).toThrowError(
@@ -91,6 +105,27 @@ describe('diagrams repository (T4-03)', () => {
     repo.softDelete(created.id)
     expect(() => repo.getById(created.id)).toThrowError(
       expect.objectContaining({ code: 'NOT_FOUND' }),
+    )
+  })
+
+  it('getById fails with a DomainError when the stored document is corrupt', () => {
+    const { db, repo } = setup()
+    const created = repo.create('A')
+    db.prepare('UPDATE diagrams SET document = ? WHERE id = ?').run('{"broken":', created.id)
+    expect(() => repo.getById(created.id)).toThrowError(
+      expect.objectContaining({ code: 'INVALID_REQUEST' }),
+    )
+  })
+
+  it('getById rejects an unsupported stored schemaVersion with DOCUMENT_VERSION_UNSUPPORTED', () => {
+    const { db, repo } = setup()
+    const created = repo.create('A')
+    db.prepare('UPDATE diagrams SET document = ? WHERE id = ?').run(
+      JSON.stringify({ ...emptyDoc, schemaVersion: 99 }),
+      created.id,
+    )
+    expect(() => repo.getById(created.id)).toThrowError(
+      expect.objectContaining({ code: 'DOCUMENT_VERSION_UNSUPPORTED' }),
     )
   })
 

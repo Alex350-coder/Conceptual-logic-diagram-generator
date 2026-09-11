@@ -11,6 +11,10 @@ export interface MigrationRecord {
 
 const MIGRATIONS_DIR = fileURLToPath(new URL('./migrations', import.meta.url))
 
+function migrationVersion(file: string): number {
+  return Number.parseInt(file.split('_')[0] as string, 10)
+}
+
 function nowIso(): string {
   return new Date().toISOString()
 }
@@ -28,7 +32,7 @@ export function runMigrations(db: Database.Database): MigrationRecord[] {
   )`)
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => /^\d+_.+\.sql$/.test(f))
-    .sort()
+    .sort((a, b) => migrationVersion(a) - migrationVersion(b))
   const applied = new Set(
     (db.prepare('SELECT version FROM schema_migrations').all() as Array<{ version: number }>).map(
       (r) => r.version,
@@ -37,7 +41,7 @@ export function runMigrations(db: Database.Database): MigrationRecord[] {
   const appliedRecords: MigrationRecord[] = []
   const apply = db.transaction(() => {
     for (const file of files) {
-      const version = Number.parseInt(file.split('_')[0] as string, 10)
+      const version = migrationVersion(file)
       if (applied.has(version)) {
         continue
       }
