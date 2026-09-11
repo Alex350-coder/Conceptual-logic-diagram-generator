@@ -1,3 +1,5 @@
 export * from './editor/viewport'
 export * from './editor/geometry'
 export * from './editor/grid'
+export * from './editor/selection'
+export * from './editor/drag'
