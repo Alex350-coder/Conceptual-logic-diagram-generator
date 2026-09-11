@@ -1,4 +1,5 @@
 export { CURRENT_SCHEMA_VERSION, DOCUMENT_KIND } from './constants'
+export { LIMITS } from './validate/limits'
 export * from './domain/conceptual'
 export * from './domain/diagram'
 export * from './domain/ids'
