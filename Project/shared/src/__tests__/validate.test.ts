@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { createEmptyConceptualModel, type Attribute, type ConceptualModel, type Relationship } from '../domain/conceptual'
+import {
+  createEmptyConceptualModel,
+  type Attribute,
+  type ConceptualModel,
+  type Relationship,
+} from '../domain/conceptual'
 import { toNodeId, type ColumnId, type TableId } from '../domain/ids'
 import { createEmptyLogicalModel, type ColumnType, type LogicalModel } from '../domain/logical'
 import {
@@ -65,11 +70,22 @@ describe('validador de modelo conceptual', () => {
     expect(codes(validateConceptualModel(model))).toContain('V-002')
 
     const model2 = validModel()
-    model2.relationships[0]!.endpoints[1] = { entityId: id(99), roleName: null, cardinality: '1', participation: 'PARTIAL' }
+    model2.relationships[0]!.endpoints[1] = {
+      entityId: id(99),
+      roleName: null,
+      cardinality: '1',
+      participation: 'PARTIAL',
+    }
     expect(codes(validateConceptualModel(model2))).toContain('V-002')
 
     const model3 = validModel()
-    model3.specializations.push({ id: id(70), supertypeId: id(99), subtypeIds: [id(1)], disjointness: 'DISJOINT', completeness: 'PARTIAL' })
+    model3.specializations.push({
+      id: id(70),
+      supertypeId: id(99),
+      subtypeIds: [id(1)],
+      disjointness: 'DISJOINT',
+      completeness: 'PARTIAL',
+    })
     expect(codes(validateConceptualModel(model3))).toContain('V-002')
   })
 
@@ -95,12 +111,15 @@ describe('validador de modelo conceptual', () => {
 
   it('L-004: exceso de extremos por relación', () => {
     const model = validModel()
-    model.relationships[0]!.endpoints = Array.from({ length: LIMITS.maxEndpointsPerRelationship + 1 }, () => ({
-      entityId: id(1),
-      roleName: null,
-      cardinality: 'N',
-      participation: 'PARTIAL',
-    }))
+    model.relationships[0]!.endpoints = Array.from(
+      { length: LIMITS.maxEndpointsPerRelationship + 1 },
+      () => ({
+        entityId: id(1),
+        roleName: null,
+        cardinality: 'N',
+        participation: 'PARTIAL',
+      }),
+    )
     expect(codes(validateConceptualModel(model))).toContain('L-004')
   })
 
@@ -138,8 +157,22 @@ describe('validador de modelo conceptual', () => {
 
   it('V-008/V-009: jerarquía de compuestos sin ciclos y con profundidad ≤ 8', () => {
     const model = validModel()
-    const a: Attribute = { id: id(80), name: 'A', kind: 'COMPOSITE', isKey: false, ownerId: id(1), parentId: null }
-    const b: Attribute = { id: id(81), name: 'B', kind: 'SIMPLE', isKey: false, ownerId: id(1), parentId: id(80) }
+    const a: Attribute = {
+      id: id(80),
+      name: 'A',
+      kind: 'COMPOSITE',
+      isKey: false,
+      ownerId: id(1),
+      parentId: null,
+    }
+    const b: Attribute = {
+      id: id(81),
+      name: 'B',
+      kind: 'SIMPLE',
+      isKey: false,
+      ownerId: id(1),
+      parentId: id(80),
+    }
     model.attributes = [a, b]
     b.parentId = id(81)
     a.parentId = id(81)
@@ -213,7 +246,14 @@ describe('validador de modelo conceptual', () => {
 
   it('V-013: atributo clave solo dentro de una entidad', () => {
     const model = validModel()
-    model.attributes.push({ id: id(82), name: 'K', kind: 'SIMPLE', isKey: true, ownerId: id(90), parentId: null })
+    model.attributes.push({
+      id: id(82),
+      name: 'K',
+      kind: 'SIMPLE',
+      isKey: true,
+      ownerId: id(90),
+      parentId: null,
+    })
     expect(codes(validateConceptualModel(model))).toContain('V-013')
   })
 
@@ -233,7 +273,9 @@ describe('validación de modelo lógico', () => {
       id: toNodeId('00000000-0000-4000-8000-0000000000t1') as unknown as TableId,
       name: 'users',
       source: { rule: 'T2', nodeId: id(1) },
-      columns: [{ id: userId, name: 'user_id', dataType: 'INT', nullable: false, derivedFrom: 'T2:id' }],
+      columns: [
+        { id: userId, name: 'user_id', dataType: 'INT', nullable: false, derivedFrom: 'T2:id' },
+      ],
       primaryKey: [userId],
       foreignKeys: [],
       unique: [],
@@ -259,7 +301,10 @@ describe('validación de modelo lógico', () => {
     const logical = logicalModel()
     logical.tables[0]!.foreignKeys.push({
       from: [logical.tables[0]!.columns[0]!.id],
-      to: { tableId: toNodeId('00000000-0000-4000-8000-0000000000ff') as unknown as TableId, columns: [] },
+      to: {
+        tableId: toNodeId('00000000-0000-4000-8000-0000000000ff') as unknown as TableId,
+        columns: [],
+      },
     })
     expect(codes(validateLogicalModel(logical))).toContain('V-014')
   })

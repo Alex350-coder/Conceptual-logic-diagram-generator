@@ -11,8 +11,8 @@ export default tseslint.config(
     files: ['**/*.ts'],
     languageOptions: {
       parserOptions: {
-        sourceType: 'module'
-      }
+        sourceType: 'module',
+      },
     },
     rules: {
       'no-console': 'error',
@@ -25,11 +25,12 @@ export default tseslint.config(
           patterns: [
             {
               group: ['../shared/*', '../../shared/*'],
-              message: 'Use the @erd-studio/shared workspace dependency, never relative paths across packages'
-            }
-          ]
-        }
-      ]
-    }
-  }
+              message:
+                'Use the @erd-studio/shared workspace dependency, never relative paths across packages',
+            },
+          ],
+        },
+      ],
+    },
+  },
 )

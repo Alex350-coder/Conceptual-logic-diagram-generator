@@ -6,11 +6,21 @@ import { toNodeId } from '../domain/ids'
 import { isDomainError } from '../errors'
 import { sanitizeJson } from '../serialize/sanitize'
 import { migrateDocument } from '../serialize/migrations/index'
-import { documentBlockingViolations, parseDiagramDocument, serializeDiagramDocument } from '../serialize/index'
+import {
+  documentBlockingViolations,
+  parseDiagramDocument,
+  serializeDiagramDocument,
+} from '../serialize/index'
 
 function validEnvelope(): DocumentEnvelope {
-  let outcome = applyCommand(createEmptyConceptualModel(), { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } })
-  outcome = applyCommand(outcome.model, { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Pedido' } })
+  let outcome = applyCommand(createEmptyConceptualModel(), {
+    type: 'createEntity',
+    payload: { id: toNodeId('e1'), name: 'Cliente' },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createEntity',
+    payload: { id: toNodeId('e2'), name: 'Pedido' },
+  })
   outcome = applyCommand(outcome.model, {
     type: 'createRelationship',
     payload: {
@@ -115,7 +125,9 @@ describe('serialize: errores de entrada (sin exponer raw)', () => {
 
 describe('serialize: sanitización y tolerancia', () => {
   it('sanitizeJson descarta claves peligrosas y sus descendientes', () => {
-    const input = JSON.parse('{"__proto__":{"polluted":true},"constructor":"x","ok":{"__proto__":1,"y":2},"arr":[{"prototype":"z"}]}')
+    const input = JSON.parse(
+      '{"__proto__":{"polluted":true},"constructor":"x","ok":{"__proto__":1,"y":2},"arr":[{"prototype":"z"}]}',
+    )
     const clean = sanitizeJson(input) as Record<string, unknown>
     expect(Object.prototype.hasOwnProperty.call(clean, '__proto__')).toBe(false)
     expect(Object.prototype.hasOwnProperty.call(clean, 'constructor')).toBe(false)
@@ -144,7 +156,11 @@ describe('serialize: sanitización y tolerancia', () => {
     root.data.model.entities[0].extra = { any: true }
     root.toIgnore = 42
     const parsed = parseDiagramDocument(JSON.stringify(root))
-    expect(parsed.data.model.entities[0]).toEqual({ id: toNodeId('e1'), name: 'Cliente', kind: 'STRONG' })
+    expect(parsed.data.model.entities[0]).toEqual({
+      id: toNodeId('e1'),
+      name: 'Cliente',
+      kind: 'STRONG',
+    })
   })
 })
 
@@ -165,10 +181,13 @@ describe('serialize: migraciones', () => {
 function documentWithPollutedRoot(root: Record<string, unknown>): string {
   const polluted: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(root.data as Record<string, unknown>)) {
-    const model = (value as { layout?: Record<string, unknown> })
+    const model = value as { layout?: Record<string, unknown> }
     if (model && typeof model === 'object' && model.layout) {
       Object.defineProperty(model.layout, '__proto__', { enumerable: true, value: { x: 1, y: 2 } })
-      Object.defineProperty(model.layout, 'constructor', { enumerable: true, value: { x: 3, y: 4 } })
+      Object.defineProperty(model.layout, 'constructor', {
+        enumerable: true,
+        value: { x: 3, y: 4 },
+      })
     }
     polluted[key] = value
   }

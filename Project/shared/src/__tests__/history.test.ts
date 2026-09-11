@@ -4,7 +4,10 @@ import { toNodeId } from '../domain/ids'
 import { applyCommands, canRedo, canUndo, createEditorSession, redo, undo } from '../history/index'
 import { createSpecializedModel, createWeakModel } from './history.fixtures'
 
-function perform(session: ReturnType<typeof createEditorSession>, commands: Parameters<typeof applyCommands>[1]) {
+function perform(
+  session: ReturnType<typeof createEditorSession>,
+  commands: Parameters<typeof applyCommands>[1],
+) {
   return applyCommands(session, commands).session
 }
 
@@ -14,7 +17,9 @@ describe('EditorSession: comandos y inversos', () => {
     expect(canUndo(session)).toBe(false)
     expect(canRedo(session)).toBe(false)
 
-    session = perform(session, [{ type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } }])
+    session = perform(session, [
+      { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } },
+    ])
     expect(session.past).toHaveLength(1)
     expect(session.future).toHaveLength(0)
     expect(canUndo(session)).toBe(true)
@@ -52,15 +57,35 @@ describe('EditorSession: comandos y inversos', () => {
       { type: 'setEntityKind', payload: { id: toNodeId('e1'), kind: 'WEAK' } },
     ])
     const restored = undo(session)
-    expect(restored.model.entities.find((e) => e.id === toNodeId('e1'))).toMatchObject({ name: 'Cliente', kind: 'STRONG' })
+    expect(restored.model.entities.find((e) => e.id === toNodeId('e1'))).toMatchObject({
+      name: 'Cliente',
+      kind: 'STRONG',
+    })
   })
 
   it('agregar/quitar extremos, submódulos y roles se invierten (LIFO)', () => {
     let session = createEditorSession(createSpecializedModel())
-    session = perform(session, [{ type: 'addEndpoint', payload: { relationshipId: toNodeId('r1'), entityId: toNodeId('e3') } }])
-    session = perform(session, [{ type: 'setRole', payload: { relationshipId: toNodeId('r1'), endpointIndex: 0, roleName: 'cliente' } }])
-    session = perform(session, [{ type: 'setDisjointness', payload: { id: toNodeId('s1'), disjointness: 'OVERLAP' } }])
-    session = perform(session, [{ type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') } }])
+    session = perform(session, [
+      {
+        type: 'addEndpoint',
+        payload: { relationshipId: toNodeId('r1'), entityId: toNodeId('e3') },
+      },
+    ])
+    session = perform(session, [
+      {
+        type: 'setRole',
+        payload: { relationshipId: toNodeId('r1'), endpointIndex: 0, roleName: 'cliente' },
+      },
+    ])
+    session = perform(session, [
+      { type: 'setDisjointness', payload: { id: toNodeId('s1'), disjointness: 'OVERLAP' } },
+    ])
+    session = perform(session, [
+      {
+        type: 'addSubtype',
+        payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') },
+      },
+    ])
 
     const u1 = undo(session)
     expect(u1.model.specializations[0]?.subtypeIds).toEqual([toNodeId('e3')])
@@ -76,7 +101,9 @@ describe('EditorSession: comandos y inversos', () => {
 
   it('redo reaplica en orden', () => {
     let session = createEditorSession(createSpecializedModel())
-    session = perform(session, [{ type: 'renameRelationship', payload: { id: toNodeId('r1'), name: 'Compra' } }])
+    session = perform(session, [
+      { type: 'renameRelationship', payload: { id: toNodeId('r1'), name: 'Compra' } },
+    ])
     const undone = undo(session)
     expect(undone.model.relationships[0]?.name).toBe('Realiza')
     const redone = redo(undone)
@@ -85,11 +112,17 @@ describe('EditorSession: comandos y inversos', () => {
 
   it('nueva operación tras undo borra el futuro', () => {
     let session = createEditorSession(createEmptyConceptualModel())
-    session = perform(session, [{ type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } }])
-    session = perform(session, [{ type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Pedido' } }])
+    session = perform(session, [
+      { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } },
+    ])
+    session = perform(session, [
+      { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Pedido' } },
+    ])
     session = undo(session)
     expect(session.future).toHaveLength(1)
-    session = perform(session, [{ type: 'createEntity', payload: { id: toNodeId('e3'), name: 'Empleado' } }])
+    session = perform(session, [
+      { type: 'createEntity', payload: { id: toNodeId('e3'), name: 'Empleado' } },
+    ])
     expect(session.future).toHaveLength(0)
     expect(session.past).toHaveLength(2)
     expect(session.model.entities.map((e) => e.name).sort()).toEqual(['Cliente', 'Empleado'])
@@ -106,14 +139,18 @@ describe('EditorSession: snapshot (operaciones grandes / no invertibles)', () =>
     expect(restored.model).toBe(model)
     expect(restored.model.attributes).toHaveLength(model.attributes.length)
     expect(restored.model.specializations).toHaveLength(model.specializations.length)
-    expect(restored.model.relationships[0]?.endpoints.every((e) => e.entityId !== toNodeId('e1'))).toBe(false)
+    expect(
+      restored.model.relationships[0]?.endpoints.every((e) => e.entityId !== toNodeId('e1')),
+    ).toBe(false)
     const again = redo(restored)
     expect(again.model.entities.find((e) => e.id === toNodeId('e1'))).toBeUndefined()
   })
 
   it('duplicateSelection se guarda como snapshot y undo elimina el clon', () => {
     let session = createEditorSession(createSpecializedModel())
-    session = perform(session, [{ type: 'duplicateSelection', payload: { sourceIds: [toNodeId('e1')] } }])
+    session = perform(session, [
+      { type: 'duplicateSelection', payload: { sourceIds: [toNodeId('e1')] } },
+    ])
     expect(session.past[0]?.type).toBe('snapshot')
     expect(session.model.entities).toHaveLength(4)
     const restored = undo(session)
@@ -122,7 +159,9 @@ describe('EditorSession: snapshot (operaciones grandes / no invertibles)', () =>
 
   it('re-anidar atributos se guarda como snapshot (sin inverso preciso)', () => {
     let session = createEditorSession(createSpecializedModel())
-    session = perform(session, [{ type: 'nestAttribute', payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') } }])
+    session = perform(session, [
+      { type: 'nestAttribute', payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') } },
+    ])
     expect(session.past[0]?.type).toBe('snapshot')
     const restored = undo(session)
     expect(restored.model.attributes.find((a) => a.id === toNodeId('a2'))?.parentId).toBeNull()
@@ -135,7 +174,14 @@ describe('EditorSession: atomicidad y errores', () => {
     const initialModel = session.model
     const outcome = applyCommands(session, [
       { type: 'createEntity', payload: { id: toNodeId('e9'), name: 'Nuevo' } },
-      { type: 'createRelationship', payload: { id: toNodeId('r9'), name: 'Rota', endpoints: [{ entityId: toNodeId('ghost') }, { entityId: toNodeId('e1') }] } },
+      {
+        type: 'createRelationship',
+        payload: {
+          id: toNodeId('r9'),
+          name: 'Rota',
+          endpoints: [{ entityId: toNodeId('ghost') }, { entityId: toNodeId('e1') }],
+        },
+      },
     ])
     expect(outcome.result.ok).toBe(false)
     expect(outcome.session).toBe(session)
@@ -147,12 +193,19 @@ describe('EditorSession: atomicidad y errores', () => {
     let session = createEditorSession(createEmptyConceptualModel())
     const attrs: Parameters<typeof applyCommands>[1] = []
     for (let index = 0; index < 60; index += 1) {
-      attrs.push({ type: 'createAttribute', payload: { id: toNodeId(`aa${index}`), name: `attr${index}`, ownerId: toNodeId('e1') } })
+      attrs.push({
+        type: 'createAttribute',
+        payload: { id: toNodeId(`aa${index}`), name: `attr${index}`, ownerId: toNodeId('e1') },
+      })
     }
-    session = perform(session, [{ type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } }])
+    session = perform(session, [
+      { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } },
+    ])
     session = perform(session, attrs)
     expect(session.past[1]?.type).toBe('snapshot')
-    expect(session.past[1]?.type === 'snapshot' && session.past[1].after.attributes).toHaveLength(60)
+    expect(session.past[1]?.type === 'snapshot' && session.past[1].after.attributes).toHaveLength(
+      60,
+    )
   })
 })
 
@@ -184,10 +237,14 @@ describe('EditorSession: fronteras', () => {
 
   it('tras un redo, aplicar comandos limpia el future', () => {
     let session = createEditorSession(createEmptyConceptualModel())
-    session = perform(session, [{ type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } }])
+    session = perform(session, [
+      { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } },
+    ])
     const undone = undo(session)
     expect(canRedo(undone)).toBe(true)
-    const branched = perform(undone, [{ type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Marca' } }])
+    const branched = perform(undone, [
+      { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Marca' } },
+    ])
     expect(branched.future).toHaveLength(0)
     expect(branched.model.entities).toHaveLength(1)
     expect(canRedo(branched)).toBe(false)

@@ -45,7 +45,10 @@ export interface DocumentEnvelope {
   }
 }
 
-export function makeEnvelope(model: ConceptualModel, logical: LogicalModel | null): DocumentEnvelope {
+export function makeEnvelope(
+  model: ConceptualModel,
+  logical: LogicalModel | null,
+): DocumentEnvelope {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: DOCUMENT_KIND,

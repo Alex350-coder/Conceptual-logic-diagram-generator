@@ -1,6 +1,17 @@
-import { DATA_TYPES, type DataType, type LogicalModel, type LogicalTable, UNDEFINED_TYPE } from '../domain/logical'
+import {
+  DATA_TYPES,
+  type DataType,
+  type LogicalModel,
+  type LogicalTable,
+  UNDEFINED_TYPE,
+} from '../domain/logical'
 import type { NodeId } from '../domain/ids'
-import { countConceptualElements, type Attribute, type ConceptualModel, type Relationship } from '../domain/conceptual'
+import {
+  countConceptualElements,
+  type Attribute,
+  type ConceptualModel,
+  type Relationship,
+} from '../domain/conceptual'
 import { LIMITS } from './limits'
 
 export interface Violation {
@@ -39,7 +50,12 @@ export function modelNameViolations(name: unknown): Violation[] {
     return [{ code: 'V-003', message: 'El nombre no puede estar vacío.' }]
   }
   if (trimmed.length > LIMITS.maxModelNameChars) {
-    return [{ code: 'V-003', message: `El nombre no puede superar ${LIMITS.maxModelNameChars} caracteres.` }]
+    return [
+      {
+        code: 'V-003',
+        message: `El nombre no puede superar ${LIMITS.maxModelNameChars} caracteres.`,
+      },
+    ]
   }
   if (hasControlChars(trimmed)) {
     return [{ code: 'V-003', message: 'El nombre no puede contener caracteres de control.' }]
@@ -51,10 +67,13 @@ export function isValidModelName(name: unknown): boolean {
   return modelNameViolations(name).length === 0
 }
 
-const findEntityById = (model: ConceptualModel, id: NodeId) => model.entities.find((e) => e.id === id)
-const findAttributeById = (model: ConceptualModel, id: NodeId) => model.attributes.find((a) => a.id === id)
+const findEntityById = (model: ConceptualModel, id: NodeId) =>
+  model.entities.find((e) => e.id === id)
+const findAttributeById = (model: ConceptualModel, id: NodeId) =>
+  model.attributes.find((a) => a.id === id)
 
-const entityIsWeak = (model: ConceptualModel, id: NodeId) => findEntityById(model, id)?.kind === 'WEAK'
+const entityIsWeak = (model: ConceptualModel, id: NodeId) =>
+  findEntityById(model, id)?.kind === 'WEAK'
 
 function attributeDepth(model: ConceptualModel, attr: Attribute, seen: Set<string>): number {
   if (seen.has(attr.id)) {
@@ -86,18 +105,34 @@ function compositeHierarchyViolations(model: ConceptualModel): Violation[] {
       continue
     }
     if (parent.kind !== 'COMPOSITE') {
-      violations.push({ code: 'V-008', message: 'Un atributo anidado solo puede colgar de un compuesto.', nodeId: attr.id })
+      violations.push({
+        code: 'V-008',
+        message: 'Un atributo anidado solo puede colgar de un compuesto.',
+        nodeId: attr.id,
+      })
     }
     if (parent.ownerId !== attr.ownerId) {
-      violations.push({ code: 'V-008', message: 'padre y hijo deben pertenecer al mismo contenedor.', nodeId: attr.id })
+      violations.push({
+        code: 'V-008',
+        message: 'padre y hijo deben pertenecer al mismo contenedor.',
+        nodeId: attr.id,
+      })
     }
   }
   for (const attr of model.attributes) {
     const depth = attributeDepth(model, attr, new Set())
     if (depth === Number.POSITIVE_INFINITY) {
-      violations.push({ code: 'V-008', message: 'Hierarquía de atributos compuestos con ciclo.', nodeId: attr.id })
+      violations.push({
+        code: 'V-008',
+        message: 'Hierarquía de atributos compuestos con ciclo.',
+        nodeId: attr.id,
+      })
     } else if (depth > LIMITS.maxAttributeDepth) {
-      violations.push({ code: 'V-009', message: `Profundidad de atributos excede ${LIMITS.maxAttributeDepth}.`, nodeId: attr.id })
+      violations.push({
+        code: 'V-009',
+        message: `Profundidad de atributos excede ${LIMITS.maxAttributeDepth}.`,
+        nodeId: attr.id,
+      })
     }
   }
   return violations
@@ -114,24 +149,40 @@ function orphanReferenceViolations(model: ConceptualModel): Violation[] {
   ])
   for (const attr of model.attributes) {
     if (!existingIds.has(attr.ownerId)) {
-      violations.push({ code: 'V-002', message: 'El contenedor del atributo no existe.', nodeId: attr.id })
+      violations.push({
+        code: 'V-002',
+        message: 'El contenedor del atributo no existe.',
+        nodeId: attr.id,
+      })
     }
   }
   for (const relationship of model.relationships) {
     for (const endpoint of relationship.endpoints) {
       if (!findEntityById(model, endpoint.entityId)) {
-        violations.push({ code: 'V-002', message: 'Un extremo referencia una entidad inexistente.', nodeId: relationship.id })
+        violations.push({
+          code: 'V-002',
+          message: 'Un extremo referencia una entidad inexistente.',
+          nodeId: relationship.id,
+        })
         break
       }
     }
   }
   for (const spec of model.specializations) {
     if (!findEntityById(model, spec.supertypeId)) {
-      violations.push({ code: 'V-002', message: 'El supertipo de una especialización no existe.', nodeId: spec.id })
+      violations.push({
+        code: 'V-002',
+        message: 'El supertipo de una especialización no existe.',
+        nodeId: spec.id,
+      })
     }
     for (const subtypeId of spec.subtypeIds) {
       if (!findEntityById(model, subtypeId)) {
-        violations.push({ code: 'V-002', message: 'Un subtipo de especialización no existe.', nodeId: spec.id })
+        violations.push({
+          code: 'V-002',
+          message: 'Un subtipo de especialización no existe.',
+          nodeId: spec.id,
+        })
       }
     }
   }
@@ -162,13 +213,15 @@ function duplicateIdViolations(model: ConceptualModel): Violation[] {
 /** V-003 + V-010 + V-011 + V-012 + V-013 + V-004/005/006/007. */
 function semanticViolations(model: ConceptualModel): Violation[] {
   const violations: Violation[] = []
-  const unique = <T,>(values: T[]): T[] => Array.from(new Set(values))
+  const unique = <T>(values: T[]): T[] => Array.from(new Set(values))
 
   for (const entity of model.entities) {
     violations.push(...modelNameViolations(entity.name).map((v) => ({ ...v, nodeId: entity.id })))
   }
   for (const relationship of model.relationships) {
-    violations.push(...modelNameViolations(relationship.name).map((v) => ({ ...v, nodeId: relationship.id })))
+    violations.push(
+      ...modelNameViolations(relationship.name).map((v) => ({ ...v, nodeId: relationship.id })),
+    )
   }
   for (const attr of model.attributes) {
     violations.push(...modelNameViolations(attr.name).map((v) => ({ ...v, nodeId: attr.id })))
@@ -176,26 +229,46 @@ function semanticViolations(model: ConceptualModel): Violation[] {
 
   for (const relationship of model.relationships) {
     if (relationship.endpoints.length < 2) {
-      violations.push({ code: 'V-004', message: 'Una relación requiere al menos 2 extremos.', nodeId: relationship.id })
+      violations.push({
+        code: 'V-004',
+        message: 'Una relación requiere al menos 2 extremos.',
+        nodeId: relationship.id,
+      })
     }
     if (relationship.endpoints.length > LIMITS.maxEndpointsPerRelationship) {
-      violations.push({ code: 'L-004', message: `Una relación no puede superar ${LIMITS.maxEndpointsPerRelationship} extremos.`, nodeId: relationship.id })
+      violations.push({
+        code: 'L-004',
+        message: `Una relación no puede superar ${LIMITS.maxEndpointsPerRelationship} extremos.`,
+        nodeId: relationship.id,
+      })
     }
 
     const weakEndpoints = relationship.endpoints.filter((e) => entityIsWeak(model, e.entityId))
     if (!relationship.isIdentifying && weakEndpoints.length > 0) {
       const weakIds = weakEndpoints.map((e) => e.entityId)
       if (unique(weakIds).length !== weakIds.length) {
-        violations.push({ code: 'V-005', message: 'Una relación no identificadora no puede repetir una entidad débil.', nodeId: relationship.id })
+        violations.push({
+          code: 'V-005',
+          message: 'Una relación no identificadora no puede repetir una entidad débil.',
+          nodeId: relationship.id,
+        })
       }
     }
     if (relationship.isIdentifying) {
       if (weakEndpoints.length !== 1) {
-        violations.push({ code: 'V-006', message: 'Una relación identificadora requiere exactamente un extremo débil.', nodeId: relationship.id })
+        violations.push({
+          code: 'V-006',
+          message: 'Una relación identificadora requiere exactamente un extremo débil.',
+          nodeId: relationship.id,
+        })
       }
       const strongEndpoints = relationship.endpoints.filter((e) => !entityIsWeak(model, e.entityId))
       if (strongEndpoints.length === 0) {
-        violations.push({ code: 'V-006', message: 'Una relación identificadora requiere al menos un extremo fuerte propietario.', nodeId: relationship.id })
+        violations.push({
+          code: 'V-006',
+          message: 'Una relación identificadora requiere al menos un extremo fuerte propietario.',
+          nodeId: relationship.id,
+        })
       }
     }
 
@@ -205,9 +278,15 @@ function semanticViolations(model: ConceptualModel): Violation[] {
     }
     for (const [entityId, count] of idCounts) {
       if (count > 1) {
-        const roles = relationship.endpoints.filter((e) => e.entityId === entityId).map((e) => e.roleName)
+        const roles = relationship.endpoints
+          .filter((e) => e.entityId === entityId)
+          .map((e) => e.roleName)
         if (roles.some((r) => r === null || r === '')) {
-          violations.push({ code: 'V-012', message: 'Una relación recursiva exige roleName en ambos extremos.', nodeId: relationship.id })
+          violations.push({
+            code: 'V-012',
+            message: 'Una relación recursiva exige roleName en ambos extremos.',
+            nodeId: relationship.id,
+          })
         }
       }
     }
@@ -219,32 +298,56 @@ function semanticViolations(model: ConceptualModel): Violation[] {
         (r) => r.isIdentifying && r.endpoints.some((e) => e.entityId === entity.id),
       )
       if (!identifying) {
-        violations.push({ code: 'V-007', message: 'Toda entidad débil requiere una relación identificadora.', nodeId: entity.id })
+        violations.push({
+          code: 'V-007',
+          message: 'Toda entidad débil requiere una relación identificadora.',
+          nodeId: entity.id,
+        })
       }
     }
   }
 
   for (const attr of model.attributes) {
     if (attr.isKey && !findEntityById(model, attr.ownerId)) {
-      violations.push({ code: 'V-013', message: 'Un atributo clave solo pertenece a una entidad.', nodeId: attr.id })
+      violations.push({
+        code: 'V-013',
+        message: 'Un atributo clave solo pertenece a una entidad.',
+        nodeId: attr.id,
+      })
     }
   }
 
   for (const spec of model.specializations) {
     if (spec.supertypeId === spec.subtypeIds.find((s) => s === spec.supertypeId)) {
-      violations.push({ code: 'V-010', message: 'El supertipo no puede ser también subtipo.', nodeId: spec.id })
+      violations.push({
+        code: 'V-010',
+        message: 'El supertipo no puede ser también subtipo.',
+        nodeId: spec.id,
+      })
     }
     if (unique(spec.subtypeIds).length !== spec.subtypeIds.length) {
-      violations.push({ code: 'V-010', message: 'Subtipos de especialización sin duplicados.', nodeId: spec.id })
+      violations.push({
+        code: 'V-010',
+        message: 'Subtipos de especialización sin duplicados.',
+        nodeId: spec.id,
+      })
     }
     const superEntity = findEntityById(model, spec.supertypeId)
     if (superEntity && superEntity.kind === 'WEAK') {
-      violations.push({ code: 'V-011', message: 'El supertipo de una especialización es una entidad fuerte.', nodeId: spec.id })
+      violations.push({
+        code: 'V-011',
+        message: 'El supertipo de una especialización es una entidad fuerte.',
+        nodeId: spec.id,
+      })
     }
     for (const subtypeId of spec.subtypeIds) {
       const subtypeEntity = findEntityById(model, subtypeId)
       if (subtypeEntity && subtypeEntity.kind === 'WEAK') {
-        violations.push({ code: 'V-011', message: 'Los subtipos de una especialización son entidades fuertes (D-CC-05).', nodeId: spec.id })
+        violations.push({
+          code: 'V-011',
+          message: 'Los subtipos de una especialización son entidades fuertes (D-CC-05).',
+          nodeId: spec.id,
+        })
       }
     }
   }
@@ -287,7 +390,8 @@ export function validateConceptualModel(model: ConceptualModel): Violation[] {
 const SNAKE_CASE = /^[a-z0-9_]+$/
 
 // Unused import guard: DATA_TYPES se usa en validateLogicalModel.
-const isDataType = (type: string): type is DataType => (DATA_TYPES as readonly string[]).includes(type)
+const isDataType = (type: string): type is DataType =>
+  (DATA_TYPES as readonly string[]).includes(type)
 
 /** <p>V-014 + L-008: el modelo lógico es autocontenido y coherente.</p> */
 export function validateLogicalModel(logical: LogicalModel): Violation[] {
@@ -307,47 +411,84 @@ export function validateLogicalModel(logical: LogicalModel): Violation[] {
   return violations
 }
 
-function validateLogicalTableReferences(table: LogicalTable, tableIds: Set<string>, logical: LogicalModel, violations: Violation[]): void {
+function validateLogicalTableReferences(
+  table: LogicalTable,
+  tableIds: Set<string>,
+  logical: LogicalModel,
+  violations: Violation[],
+): void {
   const columnIds = new Set(table.columns.map((c) => c.id))
 
   for (const column of table.columns) {
     if (typeof column.name !== 'string' || column.name.length === 0) {
-      violations.push({ code: 'L-008', message: 'Nombre de columna vacío.', nodeId: table.source.nodeId })
+      violations.push({
+        code: 'L-008',
+        message: 'Nombre de columna vacío.',
+        nodeId: table.source.nodeId,
+      })
     } else if (column.name.length > LIMITS.logicalNameMaxChars || !SNAKE_CASE.test(column.name)) {
-      violations.push({ code: 'L-008', message: `Nombre de columna debe ser snake_case y ≤ ${LIMITS.logicalNameMaxChars}.`, nodeId: table.source.nodeId })
+      violations.push({
+        code: 'L-008',
+        message: `Nombre de columna debe ser snake_case y ≤ ${LIMITS.logicalNameMaxChars}.`,
+        nodeId: table.source.nodeId,
+      })
     }
     if (!isDataType(column.dataType) && column.dataType !== UNDEFINED_TYPE) {
-      violations.push({ code: 'L-008', message: `dataType inválido para ${column.name}.`, nodeId: table.source.nodeId })
+      violations.push({
+        code: 'L-008',
+        message: `dataType inválido para ${column.name}.`,
+        nodeId: table.source.nodeId,
+      })
     }
   }
 
   for (const id of table.primaryKey) {
     if (!columnIds.has(id)) {
-      violations.push({ code: 'V-014', message: 'primaryKey referencia columna inexistente.', nodeId: table.source.nodeId })
+      violations.push({
+        code: 'V-014',
+        message: 'primaryKey referencia columna inexistente.',
+        nodeId: table.source.nodeId,
+      })
     }
   }
   for (const group of table.unique) {
     for (const id of group) {
       if (!columnIds.has(id)) {
-        violations.push({ code: 'V-014', message: 'unique referencia columna inexistente.', nodeId: table.source.nodeId })
+        violations.push({
+          code: 'V-014',
+          message: 'unique referencia columna inexistente.',
+          nodeId: table.source.nodeId,
+        })
       }
     }
   }
   for (const fk of table.foreignKeys) {
     for (const id of fk.from) {
       if (!columnIds.has(id)) {
-        violations.push({ code: 'V-014', message: 'foreignKey.from referencia columna inexistente.', nodeId: table.source.nodeId })
+        violations.push({
+          code: 'V-014',
+          message: 'foreignKey.from referencia columna inexistente.',
+          nodeId: table.source.nodeId,
+        })
       }
     }
     if (!tableIds.has(fk.to.tableId)) {
-      violations.push({ code: 'V-014', message: 'foreignKey.to referencia tabla inexistente.', nodeId: table.source.nodeId })
+      violations.push({
+        code: 'V-014',
+        message: 'foreignKey.to referencia tabla inexistente.',
+        nodeId: table.source.nodeId,
+      })
     }
     const target = logical.tables.find((t) => t.id === fk.to.tableId)
     if (target) {
       const targetColumnIds = new Set(target.columns.map((c) => c.id))
       for (const id of fk.to.columns) {
         if (!targetColumnIds.has(id)) {
-          violations.push({ code: 'V-014', message: 'foreignKey.to referencia columna inexistente.', nodeId: table.source.nodeId })
+          violations.push({
+            code: 'V-014',
+            message: 'foreignKey.to referencia columna inexistente.',
+            nodeId: table.source.nodeId,
+          })
         }
       }
     }
@@ -359,17 +500,34 @@ function tableNameViolations(name: string): Violation[] {
     return [{ code: 'L-008', message: 'Nombre de tabla vacío.' }]
   }
   if (name.length > LIMITS.logicalNameMaxChars || !SNAKE_CASE.test(name)) {
-    return [{ code: 'L-008', message: `Nombre de tabla debe ser snake_case y ≤ ${LIMITS.logicalNameMaxChars}.` }]
+    return [
+      {
+        code: 'L-008',
+        message: `Nombre de tabla debe ser snake_case y ≤ ${LIMITS.logicalNameMaxChars}.`,
+      },
+    ]
   }
   return []
 }
 
 export function validateRelationshipEndpointCount(relationship: Relationship): Violation[] {
   if (relationship.endpoints.length < 2) {
-    return [{ code: 'V-004', message: 'Una relación requiere al menos 2 extremos.', nodeId: relationship.id }]
+    return [
+      {
+        code: 'V-004',
+        message: 'Una relación requiere al menos 2 extremos.',
+        nodeId: relationship.id,
+      },
+    ]
   }
   if (relationship.endpoints.length > LIMITS.maxEndpointsPerRelationship) {
-    return [{ code: 'L-004', message: `Una relación no puede superar ${LIMITS.maxEndpointsPerRelationship} extremos.`, nodeId: relationship.id }]
+    return [
+      {
+        code: 'L-004',
+        message: `Una relación no puede superar ${LIMITS.maxEndpointsPerRelationship} extremos.`,
+        nodeId: relationship.id,
+      },
+    ]
   }
   return []
 }

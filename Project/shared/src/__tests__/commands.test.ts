@@ -20,7 +20,10 @@ describe('applyCommand: entidades', () => {
   it('createEntity con id duplicado rechaza sin tocar el modelo', () => {
     const model = withEntities()
     const input = model
-    const outcome = applyCommand(model, { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Otro' } })
+    const outcome = applyCommand(model, {
+      type: 'createEntity',
+      payload: { id: toNodeId('e1'), name: 'Otro' },
+    })
     expect(outcome.result.ok).toBe(false)
     if (!outcome.result.ok) {
       expect(outcome.result.error.code).toBe('MODEL_INVALID')
@@ -37,17 +40,29 @@ describe('applyCommand: entidades', () => {
   })
 
   it('renameEntity cambia el nombre y valida', () => {
-    let outcome = applyCommand(withEntities(), { type: 'renameEntity', payload: { id: toNodeId('e1'), name: 'Cliente VIP' } })
+    let outcome = applyCommand(withEntities(), {
+      type: 'renameEntity',
+      payload: { id: toNodeId('e1'), name: 'Cliente VIP' },
+    })
     expect(outcome.result.ok).toBe(true)
     expect(outcome.model.entities.find((e) => e.id === toNodeId('e1'))?.name).toBe('Cliente VIP')
-    outcome = applyCommand(withEntities(), { type: 'renameEntity', payload: { id: toNodeId('e1'), name: 'a\nb' } })
+    outcome = applyCommand(withEntities(), {
+      type: 'renameEntity',
+      payload: { id: toNodeId('e1'), name: 'a\nb' },
+    })
     expect(outcome.result.ok).toBe(false)
-    outcome = applyCommand(withEntities(), { type: 'renameEntity', payload: { id: toNodeId('ghost'), name: 'Cliente' } })
+    outcome = applyCommand(withEntities(), {
+      type: 'renameEntity',
+      payload: { id: toNodeId('ghost'), name: 'Cliente' },
+    })
     expect(outcome.result.ok).toBe(false)
   })
 
   it('setEntityKind admite WEAK y luego lo valida como advertencia V-007 hasta tener relación identificadora', () => {
-    let outcome = applyCommand(withEntities(), { type: 'setEntityKind', payload: { id: toNodeId('e1'), kind: 'WEAK' } })
+    let outcome = applyCommand(withEntities(), {
+      type: 'setEntityKind',
+      payload: { id: toNodeId('e1'), kind: 'WEAK' },
+    })
     expect(outcome.result.ok).toBe(true)
     expect(outcome.violations.map((v) => v.code)).toContain('V-007')
     outcome = applyCommand(outcome.model, {
@@ -61,7 +76,10 @@ describe('applyCommand: entidades', () => {
         ],
       },
     })
-    outcome = applyCommand(outcome.model, { type: 'setIsIdentifying', payload: { id: toNodeId('r1'), isIdentifying: true } })
+    outcome = applyCommand(outcome.model, {
+      type: 'setIsIdentifying',
+      payload: { id: toNodeId('r1'), isIdentifying: true },
+    })
     expect(outcome.result.ok).toBe(true)
     expect(outcome.violations).toEqual([])
   })
@@ -82,7 +100,11 @@ describe('applyCommand: entidades', () => {
     const outcome = applyCommand(model, { type: 'deleteEntity', payload: { id: toNodeId('e1') } })
     expect(outcome.result.ok).toBe(true)
     expect(outcome.model.specializations).toHaveLength(0)
-    expect(outcome.model.relationships.filter((r) => r.endpoints.some((e) => e.entityId === toNodeId('e1')))).toHaveLength(0)
+    expect(
+      outcome.model.relationships.filter((r) =>
+        r.endpoints.some((e) => e.entityId === toNodeId('e1')),
+      ),
+    ).toHaveLength(0)
   })
 })
 
@@ -94,7 +116,12 @@ describe('applyCommand: atributos', () => {
       payload: { id: toNodeId('a8'), name: 'email', ownerId: toNodeId('e1') },
     })
     expect(outcome.result.ok).toBe(true)
-    expect(outcome.model.attributes.find((a) => a.id === toNodeId('a8'))).toMatchObject({ ownerId: toNodeId('e1'), parentId: null, isKey: false, kind: 'SIMPLE' })
+    expect(outcome.model.attributes.find((a) => a.id === toNodeId('a8'))).toMatchObject({
+      ownerId: toNodeId('e1'),
+      parentId: null,
+      isKey: false,
+      kind: 'SIMPLE',
+    })
     outcome = applyCommand(model, {
       type: 'createAttribute',
       payload: { id: toNodeId('a9'), name: 'desde', ownerId: toNodeId('r1') },
@@ -147,10 +174,17 @@ describe('applyCommand: atributos', () => {
       type: 'nestAttribute',
       payload: { attributeId: toNodeId('a6'), parentId: toNodeId('a4') },
     }).model
-    const outcome = applyCommand(nested, { type: 'deleteAttribute', payload: { id: toNodeId('a4') } })
+    const outcome = applyCommand(nested, {
+      type: 'deleteAttribute',
+      payload: { id: toNodeId('a4') },
+    })
     expect(outcome.result.ok).toBe(true)
     expect(outcome.model.attributes).toHaveLength(4)
-    expect(outcome.model.attributes.some((a) => a.id === toNodeId('a4') || a.id === toNodeId('a5') || a.id === toNodeId('a6'))).toBe(false)
+    expect(
+      outcome.model.attributes.some(
+        (a) => a.id === toNodeId('a4') || a.id === toNodeId('a5') || a.id === toNodeId('a6'),
+      ),
+    ).toBe(false)
   })
 
   it('moveAttribute reubica el propietario y desengancha del compuesto', () => {
@@ -158,7 +192,10 @@ describe('applyCommand: atributos', () => {
       type: 'nestAttribute',
       payload: { attributeId: toNodeId('a5'), parentId: toNodeId('a4') },
     }).model
-    const outcome = applyCommand(nested, { type: 'moveAttribute', payload: { id: toNodeId('a5'), toOwnerId: toNodeId('e2') } })
+    const outcome = applyCommand(nested, {
+      type: 'moveAttribute',
+      payload: { id: toNodeId('a5'), toOwnerId: toNodeId('e2') },
+    })
     expect(outcome.result.ok).toBe(true)
     const moved = outcome.model.attributes.find((a) => a.id === toNodeId('a5'))
     expect(moved?.ownerId).toBe(toNodeId('e2'))
@@ -199,7 +236,10 @@ describe('applyCommand: relaciones', () => {
     })
     expect(ok.result.ok).toBe(true)
     expect(ok.model.relationships[0]?.endpoints).toHaveLength(2)
-    expect(ok.model.relationships[0]?.endpoints[0]).toMatchObject({ cardinality: 'N', participation: 'TOTAL' })
+    expect(ok.model.relationships[0]?.endpoints[0]).toMatchObject({
+      cardinality: 'N',
+      participation: 'TOTAL',
+    })
     expect(ok.model.relationships[0]?.endpoints[1]).toMatchObject({ participation: 'PARTIAL' })
 
     const tooFew = applyCommand(withEntities(), {
@@ -213,10 +253,7 @@ describe('applyCommand: relaciones', () => {
       payload: {
         id: toNodeId('r1'),
         name: 'Contrata',
-        endpoints: [
-          { entityId: toNodeId('e1') },
-          { entityId: toNodeId('ghost') },
-        ],
+        endpoints: [{ entityId: toNodeId('e1') }, { entityId: toNodeId('ghost') }],
       },
     })
     expect(ghost.result.ok).toBe(false)
@@ -307,7 +344,10 @@ describe('applyCommand: relaciones', () => {
 
   it('deleteRelationship elimina también sus atributos', () => {
     const model = withEntitiesAndAttrs()
-    const outcome = applyCommand(model, { type: 'deleteRelationship', payload: { id: toNodeId('r1') } })
+    const outcome = applyCommand(model, {
+      type: 'deleteRelationship',
+      payload: { id: toNodeId('r1') },
+    })
     expect(outcome.result.ok).toBe(true)
     expect(outcome.model.relationships).toHaveLength(0)
     expect(outcome.model.attributes.some((a) => a.ownerId === toNodeId('r1'))).toBe(false)
@@ -316,33 +356,69 @@ describe('applyCommand: relaciones', () => {
 
 describe('applyCommand: especializaciones', () => {
   it('createSpecialization requiere supertipo existente y fuerte', () => {
-    const weak = applyCommand(withEntities(), { type: 'setEntityKind', payload: { id: toNodeId('e1'), kind: 'WEAK' } })
-    const outcome = applyCommand(weak.model, { type: 'createSpecialization', payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') } })
+    const weak = applyCommand(withEntities(), {
+      type: 'setEntityKind',
+      payload: { id: toNodeId('e1'), kind: 'WEAK' },
+    })
+    const outcome = applyCommand(weak.model, {
+      type: 'createSpecialization',
+      payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') },
+    })
     expect(outcome.result.ok).toBe(false)
-    const ok = applyCommand(withEntities(), { type: 'createSpecialization', payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') } })
+    const ok = applyCommand(withEntities(), {
+      type: 'createSpecialization',
+      payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') },
+    })
     expect(ok.result).toEqual({ ok: true, createdId: toNodeId('s1') })
   })
 
   it('addSubtype valida existente, fuerte y no duplicado', () => {
-    const ok = applyCommand(withSpecialization(), { type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') } })
+    const ok = applyCommand(withSpecialization(), {
+      type: 'addSubtype',
+      payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') },
+    })
     expect(ok.result.ok).toBe(true)
     expect(ok.model.specializations[0]?.subtypeIds).toContain(toNodeId('e3'))
-    const dup = applyCommand(ok.model, { type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') } })
+    const dup = applyCommand(ok.model, {
+      type: 'addSubtype',
+      payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') },
+    })
     expect(dup.result.ok).toBe(false)
     const weakSub = applyCommand(
-      applyCommand(withSpecialization(), { type: 'setEntityKind', payload: { id: toNodeId('e2'), kind: 'WEAK' } }).model,
-      { type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') } },
+      applyCommand(withSpecialization(), {
+        type: 'setEntityKind',
+        payload: { id: toNodeId('e2'), kind: 'WEAK' },
+      }).model,
+      {
+        type: 'addSubtype',
+        payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') },
+      },
     )
     expect(weakSub.result.ok).toBe(false)
   })
 
   it('setDisjointness, setCompleteness y removeSubtype', () => {
-    let outcome = applyCommand(withSpecialization(), { type: 'setDisjointness', payload: { id: toNodeId('s1'), disjointness: 'OVERLAP' } })
-    outcome = applyCommand(outcome.model, { type: 'setCompleteness', payload: { id: toNodeId('s1'), completeness: 'TOTAL' } })
-    expect(outcome.model.specializations[0]).toMatchObject({ disjointness: 'OVERLAP', completeness: 'TOTAL' })
-    outcome = applyCommand(outcome.model, { type: 'removeSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') } })
+    let outcome = applyCommand(withSpecialization(), {
+      type: 'setDisjointness',
+      payload: { id: toNodeId('s1'), disjointness: 'OVERLAP' },
+    })
+    outcome = applyCommand(outcome.model, {
+      type: 'setCompleteness',
+      payload: { id: toNodeId('s1'), completeness: 'TOTAL' },
+    })
+    expect(outcome.model.specializations[0]).toMatchObject({
+      disjointness: 'OVERLAP',
+      completeness: 'TOTAL',
+    })
+    outcome = applyCommand(outcome.model, {
+      type: 'removeSubtype',
+      payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') },
+    })
     expect(outcome.result.ok).toBe(true)
-    outcome = applyCommand(outcome.model, { type: 'deleteSpecialization', payload: { id: toNodeId('s1') } })
+    outcome = applyCommand(outcome.model, {
+      type: 'deleteSpecialization',
+      payload: { id: toNodeId('s1') },
+    })
     expect(outcome.model.specializations).toHaveLength(0)
   })
 })
@@ -357,7 +433,10 @@ describe('applyCommand: duplicación de selección', () => {
       type: 'nestAttribute',
       payload: { attributeId: toNodeId('a6'), parentId: toNodeId('a4') },
     }).model
-    const outcome = applyCommand(nested, { type: 'duplicateSelection', payload: { sourceIds: [toNodeId('e1')] } })
+    const outcome = applyCommand(nested, {
+      type: 'duplicateSelection',
+      payload: { sourceIds: [toNodeId('e1')] },
+    })
     expect(outcome.result.ok).toBe(true)
     if (!outcome.result.ok) return
     expect(outcome.result.createdIds).toHaveLength(1)
@@ -377,7 +456,10 @@ describe('applyCommand: duplicación de selección', () => {
   })
 
   it('duplicateSelection sin entidades válidas rechaza', () => {
-    const outcome = applyCommand(withEntities(), { type: 'duplicateSelection', payload: { sourceIds: [toNodeId('ghost')] } })
+    const outcome = applyCommand(withEntities(), {
+      type: 'duplicateSelection',
+      payload: { sourceIds: [toNodeId('ghost')] },
+    })
     expect(outcome.result.ok).toBe(false)
   })
 })
@@ -392,7 +474,10 @@ describe('applyCommand: rutas de error', () => {
       { type: 'deleteSpecialization', payload: { id: toNodeId('ghost') } },
       { type: 'setDisjointness', payload: { id: toNodeId('ghost'), disjointness: 'OVERLAP' } },
       { type: 'setCompleteness', payload: { id: toNodeId('ghost'), completeness: 'TOTAL' } },
-      { type: 'removeSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e1') } },
+      {
+        type: 'removeSubtype',
+        payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e1') },
+      },
       { type: 'setIsIdentifying', payload: { id: toNodeId('ghost'), isIdentifying: true } },
       { type: 'moveNode', payload: { id: toNodeId('ghost'), x: 1, y: 1 } },
     ]
@@ -405,12 +490,21 @@ describe('applyCommand: rutas de error', () => {
 
   it('límites: moveNode no finito y endpoint fuera de rango', () => {
     const base = withRelationship()
-    expect(applyCommand(base, { type: 'moveNode', payload: { id: toNodeId('e1'), x: Number.NaN, y: 0 } }).result.ok).toBe(false)
     expect(
-      applyCommand(base, { type: 'setEndpointParticipation', payload: { relationshipId: toNodeId('r1'), endpointIndex: 9, participation: 'TOTAL' } }).result.ok,
+      applyCommand(base, { type: 'moveNode', payload: { id: toNodeId('e1'), x: Number.NaN, y: 0 } })
+        .result.ok,
     ).toBe(false)
     expect(
-      applyCommand(base, { type: 'moveEndpoint', payload: { relationshipId: toNodeId('r1'), endpointIndex: 0, entityId: toNodeId('ghost') } }).result.ok,
+      applyCommand(base, {
+        type: 'setEndpointParticipation',
+        payload: { relationshipId: toNodeId('r1'), endpointIndex: 9, participation: 'TOTAL' },
+      }).result.ok,
+    ).toBe(false)
+    expect(
+      applyCommand(base, {
+        type: 'moveEndpoint',
+        payload: { relationshipId: toNodeId('r1'), endpointIndex: 0, entityId: toNodeId('ghost') },
+      }).result.ok,
     ).toBe(false)
   })
 
@@ -425,11 +519,17 @@ describe('applyCommand: rutas de error', () => {
   it('L-002: no se crean entidades sobre el límite de nodos', () => {
     let model = createEmptyConceptualModel()
     for (let index = 0; index < LIMITS.maxNodesPerDiagram + 1; index += 1) {
-      const outcome = applyCommand(model, { type: 'createEntity', payload: { id: toNodeId(`big${index}`), name: `E${index}` } })
+      const outcome = applyCommand(model, {
+        type: 'createEntity',
+        payload: { id: toNodeId(`big${index}`), name: `E${index}` },
+      })
       expect(outcome.result.ok).toBe(true)
       model = outcome.model
     }
-    const rejected = applyCommand(model, { type: 'createEntity', payload: { id: toNodeId('overflow'), name: 'Extra' } })
+    const rejected = applyCommand(model, {
+      type: 'createEntity',
+      payload: { id: toNodeId('overflow'), name: 'Extra' },
+    })
     expect(rejected.result.ok).toBe(false)
     expect(rejected.result.ok === false && rejected.result.error.code).toBe('MODEL_INVALID')
   })
@@ -461,13 +561,22 @@ describe('applyCommand: inmutabilidad y errores', () => {
 /* ---------------------------- fixtures ---------------------------- */
 
 function withEntities(): ConceptualModel {
-  let outcome = applyCommand(createEmptyConceptualModel(), { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } })
+  let outcome = applyCommand(createEmptyConceptualModel(), {
+    type: 'createEntity',
+    payload: { id: toNodeId('e1'), name: 'Cliente' },
+  })
   outcome = applyCommand(outcome.model, {
     type: 'moveNode',
     payload: { id: toNodeId('e1'), x: 10, y: 10 },
   })
-  outcome = applyCommand(outcome.model, { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Producto' } })
-  outcome = applyCommand(outcome.model, { type: 'createEntity', payload: { id: toNodeId('e3'), name: 'Empleado' } })
+  outcome = applyCommand(outcome.model, {
+    type: 'createEntity',
+    payload: { id: toNodeId('e2'), name: 'Producto' },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createEntity',
+    payload: { id: toNodeId('e3'), name: 'Empleado' },
+  })
   return outcome.model
 }
 
@@ -477,38 +586,71 @@ function withRelationship(): ConceptualModel {
     payload: {
       id: toNodeId('r1'),
       name: 'Contrata',
-      endpoints: [
-        { entityId: toNodeId('e1') },
-        { entityId: toNodeId('e2') },
-      ],
+      endpoints: [{ entityId: toNodeId('e1') }, { entityId: toNodeId('e2') }],
     },
   })
-  outcome = applyCommand(outcome.model, { type: 'setRole', payload: { relationshipId: toNodeId('r1'), endpointIndex: 0, roleName: 'cliente' } })
+  outcome = applyCommand(outcome.model, {
+    type: 'setRole',
+    payload: { relationshipId: toNodeId('r1'), endpointIndex: 0, roleName: 'cliente' },
+  })
   return outcome.model
 }
 
 function withEntitiesAndAttrs(): ConceptualModel {
   const model = withRelationship()
-  let outcome = applyCommand(model, { type: 'createAttribute', payload: { id: toNodeId('a1'), name: 'nombre', ownerId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'createAttribute', payload: { id: toNodeId('a2'), name: 'sku', ownerId: toNodeId('e2') } })
-  outcome = applyCommand(outcome.model, { type: 'createAttribute', payload: { id: toNodeId('a3'), name: 'desde', ownerId: toNodeId('r1') } })
+  let outcome = applyCommand(model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a1'), name: 'nombre', ownerId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a2'), name: 'sku', ownerId: toNodeId('e2') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a3'), name: 'desde', ownerId: toNodeId('r1') },
+  })
   return outcome.model
 }
 
 function withComposite(): ConceptualModel {
-  let outcome = applyCommand(withEntitiesAndAttrs(), { type: 'createAttribute', payload: { id: toNodeId('a4'), name: 'direccion', ownerId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'setAttributeKind', payload: { id: toNodeId('a4'), kind: 'COMPOSITE' } })
-  outcome = applyCommand(outcome.model, { type: 'createAttribute', payload: { id: toNodeId('a5'), name: 'calle', ownerId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'createAttribute', payload: { id: toNodeId('a6'), name: 'ciudad', ownerId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'createAttribute', payload: { id: toNodeId('a7'), name: 'contacto', ownerId: toNodeId('e2') } })
-  outcome = applyCommand(outcome.model, { type: 'setAttributeKind', payload: { id: toNodeId('a7'), kind: 'COMPOSITE' } })
+  let outcome = applyCommand(withEntitiesAndAttrs(), {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a4'), name: 'direccion', ownerId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'setAttributeKind',
+    payload: { id: toNodeId('a4'), kind: 'COMPOSITE' },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a5'), name: 'calle', ownerId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a6'), name: 'ciudad', ownerId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a7'), name: 'contacto', ownerId: toNodeId('e2') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'setAttributeKind',
+    payload: { id: toNodeId('a7'), kind: 'COMPOSITE' },
+  })
   return outcome.model
 }
 
 function withSpecialization(): ConceptualModel {
   const model = withEntities()
-  let outcome = applyCommand(model, { type: 'createSpecialization', payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') } })
+  let outcome = applyCommand(model, {
+    type: 'createSpecialization',
+    payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'addSubtype',
+    payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') },
+  })
   return outcome.model
 }
 
@@ -517,17 +659,39 @@ function fullModelCommands(): DomainCommand[] {
     { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } },
     { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Pedido' } },
     { type: 'createEntity', payload: { id: toNodeId('e3'), name: 'PedidoWeb' } },
-    { type: 'createRelationship', payload: { id: toNodeId('r1'), name: 'Realiza', endpoints: [{ entityId: toNodeId('e1') }, { entityId: toNodeId('e2') }] } },
+    {
+      type: 'createRelationship',
+      payload: {
+        id: toNodeId('r1'),
+        name: 'Realiza',
+        endpoints: [{ entityId: toNodeId('e1') }, { entityId: toNodeId('e2') }],
+      },
+    },
     { type: 'addEndpoint', payload: { relationshipId: toNodeId('r1'), entityId: toNodeId('e3') } },
     { type: 'removeEndpoint', payload: { relationshipId: toNodeId('r1'), endpointIndex: 2 } },
     { type: 'createSpecialization', payload: { id: toNodeId('s1'), supertypeId: toNodeId('e2') } },
-    { type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') } },
-    { type: 'createAttribute', payload: { id: toNodeId('a1'), name: 'id', ownerId: toNodeId('e1') } },
+    {
+      type: 'addSubtype',
+      payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') },
+    },
+    {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a1'), name: 'id', ownerId: toNodeId('e1') },
+    },
     { type: 'setIsKey', payload: { id: toNodeId('a1'), isKey: true } },
-    { type: 'createAttribute', payload: { id: toNodeId('a2'), name: 'fecha', ownerId: toNodeId('e2') } },
-    { type: 'createAttribute', payload: { id: toNodeId('a3'), name: 'direccion', ownerId: toNodeId('e2') } },
+    {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a2'), name: 'fecha', ownerId: toNodeId('e2') },
+    },
+    {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a3'), name: 'direccion', ownerId: toNodeId('e2') },
+    },
     { type: 'setAttributeKind', payload: { id: toNodeId('a3'), kind: 'COMPOSITE' } },
-    { type: 'createAttribute', payload: { id: toNodeId('a4'), name: 'calle', ownerId: toNodeId('e2') } },
+    {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a4'), name: 'calle', ownerId: toNodeId('e2') },
+    },
     { type: 'nestAttribute', payload: { attributeId: toNodeId('a4'), parentId: toNodeId('a3') } },
     { type: 'moveNode', payload: { id: toNodeId('e1'), x: 20, y: 20 } },
     { type: 'moveNode', payload: { id: toNodeId('e2'), x: 400, y: 20 } },

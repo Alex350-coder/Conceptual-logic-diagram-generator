@@ -26,11 +26,23 @@ export function createSpecializedModel(): ConceptualModel {
       },
     },
     { type: 'createSpecialization', payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') } },
-    { type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') } },
-    { type: 'createAttribute', payload: { id: toNodeId('a1'), name: 'direccion', ownerId: toNodeId('e1') } },
+    {
+      type: 'addSubtype',
+      payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e3') },
+    },
+    {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a1'), name: 'direccion', ownerId: toNodeId('e1') },
+    },
     { type: 'setAttributeKind', payload: { id: toNodeId('a1'), kind: 'COMPOSITE' } },
-    { type: 'createAttribute', payload: { id: toNodeId('a2'), name: 'calle', ownerId: toNodeId('e1') } },
-    { type: 'createAttribute', payload: { id: toNodeId('a3'), name: 'sku', ownerId: toNodeId('e2') } },
+    {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a2'), name: 'calle', ownerId: toNodeId('e1') },
+    },
+    {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a3'), name: 'sku', ownerId: toNodeId('e2') },
+    },
   ])
   return outcome.session.model
 }
@@ -42,17 +54,19 @@ export function createWeakModel(): EditorSession {
     [{ type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cerveza' } }],
     [{ type: 'setEntityKind', payload: { id: toNodeId('e1'), kind: 'WEAK' } }],
     [{ type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Marca' } }],
-    [{
-      type: 'createRelationship',
-      payload: {
-        id: toNodeId('r1'),
-        name: 'Produce',
-        endpoints: [
-          { entityId: toNodeId('e1'), cardinality: 'N' },
-          { entityId: toNodeId('e2'), cardinality: '1' },
-        ],
+    [
+      {
+        type: 'createRelationship',
+        payload: {
+          id: toNodeId('r1'),
+          name: 'Produce',
+          endpoints: [
+            { entityId: toNodeId('e1'), cardinality: 'N' },
+            { entityId: toNodeId('e2'), cardinality: '1' },
+          ],
+        },
       },
-    }],
+    ],
     [{ type: 'setIsIdentifying', payload: { id: toNodeId('r1'), isIdentifying: true } }],
   ]
   for (const step of steps) {
