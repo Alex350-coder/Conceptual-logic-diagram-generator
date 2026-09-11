@@ -1,6 +1,9 @@
-node_modules/
-dist/
-coverage/
-*.log
-.opencode/checkpoints.log
-```
+# Ignore everything
+*
+
+# Allow Project folder
+!Project/
+!Project/**
+
+# Allow this gitignore
+!.gitignore
