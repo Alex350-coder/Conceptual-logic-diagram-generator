@@ -1,7 +1,16 @@
 import { CURRENT_SCHEMA_VERSION } from '../constants'
 import type { ColumnId, NodeId, TableId } from './ids'
 
-export const DATA_TYPES = ['INT', 'BIGINT', 'DECIMAL', 'VARCHAR', 'TEXT', 'BOOLEAN', 'DATE', 'DATETIME'] as const
+export const DATA_TYPES = [
+  'INT',
+  'BIGINT',
+  'DECIMAL',
+  'VARCHAR',
+  'TEXT',
+  'BOOLEAN',
+  'DATE',
+  'DATETIME',
+] as const
 export type DataType = (typeof DATA_TYPES)[number]
 
 export const UNDEFINED_TYPE = 'UNDEFINED' as const

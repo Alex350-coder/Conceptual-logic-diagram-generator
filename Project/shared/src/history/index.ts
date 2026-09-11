@@ -54,11 +54,15 @@ function inverseOf(command: DomainCommand, before: ConceptualModel): DomainComma
     }
     case 'setEntityKind': {
       const entity = before.entities.find((e) => e.id === command.payload.id)
-      return entity ? { type: 'setEntityKind', payload: { id: entity.id, kind: entity.kind } } : null
+      return entity
+        ? { type: 'setEntityKind', payload: { id: entity.id, kind: entity.kind } }
+        : null
     }
     case 'moveNode': {
       const position = before.layout[command.payload.id]
-      return position ? { type: 'moveNode', payload: { id: command.payload.id, x: position.x, y: position.y } } : null
+      return position
+        ? { type: 'moveNode', payload: { id: command.payload.id, x: position.x, y: position.y } }
+        : null
     }
     case 'createAttribute':
       return { type: 'deleteAttribute', payload: { id: command.payload.id } }
@@ -82,7 +86,9 @@ function inverseOf(command: DomainCommand, before: ConceptualModel): DomainComma
     }
     case 'setIsIdentifying': {
       const rel = before.relationships.find((r) => r.id === command.payload.id)
-      return rel ? { type: 'setIsIdentifying', payload: { id: rel.id, isIdentifying: rel.isIdentifying } } : null
+      return rel
+        ? { type: 'setIsIdentifying', payload: { id: rel.id, isIdentifying: rel.isIdentifying } }
+        : null
     }
     case 'addEndpoint': {
       const rel = before.relationships.find((r) => r.id === command.payload.relationshipId)
@@ -94,40 +100,92 @@ function inverseOf(command: DomainCommand, before: ConceptualModel): DomainComma
       const rel = before.relationships.find((r) => r.id === command.payload.relationshipId)
       if (!rel) return null
       const endpoint = rel.endpoints[command.payload.endpointIndex]
-      return endpoint ? { type: 'moveEndpoint', payload: { relationshipId: rel.id, endpointIndex: command.payload.endpointIndex, entityId: endpoint.entityId } } : null
+      return endpoint
+        ? {
+            type: 'moveEndpoint',
+            payload: {
+              relationshipId: rel.id,
+              endpointIndex: command.payload.endpointIndex,
+              entityId: endpoint.entityId,
+            },
+          }
+        : null
     }
     case 'setEndpointCardinality': {
       const rel = before.relationships.find((r) => r.id === command.payload.relationshipId)
       if (!rel) return null
       const endpoint = rel.endpoints[command.payload.endpointIndex]
-      return endpoint ? { type: 'setEndpointCardinality', payload: { relationshipId: rel.id, endpointIndex: command.payload.endpointIndex, cardinality: endpoint.cardinality } } : null
+      return endpoint
+        ? {
+            type: 'setEndpointCardinality',
+            payload: {
+              relationshipId: rel.id,
+              endpointIndex: command.payload.endpointIndex,
+              cardinality: endpoint.cardinality,
+            },
+          }
+        : null
     }
     case 'setEndpointParticipation': {
       const rel = before.relationships.find((r) => r.id === command.payload.relationshipId)
       if (!rel) return null
       const endpoint = rel.endpoints[command.payload.endpointIndex]
-      return endpoint ? { type: 'setEndpointParticipation', payload: { relationshipId: rel.id, endpointIndex: command.payload.endpointIndex, participation: endpoint.participation } } : null
+      return endpoint
+        ? {
+            type: 'setEndpointParticipation',
+            payload: {
+              relationshipId: rel.id,
+              endpointIndex: command.payload.endpointIndex,
+              participation: endpoint.participation,
+            },
+          }
+        : null
     }
     case 'setRole': {
       const rel = before.relationships.find((r) => r.id === command.payload.relationshipId)
       if (!rel) return null
       const endpoint = rel.endpoints[command.payload.endpointIndex]
-      return endpoint ? { type: 'setRole', payload: { relationshipId: rel.id, endpointIndex: command.payload.endpointIndex, roleName: endpoint.roleName } } : null
+      return endpoint
+        ? {
+            type: 'setRole',
+            payload: {
+              relationshipId: rel.id,
+              endpointIndex: command.payload.endpointIndex,
+              roleName: endpoint.roleName,
+            },
+          }
+        : null
     }
     case 'createSpecialization':
       return { type: 'deleteSpecialization', payload: { id: command.payload.id } }
     case 'setDisjointness': {
       const spec = before.specializations.find((s) => s.id === command.payload.id)
-      return spec ? { type: 'setDisjointness', payload: { id: spec.id, disjointness: spec.disjointness } } : null
+      return spec
+        ? { type: 'setDisjointness', payload: { id: spec.id, disjointness: spec.disjointness } }
+        : null
     }
     case 'setCompleteness': {
       const spec = before.specializations.find((s) => s.id === command.payload.id)
-      return spec ? { type: 'setCompleteness', payload: { id: spec.id, completeness: spec.completeness } } : null
+      return spec
+        ? { type: 'setCompleteness', payload: { id: spec.id, completeness: spec.completeness } }
+        : null
     }
     case 'addSubtype':
-      return { type: 'removeSubtype', payload: { specializationId: command.payload.specializationId, subtypeId: command.payload.subtypeId } }
+      return {
+        type: 'removeSubtype',
+        payload: {
+          specializationId: command.payload.specializationId,
+          subtypeId: command.payload.subtypeId,
+        },
+      }
     case 'removeSubtype':
-      return { type: 'addSubtype', payload: { specializationId: command.payload.specializationId, subtypeId: command.payload.subtypeId } }
+      return {
+        type: 'addSubtype',
+        payload: {
+          specializationId: command.payload.specializationId,
+          subtypeId: command.payload.subtypeId,
+        },
+      }
     case 'deleteEntity':
     case 'deleteAttribute':
     case 'deleteRelationship':
@@ -141,12 +199,20 @@ function inverseOf(command: DomainCommand, before: ConceptualModel): DomainComma
 }
 
 function elementCount(model: ConceptualModel): number {
-  return model.entities.length + model.relationships.length + model.specializations.length + model.attributes.length
+  return (
+    model.entities.length +
+    model.relationships.length +
+    model.specializations.length +
+    model.attributes.length
+  )
 }
 
 /** Fixture: |before| o |after| > umbral → snapshot (operación que afecta > 50 elementos). */
 function exceedsThreshold(before: ConceptualModel, after: ConceptualModel): boolean {
-  return elementCount(before) > SNAPSHOT_ELEMENT_THRESHOLD || elementCount(after) > SNAPSHOT_ELEMENT_THRESHOLD
+  return (
+    elementCount(before) > SNAPSHOT_ELEMENT_THRESHOLD ||
+    elementCount(after) > SNAPSHOT_ELEMENT_THRESHOLD
+  )
 }
 
 /**

@@ -16,7 +16,10 @@ export const MIGRATIONS: Migration[] = []
 
 export function schemaVersionOf(value: unknown): number {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new DomainError('DOCUMENT_VERSION_UNSUPPORTED', 'El documento no tiene schemaVersion en la raíz.')
+    throw new DomainError(
+      'DOCUMENT_VERSION_UNSUPPORTED',
+      'El documento no tiene schemaVersion en la raíz.',
+    )
   }
   const candidate = (value as Record<string, unknown>)['schemaVersion']
   if (typeof candidate !== 'number' || !Number.isInteger(candidate) || candidate < 1) {
@@ -54,7 +57,10 @@ export function migrateDocument(value: unknown): unknown {
     }
     const migrated = step.apply(document)
     if (schemaVersionOf(migrated) !== version + 1) {
-      throw new DomainError('INTERNAL', `La migración ${version} → ${version + 1} no actualizó schemaVersion.`)
+      throw new DomainError(
+        'INTERNAL',
+        `La migración ${version} → ${version + 1} no actualizó schemaVersion.`,
+      )
     }
     document = migrated
   }

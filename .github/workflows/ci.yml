@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+    branches: [main, 'phase/*']
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Project/package-lock.json
+      - run: npm ci
+        working-directory: Project
+      - run: npm run lint
+        working-directory: Project
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Project/package-lock.json
+      - run: npm ci
+        working-directory: Project
+      - run: npm run typecheck
+        working-directory: Project
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Project/package-lock.json
+      - run: npm ci
+        working-directory: Project
+      - run: npm run test
+        working-directory: Project
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Project/package-lock.json
+      - run: npm ci
+        working-directory: Project
+      - name: Run E2E (client workspace)
+        working-directory: Project
+        shell: bash
+        run: |
+          if [ -d client ] && [ -f client/package.json ]; then
+            npx playwright install --with-deps chromium
+            npm run e2e
+          else
+            echo "client workspace not present yet (ships in P5); skipping e2e"
+          fi

@@ -12,7 +12,12 @@ import { countConceptualElements } from '../domain/conceptual'
 import type { NodeId } from '../domain/ids'
 import { newId } from '../domain/ids'
 import { DomainError } from '../errors'
-import { validateConceptualModel, modelNameViolations, exceedsNodeLimit, type Violation } from '../validate/index'
+import {
+  validateConceptualModel,
+  modelNameViolations,
+  exceedsNodeLimit,
+  type Violation,
+} from '../validate/index'
 import { LIMITS } from '../validate/limits'
 
 export interface EndpointRef {
@@ -46,10 +51,22 @@ export type DomainCommand =
   | { type: 'setIsIdentifying'; payload: { id: NodeId; isIdentifying: boolean } }
   | { type: 'addEndpoint'; payload: { relationshipId: NodeId; entityId: NodeId } }
   | { type: 'removeEndpoint'; payload: { relationshipId: NodeId; endpointIndex: number } }
-  | { type: 'moveEndpoint'; payload: { relationshipId: NodeId; endpointIndex: number; entityId: NodeId } }
-  | { type: 'setEndpointCardinality'; payload: { relationshipId: NodeId; endpointIndex: number; cardinality: CardinalityLabel } }
-  | { type: 'setEndpointParticipation'; payload: { relationshipId: NodeId; endpointIndex: number; participation: Participation } }
-  | { type: 'setRole'; payload: { relationshipId: NodeId; endpointIndex: number; roleName: string | null } }
+  | {
+      type: 'moveEndpoint'
+      payload: { relationshipId: NodeId; endpointIndex: number; entityId: NodeId }
+    }
+  | {
+      type: 'setEndpointCardinality'
+      payload: { relationshipId: NodeId; endpointIndex: number; cardinality: CardinalityLabel }
+    }
+  | {
+      type: 'setEndpointParticipation'
+      payload: { relationshipId: NodeId; endpointIndex: number; participation: Participation }
+    }
+  | {
+      type: 'setRole'
+      payload: { relationshipId: NodeId; endpointIndex: number; roleName: string | null }
+    }
   | { type: 'createSpecialization'; payload: { id: NodeId; supertypeId: NodeId } }
   | { type: 'deleteSpecialization'; payload: { id: NodeId } }
   | { type: 'setDisjointness'; payload: { id: NodeId; disjointness: Disjointness } }
@@ -59,8 +76,7 @@ export type DomainCommand =
   | { type: 'duplicateSelection'; payload: { sourceIds: NodeId[] } }
 
 export type CommandResult =
-  | { ok: true; createdId?: NodeId; createdIds?: NodeId[] }
-  | { ok: false; error: DomainError }
+  { ok: true; createdId?: NodeId; createdIds?: NodeId[] } | { ok: false; error: DomainError }
 
 export interface ApplyOutcome {
   /** El modelo resultante; referencia original si la operación fue rechazada. */
@@ -97,9 +113,12 @@ interface NextState {
 }
 
 const findEntity = (model: ConceptualModel, id: NodeId) => model.entities.find((e) => e.id === id)
-const findRelationship = (model: ConceptualModel, id: NodeId) => model.relationships.find((r) => r.id === id)
-const findAttribute = (model: ConceptualModel, id: NodeId) => model.attributes.find((a) => a.id === id)
-const findSpecialization = (model: ConceptualModel, id: NodeId) => model.specializations.find((s) => s.id === id)
+const findRelationship = (model: ConceptualModel, id: NodeId) =>
+  model.relationships.find((r) => r.id === id)
+const findAttribute = (model: ConceptualModel, id: NodeId) =>
+  model.attributes.find((a) => a.id === id)
+const findSpecialization = (model: ConceptualModel, id: NodeId) =>
+  model.specializations.find((s) => s.id === id)
 
 const isKnownNode = (model: ConceptualModel, id: NodeId) =>
   findEntity(model, id) !== undefined ||
@@ -108,21 +127,44 @@ const isKnownNode = (model: ConceptualModel, id: NodeId) =>
   findSpecialization(model, id) !== undefined
 
 /** Reemplazo inmutable de una entidad por id. */
-function updateEntity(model: ConceptualModel, id: NodeId, updater: (entity: ConceptualModel['entities'][number]) => ConceptualModel['entities'][number]): ConceptualModel {
+function updateEntity(
+  model: ConceptualModel,
+  id: NodeId,
+  updater: (entity: ConceptualModel['entities'][number]) => ConceptualModel['entities'][number],
+): ConceptualModel {
   return { ...model, entities: model.entities.map((e) => (e.id === id ? updater(e) : e)) }
 }
 
 /** Reemplazo inmutable de una relación por id. */
-function updateRelationship(model: ConceptualModel, id: NodeId, updater: (rel: ConceptualModel['relationships'][number]) => ConceptualModel['relationships'][number]): ConceptualModel {
+function updateRelationship(
+  model: ConceptualModel,
+  id: NodeId,
+  updater: (
+    rel: ConceptualModel['relationships'][number],
+  ) => ConceptualModel['relationships'][number],
+): ConceptualModel {
   return { ...model, relationships: model.relationships.map((r) => (r.id === id ? updater(r) : r)) }
 }
 
 /** Reemplazo inmutable de una especialización por id. */
-function updateSpecialization(model: ConceptualModel, id: NodeId, updater: (spec: ConceptualModel['specializations'][number]) => ConceptualModel['specializations'][number]): ConceptualModel {
-  return { ...model, specializations: model.specializations.map((s) => (s.id === id ? updater(s) : s)) }
+function updateSpecialization(
+  model: ConceptualModel,
+  id: NodeId,
+  updater: (
+    spec: ConceptualModel['specializations'][number],
+  ) => ConceptualModel['specializations'][number],
+): ConceptualModel {
+  return {
+    ...model,
+    specializations: model.specializations.map((s) => (s.id === id ? updater(s) : s)),
+  }
 }
 
-function withLayout(model: ConceptualModel, id: NodeId, point: { x: number; y: number }): ConceptualModel {
+function withLayout(
+  model: ConceptualModel,
+  id: NodeId,
+  point: { x: number; y: number },
+): ConceptualModel {
   return { ...model, layout: { ...model.layout, [id]: point } }
 }
 
@@ -149,10 +191,14 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         throw modelInvalid('Nombre de entidad inválido.', violations)
       }
       if (model.entities.some((e) => e.id === command.payload.id)) {
-        throw modelInvalid('Ya existe una entidad con ese id.', [{ code: 'V-001', message: 'Id duplicado', nodeId: command.payload.id }])
+        throw modelInvalid('Ya existe una entidad con ese id.', [
+          { code: 'V-001', message: 'Id duplicado', nodeId: command.payload.id },
+        ])
       }
       if (exceedsNodeLimit(model)) {
-        throw modelInvalid(`Se supera el límite de ${LIMITS.maxNodesPerDiagram} nodos.`, [{ code: 'L-002', message: 'Límite de nodos' }])
+        throw modelInvalid(`Se supera el límite de ${LIMITS.maxNodesPerDiagram} nodos.`, [
+          { code: 'L-002', message: 'Límite de nodos' },
+        ])
       }
       const entity = { id: command.payload.id, name: command.payload.name, kind: 'STRONG' as const }
       const withEntity2 = { ...model, entities: [...model.entities, entity] }
@@ -161,7 +207,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
     case 'deleteEntity': {
       const entity = findEntity(model, command.payload.id)
       if (!entity) {
-        throw modelInvalid('Entidad inexistente.', [{ code: 'V-002', message: 'Entidad inexistente' }])
+        throw modelInvalid('Entidad inexistente.', [
+          { code: 'V-002', message: 'Entidad inexistente' },
+        ])
       }
       const removedAttrs = model.attributes.filter((a) => a.ownerId === entity.id)
       const removedAttrIds = new Set(removedAttrs.map((a) => a.id))
@@ -170,8 +218,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         ...r,
         endpoints: r.endpoints.filter((ep) => ep.entityId !== entity.id),
       }))
-      const nextSpecializations = model.specializations
-        .filter((s) => s.supertypeId !== entity.id && !s.subtypeIds.includes(entity.id))
+      const nextSpecializations = model.specializations.filter(
+        (s) => s.supertypeId !== entity.id && !s.subtypeIds.includes(entity.id),
+      )
       const nextLayout = { ...model.layout }
       for (const nodeId of [entity.id, ...removedAttrIds]) {
         delete nextLayout[nodeId]
@@ -195,13 +244,23 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!findEntity(model, command.payload.id)) {
         throw modelInvalid('Entidad inexistente.')
       }
-      return { next: updateEntity(model, command.payload.id, (e) => ({ ...e, name: command.payload.name })) }
+      return {
+        next: updateEntity(model, command.payload.id, (e) => ({
+          ...e,
+          name: command.payload.name,
+        })),
+      }
     }
     case 'setEntityKind': {
       if (!findEntity(model, command.payload.id)) {
         throw modelInvalid('Entidad inexistente.')
       }
-      return { next: updateEntity(model, command.payload.id, (e) => ({ ...e, kind: command.payload.kind })) }
+      return {
+        next: updateEntity(model, command.payload.id, (e) => ({
+          ...e,
+          kind: command.payload.kind,
+        })),
+      }
     }
     case 'moveNode': {
       if (!isKnownNode(model, command.payload.id)) {
@@ -210,7 +269,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!Number.isFinite(command.payload.x) || !Number.isFinite(command.payload.y)) {
         throw modelInvalid('Posición no finita.')
       }
-      return { next: withLayout(model, command.payload.id, { x: command.payload.x, y: command.payload.y }) }
+      return {
+        next: withLayout(model, command.payload.id, { x: command.payload.x, y: command.payload.y }),
+      }
     }
     case 'createAttribute': {
       const violations = modelNameViolations(command.payload.name)
@@ -221,7 +282,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         throw modelInvalid('Ya existe un atributo con ese id.')
       }
       if (!isKnownNode(model, command.payload.ownerId)) {
-        throw modelInvalid('El contenedor del atributo no existe.', [{ code: 'V-002', message: 'ownerId inexistente' }])
+        throw modelInvalid('El contenedor del atributo no existe.', [
+          { code: 'V-002', message: 'ownerId inexistente' },
+        ])
       }
       const attribute = {
         id: command.payload.id,
@@ -231,7 +294,10 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         ownerId: command.payload.ownerId,
         parentId: null,
       }
-      return { next: { ...model, attributes: [...model.attributes, attribute] }, createdId: attribute.id }
+      return {
+        next: { ...model, attributes: [...model.attributes, attribute] },
+        createdId: attribute.id,
+      }
     }
     case 'setAttributeName': {
       const violations = modelNameViolations(command.payload.name)
@@ -244,7 +310,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       return {
         next: {
           ...model,
-          attributes: model.attributes.map((a) => (a.id === command.payload.id ? { ...a, name: command.payload.name } : a)),
+          attributes: model.attributes.map((a) =>
+            a.id === command.payload.id ? { ...a, name: command.payload.name } : a,
+          ),
         },
       }
     }
@@ -255,7 +323,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       return {
         next: {
           ...model,
-          attributes: model.attributes.map((a) => (a.id === command.payload.id ? { ...a, kind: command.payload.kind } : a)),
+          attributes: model.attributes.map((a) =>
+            a.id === command.payload.id ? { ...a, kind: command.payload.kind } : a,
+          ),
         },
       }
     }
@@ -266,7 +336,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       return {
         next: {
           ...model,
-          attributes: model.attributes.map((a) => (a.id === command.payload.id ? { ...a, isKey: command.payload.isKey } : a)),
+          attributes: model.attributes.map((a) =>
+            a.id === command.payload.id ? { ...a, isKey: command.payload.isKey } : a,
+          ),
         },
       }
     }
@@ -277,15 +349,21 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         throw modelInvalid('Atributo o contenedor inexistente.')
       }
       if (parent.kind !== 'COMPOSITE') {
-        throw modelInvalid('Un atributo anidado solo puede colgar de un atributo compuesto.', [{ code: 'V-008', message: 'El padre no es compuesto' }])
+        throw modelInvalid('Un atributo anidado solo puede colgar de un atributo compuesto.', [
+          { code: 'V-008', message: 'El padre no es compuesto' },
+        ])
       }
       if (parent.ownerId !== child.ownerId) {
-        throw modelInvalid('Padre e hijo deben pertenecer al mismo contenedor.', [{ code: 'V-008', message: 'ownerId distintos' }])
+        throw modelInvalid('Padre e hijo deben pertenecer al mismo contenedor.', [
+          { code: 'V-008', message: 'ownerId distintos' },
+        ])
       }
       let cursor: NodeId | null = parent.parentId
       while (cursor !== null) {
         if (cursor === child.id) {
-          throw modelInvalid('La jerarquía de compuestos no puede tener ciclos.', [{ code: 'V-008', message: 'Ciclo en compuestos' }])
+          throw modelInvalid('La jerarquía de compuestos no puede tener ciclos.', [
+            { code: 'V-008', message: 'Ciclo en compuestos' },
+          ])
         }
         const current = findAttribute(model, cursor)
         cursor = current?.parentId ?? null
@@ -293,7 +371,9 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       return {
         next: {
           ...model,
-          attributes: model.attributes.map((a) => (a.id === child.id ? { ...a, parentId: parent.id } : a)),
+          attributes: model.attributes.map((a) =>
+            a.id === child.id ? { ...a, parentId: parent.id } : a,
+          ),
         },
       }
     }
@@ -310,13 +390,17 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         throw modelInvalid('Atributo inexistente.')
       }
       if (!isKnownNode(model, command.payload.toOwnerId)) {
-        throw modelInvalid('Contenedor de destino inexistente.', [{ code: 'V-002', message: 'toOwnerId inexistente' }])
+        throw modelInvalid('Contenedor de destino inexistente.', [
+          { code: 'V-002', message: 'toOwnerId inexistente' },
+        ])
       }
       return {
         next: {
           ...model,
           attributes: model.attributes.map((a) =>
-            a.id === attribute.id ? { ...a, ownerId: command.payload.toOwnerId, parentId: null } : a,
+            a.id === attribute.id
+              ? { ...a, ownerId: command.payload.toOwnerId, parentId: null }
+              : a,
           ),
         },
       }
@@ -330,12 +414,16 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         throw modelInvalid('Ya existe una relación con ese id.')
       }
       if (command.payload.endpoints.length < 2) {
-        throw modelInvalid('Una relación requiere al menos 2 extremos.', [{ code: 'V-004', message: 'Aridad < 2' }])
+        throw modelInvalid('Una relación requiere al menos 2 extremos.', [
+          { code: 'V-004', message: 'Aridad < 2' },
+        ])
       }
       const endpoints = command.payload.endpoints.map(normalizeEndpointRef)
       for (const endpoint of endpoints) {
         if (!findEntity(model, endpoint.entityId)) {
-          throw modelInvalid('Un extremo referencia una entidad inexistente.', [{ code: 'V-002', message: 'Entidad inexistente' }])
+          throw modelInvalid('Un extremo referencia una entidad inexistente.', [
+            { code: 'V-002', message: 'Entidad inexistente' },
+          ])
         }
       }
       const relationship = {
@@ -344,7 +432,10 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         isIdentifying: false,
         endpoints,
       }
-      return { next: { ...model, relationships: [...model.relationships, relationship] }, createdId: relationship.id }
+      return {
+        next: { ...model, relationships: [...model.relationships, relationship] },
+        createdId: relationship.id,
+      }
     }
     case 'deleteRelationship': {
       if (!findRelationship(model, command.payload.id)) {
@@ -369,13 +460,23 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!findRelationship(model, command.payload.id)) {
         throw modelInvalid('Relación inexistente.')
       }
-      return { next: updateRelationship(model, command.payload.id, (r) => ({ ...r, name: command.payload.name })) }
+      return {
+        next: updateRelationship(model, command.payload.id, (r) => ({
+          ...r,
+          name: command.payload.name,
+        })),
+      }
     }
     case 'setIsIdentifying': {
       if (!findRelationship(model, command.payload.id)) {
         throw modelInvalid('Relación inexistente.')
       }
-      return { next: updateRelationship(model, command.payload.id, (r) => ({ ...r, isIdentifying: command.payload.isIdentifying })) }
+      return {
+        next: updateRelationship(model, command.payload.id, (r) => ({
+          ...r,
+          isIdentifying: command.payload.isIdentifying,
+        })),
+      }
     }
     case 'addEndpoint': {
       const relationship = findRelationship(model, command.payload.relationshipId)
@@ -383,19 +484,36 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         throw modelInvalid('Relación inexistente.')
       }
       if (!findEntity(model, command.payload.entityId)) {
-        throw modelInvalid('Entidad inexistente.', [{ code: 'V-002', message: 'Entidad inexistente' }])
+        throw modelInvalid('Entidad inexistente.', [
+          { code: 'V-002', message: 'Entidad inexistente' },
+        ])
       }
-      const existing = relationship.endpoints.filter((ep) => ep.entityId === command.payload.entityId)
+      const existing = relationship.endpoints.filter(
+        (ep) => ep.entityId === command.payload.entityId,
+      )
       const recursiveDeclared = existing.some((ep) => ep.roleName !== null && ep.roleName !== '')
       if (existing.length > 0 && !recursiveDeclared) {
-        throw modelInvalid('El extremo ya existe; para una relación recursiva asigna roleName en ambos extremos.')
+        throw modelInvalid(
+          'El extremo ya existe; para una relación recursiva asigna roleName en ambos extremos.',
+        )
       }
       if (relationship.endpoints.length >= LIMITS.maxEndpointsPerRelationship) {
-        throw modelInvalid(`Una relación no puede superar ${LIMITS.maxEndpointsPerRelationship} extremos.`, [{ code: 'L-004', message: 'Límite de extremos' }])
+        throw modelInvalid(
+          `Una relación no puede superar ${LIMITS.maxEndpointsPerRelationship} extremos.`,
+          [{ code: 'L-004', message: 'Límite de extremos' }],
+        )
       }
       const next = updateRelationship(model, relationship.id, (r) => ({
         ...r,
-        endpoints: [...r.endpoints, { entityId: command.payload.entityId, roleName: null, cardinality: 'N', participation: 'PARTIAL' }],
+        endpoints: [
+          ...r.endpoints,
+          {
+            entityId: command.payload.entityId,
+            roleName: null,
+            cardinality: 'N',
+            participation: 'PARTIAL',
+          },
+        ],
       }))
       return { next }
     }
@@ -404,7 +522,10 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!relationship) {
         throw modelInvalid('Relación inexistente.')
       }
-      if (command.payload.endpointIndex < 0 || command.payload.endpointIndex >= relationship.endpoints.length) {
+      if (
+        command.payload.endpointIndex < 0 ||
+        command.payload.endpointIndex >= relationship.endpoints.length
+      ) {
         throw modelInvalid('Índice de extremo fuera de rango.')
       }
       const next = updateRelationship(model, relationship.id, (r) => ({
@@ -418,7 +539,10 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!relationship) {
         throw modelInvalid('Relación inexistente.')
       }
-      if (command.payload.endpointIndex < 0 || command.payload.endpointIndex >= relationship.endpoints.length) {
+      if (
+        command.payload.endpointIndex < 0 ||
+        command.payload.endpointIndex >= relationship.endpoints.length
+      ) {
         throw modelInvalid('Índice de extremo fuera de rango.')
       }
       if (!findEntity(model, command.payload.entityId)) {
@@ -426,7 +550,11 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       }
       const next = updateRelationship(model, relationship.id, (r) => ({
         ...r,
-        endpoints: r.endpoints.map((ep, index) => (index === command.payload.endpointIndex ? { ...ep, entityId: command.payload.entityId } : ep)),
+        endpoints: r.endpoints.map((ep, index) =>
+          index === command.payload.endpointIndex
+            ? { ...ep, entityId: command.payload.entityId }
+            : ep,
+        ),
       }))
       return { next }
     }
@@ -435,12 +563,19 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!relationship) {
         throw modelInvalid('Relación inexistente.')
       }
-      if (command.payload.endpointIndex < 0 || command.payload.endpointIndex >= relationship.endpoints.length) {
+      if (
+        command.payload.endpointIndex < 0 ||
+        command.payload.endpointIndex >= relationship.endpoints.length
+      ) {
         throw modelInvalid('Índice de extremo fuera de rango.')
       }
       const next = updateRelationship(model, relationship.id, (r) => ({
         ...r,
-        endpoints: r.endpoints.map((ep, index) => (index === command.payload.endpointIndex ? { ...ep, cardinality: command.payload.cardinality } : ep)),
+        endpoints: r.endpoints.map((ep, index) =>
+          index === command.payload.endpointIndex
+            ? { ...ep, cardinality: command.payload.cardinality }
+            : ep,
+        ),
       }))
       return { next }
     }
@@ -449,12 +584,19 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!relationship) {
         throw modelInvalid('Relación inexistente.')
       }
-      if (command.payload.endpointIndex < 0 || command.payload.endpointIndex >= relationship.endpoints.length) {
+      if (
+        command.payload.endpointIndex < 0 ||
+        command.payload.endpointIndex >= relationship.endpoints.length
+      ) {
         throw modelInvalid('Índice de extremo fuera de rango.')
       }
       const next = updateRelationship(model, relationship.id, (r) => ({
         ...r,
-        endpoints: r.endpoints.map((ep, index) => (index === command.payload.endpointIndex ? { ...ep, participation: command.payload.participation } : ep)),
+        endpoints: r.endpoints.map((ep, index) =>
+          index === command.payload.endpointIndex
+            ? { ...ep, participation: command.payload.participation }
+            : ep,
+        ),
       }))
       return { next }
     }
@@ -463,13 +605,18 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       if (!relationship) {
         throw modelInvalid('Relación inexistente.')
       }
-      if (command.payload.endpointIndex < 0 || command.payload.endpointIndex >= relationship.endpoints.length) {
+      if (
+        command.payload.endpointIndex < 0 ||
+        command.payload.endpointIndex >= relationship.endpoints.length
+      ) {
         throw modelInvalid('Índice de extremo fuera de rango.')
       }
       const roleName = command.payload.roleName === '' ? null : command.payload.roleName
       const next = updateRelationship(model, relationship.id, (r) => ({
         ...r,
-        endpoints: r.endpoints.map((ep, index) => (index === command.payload.endpointIndex ? { ...ep, roleName } : ep)),
+        endpoints: r.endpoints.map((ep, index) =>
+          index === command.payload.endpointIndex ? { ...ep, roleName } : ep,
+        ),
       }))
       return { next }
     }
@@ -479,10 +626,14 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       }
       const supertype = findEntity(model, command.payload.supertypeId)
       if (!supertype) {
-        throw modelInvalid('El supertipo no existe.', [{ code: 'V-002', message: 'Supertipo inexistente' }])
+        throw modelInvalid('El supertipo no existe.', [
+          { code: 'V-002', message: 'Supertipo inexistente' },
+        ])
       }
       if (supertype.kind === 'WEAK') {
-        throw modelInvalid('El supertipo de una especialización es una entidad fuerte (D-CC-05).', [{ code: 'V-011', message: 'Supertipo débil' }])
+        throw modelInvalid('El supertipo de una especialización es una entidad fuerte (D-CC-05).', [
+          { code: 'V-011', message: 'Supertipo débil' },
+        ])
       }
       const spec = {
         id: command.payload.id,
@@ -491,25 +642,43 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         disjointness: 'DISJOINT' as const,
         completeness: 'PARTIAL' as const,
       }
-      return { next: { ...model, specializations: [...model.specializations, spec] }, createdId: spec.id }
+      return {
+        next: { ...model, specializations: [...model.specializations, spec] },
+        createdId: spec.id,
+      }
     }
     case 'deleteSpecialization': {
       if (!findSpecialization(model, command.payload.id)) {
         throw modelInvalid('Especialización inexistente.')
       }
-      return { next: { ...model, specializations: model.specializations.filter((s) => s.id !== command.payload.id) } }
+      return {
+        next: {
+          ...model,
+          specializations: model.specializations.filter((s) => s.id !== command.payload.id),
+        },
+      }
     }
     case 'setDisjointness': {
       if (!findSpecialization(model, command.payload.id)) {
         throw modelInvalid('Especialización inexistente.')
       }
-      return { next: updateSpecialization(model, command.payload.id, (s) => ({ ...s, disjointness: command.payload.disjointness })) }
+      return {
+        next: updateSpecialization(model, command.payload.id, (s) => ({
+          ...s,
+          disjointness: command.payload.disjointness,
+        })),
+      }
     }
     case 'setCompleteness': {
       if (!findSpecialization(model, command.payload.id)) {
         throw modelInvalid('Especialización inexistente.')
       }
-      return { next: updateSpecialization(model, command.payload.id, (s) => ({ ...s, completeness: command.payload.completeness })) }
+      return {
+        next: updateSpecialization(model, command.payload.id, (s) => ({
+          ...s,
+          completeness: command.payload.completeness,
+        })),
+      }
     }
     case 'addSubtype': {
       const spec = findSpecialization(model, command.payload.specializationId)
@@ -518,15 +687,24 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
       }
       const subtype = findEntity(model, command.payload.subtypeId)
       if (!subtype) {
-        throw modelInvalid('Subtipo inexistente.', [{ code: 'V-002', message: 'Subtipo inexistente' }])
+        throw modelInvalid('Subtipo inexistente.', [
+          { code: 'V-002', message: 'Subtipo inexistente' },
+        ])
       }
       if (subtype.kind === 'WEAK') {
-        throw modelInvalid('Los subtipos de una especialización son entidades fuertes (D-CC-05).', [{ code: 'V-011', message: 'Subtipo débil' }])
+        throw modelInvalid('Los subtipos de una especialización son entidades fuertes (D-CC-05).', [
+          { code: 'V-011', message: 'Subtipo débil' },
+        ])
       }
       if (spec.subtypeIds.includes(command.payload.subtypeId)) {
-        throw modelInvalid('El subtipo ya está en la especialización.', [{ code: 'V-010', message: 'Subtipo duplicado' }])
+        throw modelInvalid('El subtipo ya está en la especialización.', [
+          { code: 'V-010', message: 'Subtipo duplicado' },
+        ])
       }
-      const next = updateSpecialization(model, spec.id, (s) => ({ ...s, subtypeIds: [...s.subtypeIds, command.payload.subtypeId] }))
+      const next = updateSpecialization(model, spec.id, (s) => ({
+        ...s,
+        subtypeIds: [...s.subtypeIds, command.payload.subtypeId],
+      }))
       return { next }
     }
     case 'removeSubtype': {
@@ -561,9 +739,17 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         .filter((a) => sourceIds.has(a.ownerId))
         .map((a) => {
           const cloneId = newId()
-          const parentClone = a.parentId !== null && idMap.has(a.parentId) ? idMap.get(a.parentId)! : null
+          const parentClone =
+            a.parentId !== null && idMap.has(a.parentId) ? idMap.get(a.parentId)! : null
           idMap.set(a.id, cloneId)
-          return { id: cloneId, name: a.name, kind: a.kind, isKey: a.isKey, ownerId: idMap.get(a.ownerId)!, parentId: parentClone }
+          return {
+            id: cloneId,
+            name: a.name,
+            kind: a.kind,
+            isKey: a.isKey,
+            ownerId: idMap.get(a.ownerId)!,
+            parentId: parentClone,
+          }
         })
       const layout = { ...model.layout }
       for (const source of sourceEntities) {
@@ -589,7 +775,16 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
  */
 export function applyCommand(model: ConceptualModel, command: DomainCommand): ApplyOutcome {
   if (!Number.isFinite(countConceptualElements(model))) {
-    return { model, result: { ok: false, error: modelInvalid('Modelo inválido.', [{ code: 'L-002', message: 'Modelo excede límites' }]) }, violations: [] }
+    return {
+      model,
+      result: {
+        ok: false,
+        error: modelInvalid('Modelo inválido.', [
+          { code: 'L-002', message: 'Modelo excede límites' },
+        ]),
+      },
+      violations: [],
+    }
   }
   let next: NextState
   try {
@@ -603,7 +798,14 @@ export function applyCommand(model: ConceptualModel, command: DomainCommand): Ap
   const violations = validateConceptualModel(next.next)
   const blocking = violations.filter((v) => BLOCKING_CODES.has(v.code))
   if (blocking.length > 0) {
-    return { model, result: { ok: false, error: modelInvalid('La operación violaría invariantes estructurales.', blocking) }, violations: [] }
+    return {
+      model,
+      result: {
+        ok: false,
+        error: modelInvalid('La operación violaría invariantes estructurales.', blocking),
+      },
+      violations: [],
+    }
   }
   return {
     model: next.next,

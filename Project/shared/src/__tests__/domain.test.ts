@@ -37,7 +37,14 @@ describe('conceptual model', () => {
   it('cuenta todos los elementos estructurales', () => {
     const model = createEmptyConceptualModel()
     model.entities.push({ id: toNodeId('a'), name: 'A', kind: 'STRONG' })
-    model.attributes.push({ id: toNodeId('b'), name: 'B', kind: 'SIMPLE', isKey: false, ownerId: toNodeId('a'), parentId: null })
+    model.attributes.push({
+      id: toNodeId('b'),
+      name: 'B',
+      kind: 'SIMPLE',
+      isKey: false,
+      ownerId: toNodeId('a'),
+      parentId: null,
+    })
     expect(countConceptualElements(model)).toBe(2)
   })
 })

@@ -7,19 +7,23 @@ import {
   ENTITY_KINDS,
   PARTICIPATIONS,
   type Attribute,
-  type AttributeKind,
-  type CardinalityLabel,
-  type Completeness,
   type ConceptualModel,
-  type Disjointness,
   type Entity,
-  type EntityKind,
-  type Participation,
   type Relationship,
   type RelationshipEndpoint,
   type Specialization,
 } from '../domain/conceptual'
-import { DATA_TYPES, UNDEFINED_TYPE, type DataType, type ForeignKey, type LogicalColumn, type LogicalModel, type LogicalTable, type TableSource } from '../domain/logical'
+import {
+  DATA_TYPES,
+  UNDEFINED_TYPE,
+  type DataType,
+  type ForeignKey,
+  type LogicalColumn,
+  type LogicalModel,
+  type LogicalTable,
+  type TableSource,
+} from '../domain/logical'
+import type { CURRENT_SCHEMA_VERSION } from '../constants'
 import { DomainError, isDomainError } from '../errors'
 
 /**
@@ -126,8 +130,16 @@ function decodeEndpoint(value: unknown): RelationshipEndpoint {
   return {
     entityId: asNodeId(readMap(record, 'entityId'), 'RelationshipEndpoint.entityId'),
     roleName: asNullableString(readMap(record, 'roleName'), 'RelationshipEndpoint.roleName'),
-    cardinality: asEnum(readMap(record, 'cardinality'), CARDINALITY_LABELS, 'RelationshipEndpoint.cardinality'),
-    participation: asEnum(readMap(record, 'participation'), PARTICIPATIONS, 'RelationshipEndpoint.participation'),
+    cardinality: asEnum(
+      readMap(record, 'cardinality'),
+      CARDINALITY_LABELS,
+      'RelationshipEndpoint.cardinality',
+    ),
+    participation: asEnum(
+      readMap(record, 'participation'),
+      PARTICIPATIONS,
+      'RelationshipEndpoint.participation',
+    ),
   }
 }
 
@@ -146,9 +158,19 @@ function decodeSpecialization(value: unknown): Specialization {
   return {
     id: asNodeId(readMap(record, 'id'), 'Specialization.id'),
     supertypeId: asNodeId(readMap(record, 'supertypeId'), 'Specialization.supertypeId'),
-    subtypeIds: asArray(readMap(record, 'subtypeIds'), 'Specialization.subtypeIds').map((sub) => asNodeId(sub, 'Specialization.subtypeIds[]')),
-    disjointness: asEnum(readMap(record, 'disjointness'), DISJOINTNESSES, 'Specialization.disjointness'),
-    completeness: asEnum(readMap(record, 'completeness'), COMPLETENESSES, 'Specialization.completeness'),
+    subtypeIds: asArray(readMap(record, 'subtypeIds'), 'Specialization.subtypeIds').map((sub) =>
+      asNodeId(sub, 'Specialization.subtypeIds[]'),
+    ),
+    disjointness: asEnum(
+      readMap(record, 'disjointness'),
+      DISJOINTNESSES,
+      'Specialization.disjointness',
+    ),
+    completeness: asEnum(
+      readMap(record, 'completeness'),
+      COMPLETENESSES,
+      'Specialization.completeness',
+    ),
   }
 }
 
@@ -181,9 +203,16 @@ export function decodeConceptualModel(value: unknown): ConceptualModel {
   const record = asRecord(value, 'ConceptualModel')
   return {
     entities: asArray(readMap(record, 'entities'), 'ConceptualModel.entities').map(decodeEntity),
-    relationships: asArray(readMap(record, 'relationships'), 'ConceptualModel.relationships').map(decodeRelationship),
-    specializations: asArray(readMap(record, 'specializations'), 'ConceptualModel.specializations').map(decodeSpecialization),
-    attributes: asArray(readMap(record, 'attributes'), 'ConceptualModel.attributes').map(decodeAttribute),
+    relationships: asArray(readMap(record, 'relationships'), 'ConceptualModel.relationships').map(
+      decodeRelationship,
+    ),
+    specializations: asArray(
+      readMap(record, 'specializations'),
+      'ConceptualModel.specializations',
+    ).map(decodeSpecialization),
+    attributes: asArray(readMap(record, 'attributes'), 'ConceptualModel.attributes').map(
+      decodeAttribute,
+    ),
     layout: decodeLayout(readMap(record, 'layout')),
   }
 }
@@ -223,7 +252,9 @@ function decodeForeignKey(value: unknown): ForeignKey {
     from: asArray(fromValue, 'ForeignKey.from').map((id) => asColumnId(id, 'ForeignKey.from[]')),
     to: {
       tableId: asTableId(readMap(toValue, 'tableId'), 'ForeignKey.to.tableId'),
-      columns: asArray(readMap(toValue, 'columns'), 'ForeignKey.to.columns').map((id) => asColumnId(id, 'ForeignKey.to.columns[]')),
+      columns: asArray(readMap(toValue, 'columns'), 'ForeignKey.to.columns').map((id) =>
+        asColumnId(id, 'ForeignKey.to.columns[]'),
+      ),
     },
   }
 }
@@ -235,10 +266,16 @@ function decodeTable(value: unknown): LogicalTable {
     name: asString(readMap(record, 'name'), 'LogicalTable.name'),
     source: decodeTableSource(readMap(record, 'source')),
     columns: asArray(readMap(record, 'columns'), 'LogicalTable.columns').map(decodeColumn),
-    primaryKey: asArray(readMap(record, 'primaryKey'), 'LogicalTable.primaryKey').map((id) => asColumnId(id, 'LogicalTable.primaryKey[]')),
-    foreignKeys: asArray(readMap(record, 'foreignKeys'), 'LogicalTable.foreignKeys').map(decodeForeignKey),
+    primaryKey: asArray(readMap(record, 'primaryKey'), 'LogicalTable.primaryKey').map((id) =>
+      asColumnId(id, 'LogicalTable.primaryKey[]'),
+    ),
+    foreignKeys: asArray(readMap(record, 'foreignKeys'), 'LogicalTable.foreignKeys').map(
+      decodeForeignKey,
+    ),
     unique: asArray(readMap(record, 'unique'), 'LogicalTable.unique').map((group) =>
-      asArray(group, 'LogicalTable.unique[]').map((id) => asColumnId(id, 'LogicalTable.unique[][]')),
+      asArray(group, 'LogicalTable.unique[]').map((id) =>
+        asColumnId(id, 'LogicalTable.unique[][]'),
+      ),
     ),
   }
 }
@@ -246,7 +283,10 @@ function decodeTable(value: unknown): LogicalTable {
 export function decodeLogicalModel(value: unknown): LogicalModel {
   const record = asRecord(value, 'LogicalModel')
   return {
-    schemaVersion: asInteger(readMap(record, 'schemaVersion'), 'LogicalModel.schemaVersion') as typeof import('../constants').CURRENT_SCHEMA_VERSION,
+    schemaVersion: asInteger(
+      readMap(record, 'schemaVersion'),
+      'LogicalModel.schemaVersion',
+    ) as typeof CURRENT_SCHEMA_VERSION,
     logicalVersion: asInteger(readMap(record, 'logicalVersion'), 'LogicalModel.logicalVersion'),
     tables: asArray(readMap(record, 'tables'), 'LogicalModel.tables').map(decodeTable),
   }

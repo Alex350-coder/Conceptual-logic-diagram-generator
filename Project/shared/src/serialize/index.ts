@@ -54,12 +54,18 @@ export function parseDiagramDocument(json: string): DocumentEnvelope {
   const envelope = decodedEnvelope(migrated)
   const structural = [
     ...documentBlockingViolations(validateConceptualModel(envelope.data.model)),
-    ...(envelope.data.logical === null ? [] : documentBlockingViolations(validateLogicalModel(envelope.data.logical))),
+    ...(envelope.data.logical === null
+      ? []
+      : documentBlockingViolations(validateLogicalModel(envelope.data.logical))),
   ]
   if (structural.length > 0) {
-    throw new DomainError('MODEL_INVALID', 'El documento no supera la validación estructural del modelo.', {
-      violations: structural,
-    })
+    throw new DomainError(
+      'MODEL_INVALID',
+      'El documento no supera la validación estructural del modelo.',
+      {
+        violations: structural,
+      },
+    )
   }
   return envelope
 }
@@ -68,12 +74,18 @@ export function parseDiagramDocument(json: string): DocumentEnvelope {
 export function serializeDiagramDocument(envelope: DocumentEnvelope): string {
   const structural = [
     ...documentBlockingViolations(validateConceptualModel(envelope.data.model)),
-    ...(envelope.data.logical === null ? [] : documentBlockingViolations(validateLogicalModel(envelope.data.logical))),
+    ...(envelope.data.logical === null
+      ? []
+      : documentBlockingViolations(validateLogicalModel(envelope.data.logical))),
   ]
   if (structural.length > 0) {
-    throw new DomainError('MODEL_INVALID', 'No se puede guardar un documento estructuralmente inválido.', {
-      violations: structural,
-    })
+    throw new DomainError(
+      'MODEL_INVALID',
+      'No se puede guardar un documento estructuralmente inválido.',
+      {
+        violations: structural,
+      },
+    )
   }
   const envelopeToWrite = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -87,7 +99,10 @@ export function serializeDiagramDocument(envelope: DocumentEnvelope): string {
 }
 
 /** Conveniencia: serializa un envelope nacido de makeEnvelope (round-trip de tests/API). */
-export function serializeDocument(model: DocumentEnvelope['data']['model'], logical: DocumentEnvelope['data']['logical']): string {
+export function serializeDocument(
+  model: DocumentEnvelope['data']['model'],
+  logical: DocumentEnvelope['data']['logical'],
+): string {
   return serializeDiagramDocument({
     schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: DOCUMENT_KIND,

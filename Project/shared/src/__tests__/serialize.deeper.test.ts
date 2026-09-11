@@ -23,9 +23,27 @@ function fullLogicalModel(): LogicalModel {
         name: 'cliente',
         source: { rule: 'T1-E', nodeId: toNodeId('e1') },
         columns: [
-          { id: pkColumn, name: 'id', dataType: 'INT', nullable: false, derivedFrom: 'T1-E:cliente.id' },
-          { id: nameColumn, name: 'nombre', dataType: 'VARCHAR', nullable: true, derivedFrom: 'T1-E:cliente.nombre' },
-          { id: fkColumn, name: 'marca_id', dataType: 'INT', nullable: true, derivedFrom: 'T1-R:marca' },
+          {
+            id: pkColumn,
+            name: 'id',
+            dataType: 'INT',
+            nullable: false,
+            derivedFrom: 'T1-E:cliente.id',
+          },
+          {
+            id: nameColumn,
+            name: 'nombre',
+            dataType: 'VARCHAR',
+            nullable: true,
+            derivedFrom: 'T1-E:cliente.nombre',
+          },
+          {
+            id: fkColumn,
+            name: 'marca_id',
+            dataType: 'INT',
+            nullable: true,
+            derivedFrom: 'T1-R:marca',
+          },
         ],
         primaryKey: [pkColumn],
         foreignKeys: [{ from: [fkColumn], to: { tableId, columns: [pkColumn] } }],
@@ -36,10 +54,22 @@ function fullLogicalModel(): LogicalModel {
 }
 
 function specializedEnvelope() {
-  let outcome = applyCommand(createEmptyConceptualModel(), { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Cliente' } })
-  outcome = applyCommand(outcome.model, { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Preferente' } })
-  outcome = applyCommand(outcome.model, { type: 'createSpecialization', payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'addSubtype', payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') } })
+  let outcome = applyCommand(createEmptyConceptualModel(), {
+    type: 'createEntity',
+    payload: { id: toNodeId('e1'), name: 'Cliente' },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createEntity',
+    payload: { id: toNodeId('e2'), name: 'Preferente' },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createSpecialization',
+    payload: { id: toNodeId('s1'), supertypeId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'addSubtype',
+    payload: { specializationId: toNodeId('s1'), subtypeId: toNodeId('e2') },
+  })
   outcome = applyCommand(outcome.model, {
     type: 'createRelationship',
     payload: {
@@ -51,10 +81,22 @@ function specializedEnvelope() {
       ],
     },
   })
-  outcome = applyCommand(outcome.model, { type: 'createAttribute', payload: { id: toNodeId('a1'), name: 'direccion', ownerId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'setAttributeKind', payload: { id: toNodeId('a1'), kind: 'COMPOSITE' } })
-  outcome = applyCommand(outcome.model, { type: 'createAttribute', payload: { id: toNodeId('a2'), name: 'calle', ownerId: toNodeId('e1') } })
-  outcome = applyCommand(outcome.model, { type: 'nestAttribute', payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') } })
+  outcome = applyCommand(outcome.model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a1'), name: 'direccion', ownerId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'setAttributeKind',
+    payload: { id: toNodeId('a1'), kind: 'COMPOSITE' },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'createAttribute',
+    payload: { id: toNodeId('a2'), name: 'calle', ownerId: toNodeId('e1') },
+  })
+  outcome = applyCommand(outcome.model, {
+    type: 'nestAttribute',
+    payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') },
+  })
   return makeEnvelope(outcome.model, null)
 }
 
@@ -66,7 +108,9 @@ describe('serialize: modelo lógico completo', () => {
   })
 
   it('un logical con FK huérfana (V-014) se rechaza en parse', () => {
-    const root = JSON.parse(serializeDiagramDocument(makeEnvelope(specializedEnvelope().data.model, fullLogicalModel())))
+    const root = JSON.parse(
+      serializeDiagramDocument(makeEnvelope(specializedEnvelope().data.model, fullLogicalModel())),
+    )
     root.data.logical.tables[0].foreignKeys[0].to.tableId = 't:ghost'
     try {
       parseDiagramDocument(JSON.stringify(root))
@@ -102,7 +146,9 @@ describe('serialize: decoders especializados', () => {
   })
 
   it('dataType inválido en columna → INVALID_REQUEST', () => {
-    const root = JSON.parse(serializeDiagramDocument(makeEnvelope(specializedEnvelope().data.model, fullLogicalModel())))
+    const root = JSON.parse(
+      serializeDiagramDocument(makeEnvelope(specializedEnvelope().data.model, fullLogicalModel())),
+    )
     root.data.logical.tables[0].columns[0].dataType = 'JSON'
     expect(() => parseDiagramDocument(JSON.stringify(root))).toThrowError(/dataType/)
   })
