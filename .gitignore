@@ -5,5 +5,9 @@
 !Project/
 !Project/**
 
-# Allow this gitignore
+# Allow CI workflow (GitHub Actions requires repo-root location)
+!.github/
+!.github/**
+
+# Allow own gitignore + config
 !.gitignore
