@@ -17,7 +17,9 @@ describe('diagrams repository (T4-03)', () => {
   it('create returns a DiagramFull with empty model, version 1 and ISO timestamps', () => {
     const { repo } = setup()
     const created = repo.create('Mi diagrama')
-    expect(created.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    expect(created.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    )
     expect(created.name).toBe('Mi diagrama')
     expect(created.version).toBe(1)
     expect(created.schemaVersion).toBe(1)
@@ -39,7 +41,9 @@ describe('diagrams repository (T4-03)', () => {
 
   it('rejects empty or >120 chars names with INVALID_REQUEST', () => {
     const { repo } = setup()
-    expect(() => repo.create('   ')).toThrowError(expect.objectContaining({ code: 'INVALID_REQUEST' }))
+    expect(() => repo.create('   ')).toThrowError(
+      expect.objectContaining({ code: 'INVALID_REQUEST' }),
+    )
     expect(() => repo.create('a'.repeat(121))).toThrowError(
       expect.objectContaining({ code: 'INVALID_REQUEST' }),
     )
@@ -48,12 +52,15 @@ describe('diagrams repository (T4-03)', () => {
   it('rejects a structurally invalid document with MODEL_INVALID', () => {
     const { repo } = setup()
     const bad = makeEnvelope(
-      { ...createEmptyConceptualModel(), entities: [{ id: toNodeId('e1'), name: '', kind: 'STRONG' }] },
+      {
+        ...createEmptyConceptualModel(),
+        entities: [{ id: toNodeId('e1'), name: '', kind: 'STRONG' }],
+      },
       null,
     )
-    expect(() =>
-      repo.create('Invalido', bad as Parameters<typeof repo.create>[1]),
-    ).toThrowError(expect.objectContaining({ code: 'MODEL_INVALID' }))
+    expect(() => repo.create('Invalido', bad as Parameters<typeof repo.create>[1])).toThrowError(
+      expect.objectContaining({ code: 'MODEL_INVALID' }),
+    )
   })
 
   it('list returns summaries ordered by updatedAt DESC and excludes soft-deleted', () => {
@@ -82,7 +89,9 @@ describe('diagrams repository (T4-03)', () => {
     const { repo } = setup()
     const created = repo.create('A')
     repo.softDelete(created.id)
-    expect(() => repo.getById(created.id)).toThrowError(expect.objectContaining({ code: 'NOT_FOUND' }))
+    expect(() => repo.getById(created.id)).toThrowError(
+      expect.objectContaining({ code: 'NOT_FOUND' }),
+    )
   })
 
   it('update changes name/document, increments version and refreshes updatedAt', () => {
@@ -110,9 +119,9 @@ describe('diagrams repository (T4-03)', () => {
 
   it('update on missing id throws NOT_FOUND', () => {
     const { repo } = setup()
-    expect(() => repo.update('missing' as never, 1, { name: 'B', document: emptyDoc })).toThrowError(
-      expect.objectContaining({ code: 'NOT_FOUND' }),
-    )
+    expect(() =>
+      repo.update('missing' as never, 1, { name: 'B', document: emptyDoc }),
+    ).toThrowError(expect.objectContaining({ code: 'NOT_FOUND' }))
   })
 
   it('softDelete marks deleted_at and hard-deletes are not returned anywhere', () => {
@@ -120,7 +129,9 @@ describe('diagrams repository (T4-03)', () => {
     const created = repo.create('A')
     repo.softDelete(created.id)
     expect(repo.list()).toHaveLength(0)
-    expect(() => repo.getById(created.id)).toThrowError(expect.objectContaining({ code: 'NOT_FOUND' }))
+    expect(() => repo.getById(created.id)).toThrowError(
+      expect.objectContaining({ code: 'NOT_FOUND' }),
+    )
     expect(() => repo.softDelete(created.id)).toThrowError(
       expect.objectContaining({ code: 'NOT_FOUND' }),
     )

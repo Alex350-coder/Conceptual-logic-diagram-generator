@@ -37,6 +37,11 @@ export function registerErrorHandler(app: FastifyInstance, logger: ServerLogger)
         .status(400)
         .send(errorBody('INVALID_REQUEST', 'Solicitud invalida', { validation: error.validation }))
     }
+    if ('statusCode' in error && error.statusCode === 413) {
+      return reply
+        .status(413)
+        .send(errorBody('PAYLOAD_TOO_LARGE', 'El documento excede el tamaño máximo permitido.'))
+    }
     logger.error('internal_error', { code: 'INTERNAL' })
     return reply.status(500).send(errorBody('INTERNAL', 'Error interno del servidor'))
   })

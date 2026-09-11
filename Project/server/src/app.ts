@@ -5,6 +5,7 @@ import type { ServerConfig } from './config'
 import { createLogger, type ServerLogger } from './logger'
 import { registerErrorHandler } from './routes/errors'
 import { registerHealthRoutes } from './routes/health.routes'
+import { registerDiagramsRoutes } from './routes/diagrams.routes'
 
 export interface AppDeps {
   config: ServerConfig
@@ -22,5 +23,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   app.register(cors, { origin: deps.config.corsOrigin })
   registerErrorHandler(app, logger)
   registerHealthRoutes(app, deps.db)
+  if (deps.db !== undefined) {
+    registerDiagramsRoutes(app, deps.db)
+  }
   return app
 }

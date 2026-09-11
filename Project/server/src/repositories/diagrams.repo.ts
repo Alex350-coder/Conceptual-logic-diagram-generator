@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import type { DiagramId, DocumentEnvelope } from '@erd-studio/shared'
-import { DomainError, makeEnvelope, createEmptyConceptualModel, serializeDiagramDocument } from '@erd-studio/shared'
+import {
+  DomainError,
+  makeEnvelope,
+  createEmptyConceptualModel,
+  serializeDiagramDocument,
+} from '@erd-studio/shared'
 
 export interface DiagramSummary {
   id: DiagramId
@@ -53,7 +58,10 @@ function normalizeName(raw: string | undefined): string {
   }
   const name = raw.trim()
   if (name.length === 0 || name.length > 120 || hasControlChars(name)) {
-    throw new DomainError('INVALID_REQUEST', 'El nombre debe tener entre 1 y 120 caracteres visibles.')
+    throw new DomainError(
+      'INVALID_REQUEST',
+      'El nombre debe tener entre 1 y 120 caracteres visibles.',
+    )
   }
   return name
 }
@@ -70,11 +78,9 @@ function toSummary(row: DiagramRow): DiagramSummary {
 }
 
 function audit(db: Database.Database, eventType: string, diagramId: DiagramId | null): void {
-  db.prepare('INSERT INTO audit_events (event_type, diagram_id, payload, created_at) VALUES (?, ?, NULL, ?)').run(
-    eventType,
-    diagramId,
-    nowIso(),
-  )
+  db.prepare(
+    'INSERT INTO audit_events (event_type, diagram_id, payload, created_at) VALUES (?, ?, NULL, ?)',
+  ).run(eventType, diagramId, nowIso())
 }
 
 export interface DiagramsRepository {
@@ -149,7 +155,9 @@ export function createDiagramsRepository(db: Database.Database): DiagramsReposit
   return {
     list(): DiagramSummary[] {
       const rows = db
-        .prepare(`SELECT ${ROW_COLUMNS} FROM diagrams WHERE deleted_at IS NULL ORDER BY updated_at DESC`)
+        .prepare(
+          `SELECT ${ROW_COLUMNS} FROM diagrams WHERE deleted_at IS NULL ORDER BY updated_at DESC, rowid DESC`,
+        )
         .all() as DiagramRow[]
       return rows.map(toSummary)
     },
