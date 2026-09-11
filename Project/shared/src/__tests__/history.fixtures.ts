@@ -12,7 +12,7 @@ export function createSpecializedModel(): ConceptualModel {
     { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Producto' } },
     { type: 'createEntity', payload: { id: toNodeId('e3'), name: 'Empleado' } },
   ])
-  let model = outcome.session.model
+  const model = outcome.session.model
   outcome = applyCommands(createEditorSession(model), [
     {
       type: 'createRelationship',

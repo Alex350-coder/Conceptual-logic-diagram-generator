@@ -7,19 +7,14 @@ import {
   ENTITY_KINDS,
   PARTICIPATIONS,
   type Attribute,
-  type AttributeKind,
-  type CardinalityLabel,
-  type Completeness,
   type ConceptualModel,
-  type Disjointness,
   type Entity,
-  type EntityKind,
-  type Participation,
   type Relationship,
   type RelationshipEndpoint,
   type Specialization,
 } from '../domain/conceptual'
 import { DATA_TYPES, UNDEFINED_TYPE, type DataType, type ForeignKey, type LogicalColumn, type LogicalModel, type LogicalTable, type TableSource } from '../domain/logical'
+import type { CURRENT_SCHEMA_VERSION } from '../constants'
 import { DomainError, isDomainError } from '../errors'
 
 /**
@@ -246,7 +241,7 @@ function decodeTable(value: unknown): LogicalTable {
 export function decodeLogicalModel(value: unknown): LogicalModel {
   const record = asRecord(value, 'LogicalModel')
   return {
-    schemaVersion: asInteger(readMap(record, 'schemaVersion'), 'LogicalModel.schemaVersion') as typeof import('../constants').CURRENT_SCHEMA_VERSION,
+    schemaVersion: asInteger(readMap(record, 'schemaVersion'), 'LogicalModel.schemaVersion') as typeof CURRENT_SCHEMA_VERSION,
     logicalVersion: asInteger(readMap(record, 'logicalVersion'), 'LogicalModel.logicalVersion'),
     tables: asArray(readMap(record, 'tables'), 'LogicalModel.tables').map(decodeTable),
   }

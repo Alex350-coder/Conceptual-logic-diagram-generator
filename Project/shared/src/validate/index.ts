@@ -21,6 +21,15 @@ export function validateResult(violations: Violation[]): ValidateResult {
 }
 
 /** Validation.md §2: nombre de diagrama/elemento: string, trim, no vacío, ≤120, sin control chars. */
+function hasControlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    if (value.charCodeAt(i) < 0x20) {
+      return true
+    }
+  }
+  return false
+}
+
 export function modelNameViolations(name: unknown): Violation[] {
   if (typeof name !== 'string') {
     return [{ code: 'V-003', message: 'El nombre debe ser un string.' }]
@@ -32,7 +41,7 @@ export function modelNameViolations(name: unknown): Violation[] {
   if (trimmed.length > LIMITS.maxModelNameChars) {
     return [{ code: 'V-003', message: `El nombre no puede superar ${LIMITS.maxModelNameChars} caracteres.` }]
   }
-  if (/[\u0000-\u001f]/.test(trimmed)) {
+  if (hasControlChars(trimmed)) {
     return [{ code: 'V-003', message: 'El nombre no puede contener caracteres de control.' }]
   }
   return []
@@ -43,7 +52,6 @@ export function isValidModelName(name: unknown): boolean {
 }
 
 const findEntityById = (model: ConceptualModel, id: NodeId) => model.entities.find((e) => e.id === id)
-const findRelationshipById = (model: ConceptualModel, id: NodeId) => model.relationships.find((r) => r.id === id)
 const findAttributeById = (model: ConceptualModel, id: NodeId) => model.attributes.find((a) => a.id === id)
 
 const entityIsWeak = (model: ConceptualModel, id: NodeId) => findEntityById(model, id)?.kind === 'WEAK'

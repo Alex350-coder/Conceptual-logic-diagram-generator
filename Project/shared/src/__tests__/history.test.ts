@@ -131,7 +131,7 @@ describe('EditorSession: snapshot (operaciones grandes / no invertibles)', () =>
 
 describe('EditorSession: atomicidad y errores', () => {
   it('un comando fallido no toca el modelo ni el historial', () => {
-    let session = createEditorSession(createSpecializedModel())
+    const session = createEditorSession(createSpecializedModel())
     const initialModel = session.model
     const outcome = applyCommands(session, [
       { type: 'createEntity', payload: { id: toNodeId('e9'), name: 'Nuevo' } },

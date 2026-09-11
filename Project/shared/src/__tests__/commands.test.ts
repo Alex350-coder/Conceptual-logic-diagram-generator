@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { applyCommand, type ApplyOutcome, type DomainCommand } from '../commands/index'
+import { applyCommand, type DomainCommand } from '../commands/index'
 import { createEmptyConceptualModel, type ConceptualModel } from '../domain/conceptual'
 import { toNodeId } from '../domain/ids'
-import { isDomainError } from '../errors'
 import { LIMITS } from '../validate/limits'
 
 describe('applyCommand: entidades', () => {
