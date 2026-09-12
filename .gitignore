@@ -9,5 +9,8 @@
 !.github/
 !.github/**
 
+# Playwright artifacts
+Project/client/test-results/
+
 # Allow own gitignore + config
 !.gitignore
