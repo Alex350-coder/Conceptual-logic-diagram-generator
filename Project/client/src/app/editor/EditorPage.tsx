@@ -4,7 +4,7 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import type { Attribute, AttributeKind, ConceptualModel, NodeId } from '@erd-studio/shared'
+import type { ConceptualModel, NodeId } from '@erd-studio/shared'
 import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
 import { modelToBounds, sceneBounds } from '../../render/layout'
@@ -15,6 +15,7 @@ import {
   useEditorInteractions,
   type EditorInteractions,
 } from './editorInteractions'
+import { InspectorPanel } from './InspectorPanel'
 import './editor.css'
 
 export function EditorPage() {
@@ -93,13 +94,8 @@ export function EditorPage() {
             onDelete={interactions.deleteSelected}
           />
         ) : null}
-        {status === 'ready' && selectedAttribute !== undefined ? (
-          <AttributeBar
-            attribute={selectedAttribute}
-            onKindChange={(kind) => interactions.setAttributeKind(selectedAttribute.id, kind)}
-            onToggleKey={() => interactions.toggleIsKey(selectedAttribute.id)}
-            onAddChild={() => interactions.addChildAttribute(selectedAttribute.id)}
-          />
+        {status === 'ready' && model !== null ? (
+          <InspectorPanel model={model} selection={selection} interactions={interactions} />
         ) : null}
         {status === 'ready' && interactions.renamingId !== null && model !== null ? (
           <InlineRename
@@ -211,57 +207,6 @@ function EditorToolbar({
       <button type="button" onClick={onDelete} disabled={!canDelete} aria-label="Eliminar selección">
         Eliminar
       </button>
-    </div>
-  )
-}
-
-const ATTRIBUTE_KIND_LABELS: Record<AttributeKind, string> = {
-  SIMPLE: 'Simple',
-  COMPOSITE: 'Compuesta',
-  MULTIVALUED: 'Multivaluada',
-  DERIVED: 'Derivada',
-}
-
-function AttributeBar({
-  attribute,
-  onKindChange,
-  onToggleKey,
-  onAddChild,
-}: {
-  attribute: Attribute
-  onKindChange: (kind: AttributeKind) => void
-  onToggleKey: () => void
-  onAddChild: () => void
-}) {
-  return (
-    <div className="attribute-bar" role="toolbar" aria-label="Atributo">
-      <label>
-        Tipo
-        <select
-          aria-label="Tipo de atributo"
-          value={attribute.kind}
-          onChange={(e) => onKindChange(e.target.value as AttributeKind)}
-        >
-          {(Object.keys(ATTRIBUTE_KIND_LABELS) as AttributeKind[]).map((kind) => (
-            <option key={kind} value={kind}>
-              {ATTRIBUTE_KIND_LABELS[kind]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        type="button"
-        aria-label="Alternar clave"
-        aria-pressed={attribute.isKey}
-        onClick={onToggleKey}
-      >
-        {attribute.isKey ? 'Clave: sí' : 'Clave: no'}
-      </button>
-      {attribute.kind === 'COMPOSITE' ? (
-        <button type="button" aria-label="Añadir atributo hijo" onClick={onAddChild}>
-          + Hijo
-        </button>
-      ) : null}
     </div>
   )
 }

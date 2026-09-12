@@ -342,9 +342,62 @@ describe('EditorPage', () => {
     await userEvent.clear(childInput)
     await userEvent.type(childInput, 'hijo')
     await userEvent.keyboard('{Enter}')
-    sessionStore.getState().setSelection([parentId])
+    if (parentId !== undefined) sessionStore.getState().setSelection([parentId])
     fireEvent.keyDown(scene, { key: 'Delete' })
     expect(sessionStore.getState().session?.model.attributes).toHaveLength(0)
+  })
+
+  it('el inspector muestra el arbol del modelo cuando no hay seleccion', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    fireEvent.pointerDown(scene, { button: 0, clientX: 5, clientY: 5 })
+    fireEvent.pointerUp(scene, { button: 0, clientX: 5, clientY: 5 })
+    const aside = screen.getByRole('complementary', { name: 'Inspector' })
+    expect(aside.textContent).toContain('No hay nada seleccionado.')
+    expect(aside.textContent).toContain('Entidad')
+  })
+
+  it('el inspector muestra las propiedades de la entidad seleccionada', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    const nameInput = await screen.findByRole('textbox', { name: 'Nombre de entidad' })
+    await userEvent.clear(nameInput)
+    await userEvent.type(nameInput, 'CLIENTE')
+    await userEvent.keyboard('{Enter}')
+    expect(sessionStore.getState().session?.model.entities[0]?.name).toBe('CLIENTE')
+    expect(screen.getByTestId('entity-position').textContent).toBe('(0, 84)')
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Tipo de entidad' }),
+      'WEAK',
+    )
+    expect(sessionStore.getState().session?.model.entities[0]?.kind).toBe('WEAK')
+  })
+
+  it('el inspector lista los atributos de la entidad seleccionada', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Tipo de atributo' }),
+      'DERIVED',
+    )
+    await userEvent.clear(await screen.findByRole('textbox', { name: 'Nombre de atributo' }))
+    await userEvent.type(await screen.findByRole('textbox', { name: 'Nombre de atributo' }), 'edad')
+    await userEvent.keyboard('{Enter}')
+    await userEvent.click(scene.querySelector('[data-id^="label-"]') as Element)
+    const aside = screen.getByRole('complementary', { name: 'Inspector' })
+    expect(aside.textContent).toContain('Atributos (1)')
+    expect(aside.textContent).toContain('edad')
+    expect(aside.textContent).toContain('Derivada')
   })
 })
 
