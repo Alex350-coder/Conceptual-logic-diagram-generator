@@ -208,6 +208,144 @@ describe('EditorPage', () => {
     const id = [...sessionStore.getState().selection][0]
     expect(sessionStore.getState().session?.model.entities.some((e) => e.id === id)).toBe(true)
   })
+
+  it('crea un atributo simple para la entidad seleccionada y lo renombra', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    const addAttribute = await screen.findByRole('button', { name: 'Nuevo atributo' })
+    expect(addAttribute).not.toBeDisabled()
+    await userEvent.click(addAttribute)
+    let model = sessionStore.getState().session?.model
+    expect(model?.attributes).toHaveLength(1)
+    expect(model?.attributes[0]?.kind).toBe('SIMPLE')
+    const entityId = model?.entities[0]?.id
+    expect(model?.attributes[0]?.ownerId).toBe(entityId)
+    expect(sessionStore.getState().selection).toEqual(new Set([model?.attributes[0]?.id]))
+    const input = await screen.findByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(input)
+    await userEvent.type(input, 'cedula')
+    await userEvent.keyboard('{Enter}')
+    model = sessionStore.getState().session?.model
+    expect(model?.attributes[0]?.name).toBe('cedula')
+    expect(screen.queryByRole('textbox', { name: 'Nombre' })).toBeNull()
+  })
+
+  it('numera atributos consecutivos del mismo contenedor', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    const input = await screen.findByRole('textbox', { name: 'Nombre' })
+    expect((input as HTMLInputElement).value).toBe('Atributo 2')
+    await userEvent.keyboard('{Enter}')
+    expect(sessionStore.getState().session?.model.attributes.map((a) => a.name)).toEqual([
+      'Atributo',
+      'Atributo 2',
+    ])
+  })
+
+  it('cambia el tipo de un atributo a compuesta y anade hijos anidados', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    const kindSelect = await screen.findByRole('combobox', { name: 'Tipo de atributo' })
+    await userEvent.selectOptions(kindSelect, 'COMPOSITE')
+    let model = sessionStore.getState().session?.model
+    expect(model?.attributes[0]?.kind).toBe('COMPOSITE')
+    const compositeId = model?.attributes[0]?.id
+    await userEvent.click(await screen.findByRole('button', { name: 'Añadir atributo hijo' }))
+    const childInput = await screen.findByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(childInput)
+    await userEvent.type(childInput, 'calle')
+    await userEvent.keyboard('{Enter}')
+    model = sessionStore.getState().session?.model
+    expect(model?.attributes).toHaveLength(2)
+    expect(model?.attributes[1]?.parentId).toBe(compositeId)
+    expect(model?.attributes[1]?.ownerId).toBe(model?.attributes[0]?.ownerId)
+  })
+
+  it('crea atributos multivaluado y derivado desde el selector de tipo', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    const kindSelect = await screen.findByRole('combobox', { name: 'Tipo de atributo' })
+    await userEvent.selectOptions(kindSelect, 'MULTIVALUED')
+    expect(sessionStore.getState().session?.model.attributes[0]?.kind).toBe('MULTIVALUED')
+    await userEvent.selectOptions(kindSelect, 'DERIVED')
+    expect(sessionStore.getState().session?.model.attributes[0]?.kind).toBe('DERIVED')
+  })
+
+  it('alterna la clave de un atributo seleccionado', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    const toggle = await screen.findByRole('button', { name: 'Alternar clave' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(toggle)
+    expect(sessionStore.getState().session?.model.attributes[0]?.isKey).toBe(true)
+    await userEvent.click(await screen.findByRole('button', { name: 'Alternar clave' }))
+    expect(sessionStore.getState().session?.model.attributes[0]?.isKey).toBe(false)
+  })
+
+  it('Delete elimina el atributo hijo seleccionado y deja el compuesto padre', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Tipo de atributo' }),
+      'COMPOSITE',
+    )
+    const parentId = [...sessionStore.getState().selection][0]
+    await userEvent.click(await screen.findByRole('button', { name: 'Añadir atributo hijo' }))
+    const childInput = await screen.findByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(childInput)
+    await userEvent.type(childInput, 'hijo')
+    await userEvent.keyboard('{Enter}')
+    expect(sessionStore.getState().session?.model.attributes).toHaveLength(2)
+    fireEvent.keyDown(scene, { key: 'Delete' })
+    const model = sessionStore.getState().session?.model
+    expect(model?.attributes).toHaveLength(1)
+    expect(model?.attributes[0]?.id).toBe(parentId)
+  })
+
+  it('Delete sobre el compuesto padre elimina tambien su subarbol', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    const parentId = [...sessionStore.getState().selection][0]
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Tipo de atributo' }),
+      'COMPOSITE',
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Añadir atributo hijo' }))
+    const childInput = await screen.findByRole('textbox', { name: 'Nombre' })
+    await userEvent.clear(childInput)
+    await userEvent.type(childInput, 'hijo')
+    await userEvent.keyboard('{Enter}')
+    sessionStore.getState().setSelection([parentId])
+    fireEvent.keyDown(scene, { key: 'Delete' })
+    expect(sessionStore.getState().session?.model.attributes).toHaveLength(0)
+  })
 })
 
 async function waitForScene(): Promise<SVGSVGElement> {

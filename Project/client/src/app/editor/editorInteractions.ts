@@ -3,7 +3,14 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react'
-import type { ConceptualModel, Layout, NodeId, Point } from '@erd-studio/shared'
+import type {
+  AttributeKind,
+  ConceptualModel,
+  DomainCommand,
+  Layout,
+  NodeId,
+  Point,
+} from '@erd-studio/shared'
 import { newId, toNodeId } from '@erd-studio/shared'
 import type { Rect } from '../../editor/geometry'
 import { SNAP_STEP, snapPoint } from '../../editor/grid'
@@ -45,6 +52,16 @@ export function layoutToCommands(
   return out
 }
 
+/** Nombre por defecto auto-numerado para atributos nuevos (Atributo, Atributo 2, …). */
+export function nextAttributeName(model: ConceptualModel | null, base = 'Atributo'): string {
+  if (model === null) return base
+  const ownedByBase = model.attributes.filter((a) => {
+    const name = a.name ?? ''
+    return name === base || name.startsWith(`${base} `)
+  })
+  return ownedByBase.length === 0 ? base : `${base} ${ownedByBase.length + 1}`
+}
+
 export interface EditorInteractions {
   marquee: Rect | null
   /** Layout en vivo durante un drag (override local; se commitea un solo Op al soltar). */
@@ -56,6 +73,10 @@ export interface EditorInteractions {
   commitRename(): void
   cancelRename(): void
   createEntity(center: WorldPoint): void
+  createAttribute(ownerId: NodeId, kind?: AttributeKind): void
+  addChildAttribute(parentId: NodeId): void
+  setAttributeKind(id: NodeId, kind: AttributeKind): void
+  toggleIsKey(id: NodeId): void
   deleteSelected(): void
   handleCanvasPointerDown(event: ReactPointerEvent<SVGSVGElement>): void
   handleCanvasKeyDown(event: ReactKeyboardEvent<SVGSVGElement>): void
@@ -68,7 +89,11 @@ export function useEditorInteractions(
 ): EditorInteractions {
   const [marquee, setMarquee] = useState<Rect | null>(null)
   const [dragLayout, setDragLayout] = useState<Layout | null>(null)
-  const [renaming, setRenaming] = useState<{ id: NodeId; value: string } | null>(null)
+  const [renaming, setRenaming] = useState<{
+    id: NodeId
+    value: string
+    kind: 'entity' | 'attribute'
+  } | null>(null)
 
   const cleanupRef = useRef<(() => void) | null>(null)
 
@@ -222,7 +247,12 @@ export function useEditorInteractions(
       const m = currentModel()
       const entity = m?.entities.find((e) => e.id === id)
       if (entity !== undefined) {
-        setRenaming({ id, value: entity.name })
+        setRenaming({ id, value: entity.name, kind: 'entity' })
+        return
+      }
+      const attribute = m?.attributes.find((a) => a.id === id)
+      if (attribute !== undefined) {
+        setRenaming({ id, value: attribute.name, kind: 'attribute' })
       }
     },
     [],
@@ -238,7 +268,11 @@ export function useEditorInteractions(
     if (name.length > 0) {
       const s = sessionStore.getState()
       s.setSelection([renaming.id])
-      s.sendCommands([{ type: 'renameEntity', payload: { id: renaming.id, name } }])
+      const command: DomainCommand =
+        renaming.kind === 'entity'
+          ? { type: 'renameEntity', payload: { id: renaming.id, name } }
+          : { type: 'setAttributeName', payload: { id: renaming.id, name } }
+      s.sendCommands([command])
     }
     setRenaming(null)
   }, [renaming])
@@ -266,9 +300,62 @@ export function useEditorInteractions(
     const m = s.session?.model
     if (m === undefined) return
     const entityIds = selected.filter((id) => m.entities.some((e) => e.id === id))
-    if (entityIds.length === 0) return
-    const result = s.sendCommands(entityIds.map((id) => ({ type: 'deleteEntity' as const, payload: { id } })))
+    const attributeIds = selected.filter((id) => m.attributes.some((a) => a.id === id))
+    const commands: DomainCommand[] = [
+      ...entityIds.map((id) => ({ type: 'deleteEntity' as const, payload: { id } })),
+      ...attributeIds.map((id) => ({ type: 'deleteAttribute' as const, payload: { id } })),
+    ]
+    if (commands.length === 0) return
+    const result = s.sendCommands(commands)
     if (result.ok) s.setSelection([])
+  }, [])
+
+  const beginAttributeRename = (id: NodeId, value: string) => {
+    setRenaming({ id, value, kind: 'attribute' })
+  }
+
+  const createAttribute = useCallback((ownerId: NodeId, kind: AttributeKind = 'SIMPLE') => {
+    const s = sessionStore.getState()
+    const id = newId()
+    const name = nextAttributeName(s.session?.model ?? null)
+    const commands: DomainCommand[] = [
+      { type: 'createAttribute', payload: { id, name, ownerId } },
+    ]
+    if (kind !== 'SIMPLE') {
+      commands.push({ type: 'setAttributeKind', payload: { id, kind } })
+    }
+    const result = s.sendCommands(commands)
+    if (result.ok) {
+      s.setSelection([id])
+      beginAttributeRename(id, name)
+    }
+  }, [])
+
+  const addChildAttribute = useCallback((parentId: NodeId) => {
+    const s = sessionStore.getState()
+    const parent = s.session?.model.attributes.find((a) => a.id === parentId)
+    if (parent === undefined || parent.kind !== 'COMPOSITE') return
+    const id = newId()
+    const name = nextAttributeName(s.session?.model ?? null)
+    const result = s.sendCommands([
+      { type: 'createAttribute', payload: { id, name, ownerId: parent.ownerId } },
+      { type: 'nestAttribute', payload: { attributeId: id, parentId } },
+    ])
+    if (result.ok) {
+      s.setSelection([id])
+      beginAttributeRename(id, name)
+    }
+  }, [])
+
+  const setAttributeKind = useCallback((id: NodeId, kind: AttributeKind) => {
+    sessionStore.getState().sendCommands([{ type: 'setAttributeKind', payload: { id, kind } }])
+  }, [])
+
+  const toggleIsKey = useCallback((id: NodeId) => {
+    const s = sessionStore.getState()
+    const attribute = s.session?.model.attributes.find((a) => a.id === id)
+    if (attribute === undefined) return
+    s.sendCommands([{ type: 'setIsKey', payload: { id, isKey: !attribute.isKey } }])
   }, [])
 
   const handleCanvasKeyDown = useCallback(
@@ -306,6 +393,10 @@ export function useEditorInteractions(
     commitRename,
     cancelRename,
     createEntity,
+    createAttribute,
+    addChildAttribute,
+    setAttributeKind,
+    toggleIsKey,
     deleteSelected,
     handleCanvasPointerDown,
     handleCanvasKeyDown,

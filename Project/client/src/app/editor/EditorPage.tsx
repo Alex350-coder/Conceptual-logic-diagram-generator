@@ -4,7 +4,7 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import type { ConceptualModel, NodeId } from '@erd-studio/shared'
+import type { Attribute, AttributeKind, ConceptualModel, NodeId } from '@erd-studio/shared'
 import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
 import { modelToBounds, sceneBounds } from '../../render/layout'
@@ -48,6 +48,13 @@ export function EditorPage() {
 
   const interactions = useEditorInteractions(viewport, size, model)
 
+  const selectedId = selection.size === 1 ? [...selection][0] : undefined
+  const selectedEntity = selectedId !== undefined ? model?.entities.find((e) => e.id === selectedId) : undefined
+  const selectedAttribute = selectedId !== undefined
+    ? model?.attributes.find((a) => a.id === selectedId)
+    : undefined
+  const attributeOwner = selectedEntity?.id ?? selectedAttribute?.ownerId
+
   return (
     <div className="editor-page">
       <EditorHeader
@@ -70,6 +77,7 @@ export function EditorPage() {
         {status === 'ready' && model !== null ? (
           <EditorToolbar
             canDelete={selection.size > 0}
+            canAddAttribute={attributeOwner !== undefined}
             onCreate={() =>
               interactions.createEntity(
                 screenToWorld(
@@ -79,7 +87,18 @@ export function EditorPage() {
                 ),
               )
             }
+            onAddAttribute={() => {
+              if (attributeOwner !== undefined) interactions.createAttribute(attributeOwner)
+            }}
             onDelete={interactions.deleteSelected}
+          />
+        ) : null}
+        {status === 'ready' && selectedAttribute !== undefined ? (
+          <AttributeBar
+            attribute={selectedAttribute}
+            onKindChange={(kind) => interactions.setAttributeKind(selectedAttribute.id, kind)}
+            onToggleKey={() => interactions.toggleIsKey(selectedAttribute.id)}
+            onAddChild={() => interactions.addChildAttribute(selectedAttribute.id)}
           />
         ) : null}
         {status === 'ready' && interactions.renamingId !== null && model !== null ? (
@@ -168,15 +187,81 @@ function handleWheel(event: ReactWheelEvent<SVGSVGElement>) {
   )
 }
 
-function EditorToolbar({ canDelete, onCreate, onDelete }: { canDelete: boolean; onCreate: () => void; onDelete: () => void }) {
+function EditorToolbar({
+  canDelete,
+  canAddAttribute,
+  onCreate,
+  onAddAttribute,
+  onDelete,
+}: {
+  canDelete: boolean
+  canAddAttribute: boolean
+  onCreate: () => void
+  onAddAttribute: () => void
+  onDelete: () => void
+}) {
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Herramientas">
       <button type="button" onClick={onCreate} aria-label="Nueva entidad">
         Nueva entidad
       </button>
+      <button type="button" onClick={onAddAttribute} disabled={!canAddAttribute} aria-label="Nuevo atributo">
+        + Atributo
+      </button>
       <button type="button" onClick={onDelete} disabled={!canDelete} aria-label="Eliminar selección">
         Eliminar
       </button>
+    </div>
+  )
+}
+
+const ATTRIBUTE_KIND_LABELS: Record<AttributeKind, string> = {
+  SIMPLE: 'Simple',
+  COMPOSITE: 'Compuesta',
+  MULTIVALUED: 'Multivaluada',
+  DERIVED: 'Derivada',
+}
+
+function AttributeBar({
+  attribute,
+  onKindChange,
+  onToggleKey,
+  onAddChild,
+}: {
+  attribute: Attribute
+  onKindChange: (kind: AttributeKind) => void
+  onToggleKey: () => void
+  onAddChild: () => void
+}) {
+  return (
+    <div className="attribute-bar" role="toolbar" aria-label="Atributo">
+      <label>
+        Tipo
+        <select
+          aria-label="Tipo de atributo"
+          value={attribute.kind}
+          onChange={(e) => onKindChange(e.target.value as AttributeKind)}
+        >
+          {(Object.keys(ATTRIBUTE_KIND_LABELS) as AttributeKind[]).map((kind) => (
+            <option key={kind} value={kind}>
+              {ATTRIBUTE_KIND_LABELS[kind]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        aria-label="Alternar clave"
+        aria-pressed={attribute.isKey}
+        onClick={onToggleKey}
+      >
+        {attribute.isKey ? 'Clave: sí' : 'Clave: no'}
+      </button>
+      {attribute.kind === 'COMPOSITE' ? (
+        <button type="button" aria-label="Añadir atributo hijo" onClick={onAddChild}>
+          + Hijo
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -201,8 +286,30 @@ function InlineRename({
   onCancel: () => void
 }) {
   const bounds = modelToBounds(model).get(id)
-  const [draft, setDraft] = useState(value)
-  if (bounds === undefined) return null
+  if (bounds === undefined) {
+    return (
+      <input
+        key={id}
+        className="rename-input rename-input-fixed"
+        role="textbox"
+        aria-label="Nombre"
+        defaultValue={value}
+        autoFocus
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCancel}
+        onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            onCommit()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            onCancel()
+          }
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+    )
+  }
   const center = worldToScreen(viewport, size, { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 })
   return (
     <input
@@ -211,12 +318,9 @@ function InlineRename({
       role="textbox"
       aria-label="Nombre"
       style={{ left: center.x - bounds.width * viewport.zoom / 2, top: center.y - 12, width: bounds.width * viewport.zoom }}
-      defaultValue={draft}
+      defaultValue={value}
       autoFocus
-      onChange={(e) => {
-        setDraft(e.target.value)
-        onChange(e.target.value)
-      }}
+      onChange={(e) => onChange(e.target.value)}
       onBlur={onCancel}
       onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
