@@ -9,6 +9,7 @@ import {
   DomainError,
   isDomainError,
   redo,
+  toDiagramId,
   undo,
   type CommandResult,
   type DomainCommand,
@@ -42,13 +43,14 @@ export interface SessionState {
 }
 
 export interface SessionActions {
-  load(id: DiagramId): Promise<void>
+  load(id: string): Promise<void>
   loadFromEnvelope(id: DiagramId, name: string, document: DocumentEnvelope): void
   sendCommands(commands: DomainCommand[]): CommandResult
   undo(): void
   redo(): void
   setSelection(ids: readonly NodeId[]): void
   setViewport(viewport: Viewport): void
+  reset(): void
 }
 
 export type SessionStoreApi = StoreApi<SessionState & SessionActions>
@@ -74,10 +76,10 @@ export function createSessionStore(): SessionStoreApi {
   return createStore<SessionState & SessionActions>()((set, get) => ({
     ...initial(),
 
-    load: async (id) => {
+    load: async (id: string) => {
       set({ status: 'loading', error: null })
       try {
-        const diagram = await getDiagram(id)
+        const diagram = await getDiagram(toDiagramId(id))
         const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
         get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope)
       } catch (error) {
@@ -163,6 +165,10 @@ export function createSessionStore(): SessionStoreApi {
 
     setViewport: (viewport) => {
       set({ viewport })
+    },
+
+    reset: () => {
+      set(initial())
     },
   }))
 }

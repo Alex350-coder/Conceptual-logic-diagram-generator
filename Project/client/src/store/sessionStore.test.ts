@@ -1,11 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { DiagramId, NodeId } from '@erd-studio/shared'
-import {
-  createEmptyConceptualModel,
-  createEditorSession,
-  newId,
-  toDiagramId,
-} from '@erd-studio/shared'
+import { createEmptyConceptualModel, newId, toDiagramId } from '@erd-studio/shared'
 import type { DocumentEnvelope } from '@erd-studio/shared'
 import { createSessionStore, type SessionStoreApi } from './sessionStore'
 
