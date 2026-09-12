@@ -244,6 +244,107 @@ describe('validador de modelo conceptual', () => {
     expect(codes(validateConceptualModel(model))).not.toContain('V-012')
   })
 
+  it('V-012: suficiencia de roles solo para la entidad repetida (ternaria con roles)', () => {
+    const model = validModel()
+    model.entities.push({ id: id(6), name: 'E6', kind: 'STRONG' })
+    model.relationships[0]!.endpoints = [
+      { entityId: id(1), roleName: 'origen', cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(1), roleName: 'destino', cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(6), roleName: null, cardinality: '1', participation: 'PARTIAL' },
+    ]
+    const violations = codes(validateConceptualModel(model))
+    expect(violations).not.toContain('V-012')
+    expect(violations.length).toBe(0)
+  })
+
+  it('V-012: recursiva con una sola entidad distinta y aridad > 2 en la misma entidad', () => {
+    const model = validModel()
+    model.relationships[0]!.endpoints = [
+      { entityId: id(1), roleName: 'a', cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(1), roleName: 'b', cardinality: 'N', participation: 'TOTAL' },
+    ]
+    model.relationships[0]!.endpoints.push({
+      entityId: id(1),
+      roleName: 'c',
+      cardinality: 'N',
+      participation: 'TOTAL',
+    })
+    expect(codes(validateConceptualModel(model))).not.toContain('V-012')
+  })
+
+  it('V-005: los roleName no eximen a una entidad débil duplicada en relación no identificadora', () => {
+    const model = validModel()
+    model.entities[1]!.kind = 'WEAK'
+    model.relationships[0]!.endpoints = [
+      { entityId: id(2), roleName: 'w1', cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(2), roleName: 'w2', cardinality: 'N', participation: 'TOTAL' },
+    ]
+    expect(codes(validateConceptualModel(model))).toContain('V-005')
+  })
+
+  it('V-006: identificadora con un único débil y un fuerte propietario es válida', () => {
+    const model = validModel()
+    model.entities.push({ id: id(8), name: 'W', kind: 'WEAK' })
+    model.relationships[0]!.isIdentifying = true
+    model.relationships[0]!.endpoints = [
+      { entityId: id(8), roleName: null, cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(1), roleName: null, cardinality: '1', participation: 'TOTAL' },
+    ]
+    const violations = codes(validateConceptualModel(model))
+    expect(violations).not.toContain('V-006')
+    expect(violations).not.toContain('V-007')
+  })
+
+  it('V-006: identificadora con dos débiles y un fuerte propietario sigue siendo inválida', () => {
+    const model = validModel()
+    model.entities.push({ id: id(8), name: 'W1', kind: 'WEAK' })
+    model.entities.push({ id: id(9), name: 'W2', kind: 'WEAK' })
+    model.relationships[0]!.isIdentifying = true
+    model.relationships[0]!.endpoints = [
+      { entityId: id(8), roleName: null, cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(9), roleName: null, cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(1), roleName: null, cardinality: '1', participation: 'TOTAL' },
+    ]
+    expect(codes(validateConceptualModel(model))).toContain('V-006')
+  })
+
+  it('V-007: débil con relación identificadora válida no se marca sin identificadora', () => {
+    const model = validModel()
+    model.entities.push({ id: id(8), name: 'W', kind: 'WEAK' })
+    model.relationships[0]!.isIdentifying = true
+    model.relationships[0]!.endpoints = [
+      { entityId: id(8), roleName: null, cardinality: 'N', participation: 'TOTAL' },
+      { entityId: id(1), roleName: null, cardinality: '1', participation: 'TOTAL' },
+    ]
+    expect(codes(validateConceptualModel(model))).not.toContain('V-007')
+  })
+
+  it('V-010: disjointness/completeness fuera de las uniones son violaciones de forma', () => {
+    const model = validModel()
+    const spec = {
+      id: id(70),
+      supertypeId: id(1),
+      subtypeIds: [id(2)],
+      disjointness: 'OTHER' as 'DISJOINT',
+      completeness: 'TOTAL',
+    }
+    model.specializations.push(spec)
+    expect(codes(validateConceptualModel(model))).toContain('V-010')
+  })
+
+  it('V-011: supertipo débil invalida la especialización incluso con subtipos fuertes', () => {
+    const model = validModel()
+    model.entities[0]!.kind = 'WEAK'
+    model.specializations.push({
+      id: id(70),
+      supertypeId: id(1),
+      subtypeIds: [id(2)],
+      disjointness: 'DISJOINT',
+      completeness: 'PARTIAL',
+    })
+    expect(codes(validateConceptualModel(model))).toContain('V-011')
+  })
+
   it('V-013: atributo clave solo dentro de una entidad', () => {
     const model = validModel()
     model.attributes.push({
