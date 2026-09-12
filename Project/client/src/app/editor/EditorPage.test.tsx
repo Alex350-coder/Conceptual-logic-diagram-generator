@@ -232,6 +232,26 @@ describe('EditorPage', () => {
     expect(screen.queryByRole('textbox', { name: 'Nombre' })).toBeNull()
   })
 
+  it('dibuja el atributo en el canvas como elipse y lo renombra con doble clic', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Nuevo atributo' }))
+    await userEvent.keyboard('{Enter}')
+    const attrId = sessionStore.getState().session?.model.attributes[0]?.id
+    const shape = await waitFor(() => scene.querySelector(`[data-id="${attrId}"] ellipse`))
+    expect(shape).not.toBeNull()
+    expect(scene.querySelector(`[data-id="${attrId}"]`)).not.toBeNull()
+    await userEvent.dblClick(scene.querySelector(`[data-id="${attrId}"]`) as Element)
+    const input = await screen.findByRole('textbox', { name: 'Nombre' })
+    expect(input.getAttribute('class')).not.toContain('rename-input-fixed')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'cedula')
+    await userEvent.keyboard('{Enter}')
+    expect(sessionStore.getState().session?.model.attributes[0]?.name).toBe('cedula')
+  })
+
   it('numera atributos consecutivos del mismo contenedor', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()
@@ -427,10 +447,9 @@ describe('EditorPage', () => {
 })
 
 async function waitForScene(): Promise<SVGSVGElement> {
-  await waitFor(() => {
-    expect(screen.getByTestId('scene')).toBeDefined()
-  })
-  return screen.getByTestId('scene') as unknown as SVGSVGElement
+  const svg = await waitFor(() => screen.getByTestId('scene'))
+  mockSvgRect(svg)
+  return svg as unknown as SVGSVGElement
 }
 
 function mockSvgRect(svg: Element) {

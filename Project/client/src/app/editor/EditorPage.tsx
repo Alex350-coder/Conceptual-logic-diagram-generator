@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   WheelEvent as ReactWheelEvent,
@@ -7,7 +7,9 @@ import { Link, useParams } from 'react-router-dom'
 import type { ConceptualModel, NodeId } from '@erd-studio/shared'
 import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
+import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, sceneBounds } from '../../render/layout'
+import type { Rect } from '../../editor/geometry'
 import type { Viewport, ViewportSize } from '../../editor/viewport'
 import { createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
@@ -32,6 +34,11 @@ export function EditorPage() {
   const size = useEditorSize()
   const fittedRef = useRef(false)
 
+  const allBounds = useMemo(
+    () => (model === null ? new Map<NodeId, Rect>() : autoAttributeBounds(model, modelToBounds(model))),
+    [model],
+  )
+
   useEffect(() => {
     if (id === undefined) return
     fittedRef.current = false
@@ -41,11 +48,11 @@ export function EditorPage() {
   useEffect(() => {
     if (status !== 'ready' || model === null || fittedRef.current) return
     fittedRef.current = true
-    const bounds = sceneBounds(modelToBounds(model))
+    const bounds = sceneBounds(allBounds)
     sessionStore
       .getState()
       .setViewport(bounds === null ? createViewport() : fitRect(sessionStore.getState().viewport, size, bounds))
-  }, [status, model, size])
+  }, [status, model, size, allBounds])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -125,7 +132,7 @@ export function EditorPage() {
         {status === 'ready' && interactions.renamingId !== null && model !== null ? (
           <InlineRename
             id={interactions.renamingId}
-            model={model}
+            boundsById={allBounds}
             viewport={viewport}
             size={size}
             value={interactions.renamingValue}
@@ -238,7 +245,7 @@ function EditorToolbar({
 
 function InlineRename({
   id,
-  model,
+  boundsById,
   viewport,
   size,
   value,
@@ -247,7 +254,7 @@ function InlineRename({
   onCancel,
 }: {
   id: NodeId
-  model: ConceptualModel
+  boundsById: ReadonlyMap<NodeId, Rect>
   viewport: Viewport
   size: ViewportSize
   value: string
@@ -255,7 +262,7 @@ function InlineRename({
   onCommit: () => void
   onCancel: () => void
 }) {
-  const bounds = modelToBounds(model).get(id)
+  const bounds = boundsById.get(id)
   if (bounds === undefined) {
     return (
       <input

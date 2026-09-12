@@ -4,6 +4,7 @@ import type { Rect } from '../editor/geometry'
 import type { Viewport, ViewportSize, WorldPoint } from '../editor/viewport'
 import { cullScene, visibleWorldRect } from './culling'
 import { createScene, type Scene } from './layers'
+import { autoAttributeBounds } from './attributeLayout'
 import { labelId, modelToBounds, positionOf } from './layout'
 import { makePolyline, makeRect, makeText, type Primitive, type PrimitiveRole } from './shapes'
 
@@ -23,7 +24,7 @@ export type SceneRenderer = (
 
 /** Renderer base puro (Architecture.md §8.6): modelo + viewport -> scene en mundo. */
 export const sceneRenderer: SceneRenderer = (model, viewport, size, options) => {
-  const boundsById = modelToBounds(model)
+  const boundsById = autoAttributeBounds(model, modelToBounds(model))
   const view = visibleWorldRect(viewport, size)
 
   const grid = buildGridLayer(view)
@@ -94,7 +95,7 @@ export function buildEdgeLayer(
     }
   }
   for (const a of model.attributes) {
-    edge(a.ownerId, a.id)
+    edge(a.parentId ?? a.ownerId, a.id)
   }
   return items
 }
