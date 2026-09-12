@@ -47,6 +47,31 @@ export function EditorPage() {
       .setViewport(bounds === null ? createViewport() : fitRect(sessionStore.getState().viewport, size, bounds))
   }, [status, model, size])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) sessionStore.getState().redo()
+        else sessionStore.getState().undo()
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
+        event.preventDefault()
+        sessionStore.getState().redo()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const interactions = useEditorInteractions(viewport, size, model)
 
   const selectedId = selection.size === 1 ? [...selection][0] : undefined

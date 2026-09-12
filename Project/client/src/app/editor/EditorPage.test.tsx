@@ -347,6 +347,31 @@ describe('EditorPage', () => {
     expect(sessionStore.getState().session?.model.attributes).toHaveLength(0)
   })
 
+  it('Ctrl+Z deshace y Ctrl+Shift+Z rehace con el foco fuera del canvas', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    expect(sessionStore.getState().session?.model.entities).toHaveLength(1)
+    expect(sessionStore.getState().canUndo).toBe(true)
+    await userEvent.keyboard('{Control>}z{/Control}')
+    expect(sessionStore.getState().session?.model.entities).toHaveLength(0)
+    expect(sessionStore.getState().canRedo).toBe(true)
+    await userEvent.keyboard('{Control>}{Shift>}z{/Shift}{/Control}')
+    expect(sessionStore.getState().session?.model.entities).toHaveLength(1)
+  })
+
+  it('Ctrl+Y rehace el ultimo paso', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.keyboard('{Control>}z{/Control}')
+    expect(sessionStore.getState().session?.model.entities).toHaveLength(0)
+    await userEvent.keyboard('{Control>}y{/Control}')
+    expect(sessionStore.getState().session?.model.entities).toHaveLength(1)
+  })
+
   it('el inspector muestra el arbol del modelo cuando no hay seleccion', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()
