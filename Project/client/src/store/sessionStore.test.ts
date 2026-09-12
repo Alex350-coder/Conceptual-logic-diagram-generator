@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { DiagramId, NodeId } from '@erd-studio/shared'
 import {
   createEmptyConceptualModel,
@@ -23,11 +23,30 @@ function makeStore(): SessionStoreApi {
   return createSessionStore()
 }
 
+function fetchOk(payload: unknown): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { id: diagramId, name: 'Personas', document: payload } }), {
+        status: 200,
+      }),
+    ),
+  )
+}
+
+function fetchStatus(status: number): void {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })))
+}
+
 describe('sessionStore', () => {
   let api: SessionStoreApi
 
   beforeEach(() => {
     api = makeStore()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('loadFromEnvelope builds a ready session from a valid envelope', () => {
@@ -109,10 +128,37 @@ describe('sessionStore', () => {
     expect(api.getState().session?.model.attributes).toHaveLength(0)
   })
 
-  it('exposes the raw session for engine consumers', () => {
+it('exposes the raw session for engine consumers', () => {
     api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
     const session = api.getState().session
     expect(session).not.toBeNull()
     expect(session?.model.entities).toEqual([])
+  })
+
+  it('load fetches, parses and transitions to ready', async () => {
+    fetchOk(envelope())
+    await api.getState().load(diagramId)
+    const s = api.getState()
+    expect(s.status).toBe('ready')
+    expect(s.name).toBe('Personas')
+    expect(s.isDirty).toBe(false)
+  })
+
+  it('load maps a 404 response to notFound', async () => {
+    fetchStatus(404)
+    await api.getState().load(diagramId)
+    expect(api.getState().status).toBe('notFound')
+  })
+
+  it('load maps an invalid document to invalid', async () => {
+    fetchOk({ schemaVersion: 1, kind: 'erd-studio/diagram', data: { wrong: true, logical: null } })
+    await api.getState().load(diagramId)
+    expect(api.getState().status).toBe('invalid')
+  })
+
+  it('load maps a network failure to error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network down')))
+    await api.getState().load(diagramId)
+    expect(api.getState().status).toBe('error')
   })
 })

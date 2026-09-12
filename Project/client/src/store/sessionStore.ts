@@ -7,6 +7,7 @@ import {
   canUndo,
   createEditorSession,
   DomainError,
+  isDomainError,
   redo,
   undo,
   type CommandResult,
@@ -80,8 +81,11 @@ export function createSessionStore(): SessionStoreApi {
         const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
         get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope)
       } catch (error) {
-        const status: EditorStatus =
-          error instanceof ApiError && error.status === 404 ? 'notFound' : 'error'
+        const status: EditorStatus = isDomainError(error)
+          ? 'invalid'
+          : error instanceof ApiError && error.status === 404
+            ? 'notFound'
+            : 'error'
         set({ status, error: error instanceof Error ? error.message : 'Error al cargar' })
       }
     },
