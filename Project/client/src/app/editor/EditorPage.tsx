@@ -87,6 +87,9 @@ export function EditorPage() {
     ? model?.attributes.find((a) => a.id === selectedId)
     : undefined
   const attributeOwner = selectedEntity?.id ?? selectedAttribute?.ownerId
+  const selectedEntities = [...selection].filter(
+    (id) => model?.entities.some((e) => e.id === id) ?? false,
+  )
 
   return (
     <div className="editor-page">
@@ -111,6 +114,8 @@ export function EditorPage() {
           <EditorToolbar
             canDelete={selection.size > 0}
             canAddAttribute={attributeOwner !== undefined}
+            canAddRelationship={selectedEntities.length >= 2}
+            canAddSpecialization={selectedEntities.length === 1}
             onCreate={() =>
               interactions.createEntity(
                 screenToWorld(
@@ -123,6 +128,8 @@ export function EditorPage() {
             onAddAttribute={() => {
               if (attributeOwner !== undefined) interactions.createAttribute(attributeOwner)
             }}
+            onAddRelationship={() => interactions.createRelationship(selectedEntities)}
+            onAddSpecialization={() => interactions.createSpecialization(selectedEntities[0]!)}
             onDelete={interactions.deleteSelected}
           />
         ) : null}
@@ -218,14 +225,22 @@ function handleWheel(event: ReactWheelEvent<SVGSVGElement>) {
 function EditorToolbar({
   canDelete,
   canAddAttribute,
+  canAddRelationship,
+  canAddSpecialization,
   onCreate,
   onAddAttribute,
+  onAddRelationship,
+  onAddSpecialization,
   onDelete,
 }: {
   canDelete: boolean
   canAddAttribute: boolean
+  canAddRelationship: boolean
+  canAddSpecialization: boolean
   onCreate: () => void
   onAddAttribute: () => void
+  onAddRelationship: () => void
+  onAddSpecialization: () => void
   onDelete: () => void
 }) {
   return (
@@ -235,6 +250,24 @@ function EditorToolbar({
       </button>
       <button type="button" onClick={onAddAttribute} disabled={!canAddAttribute} aria-label="Nuevo atributo">
         + Atributo
+      </button>
+      <button
+        type="button"
+        onClick={onAddRelationship}
+        disabled={!canAddRelationship}
+        aria-label="Nueva relación"
+        title={canAddRelationship ? 'Crear relación entre las entidades seleccionadas' : 'Selecciona 2+ entidades'}
+      >
+        Nueva relación
+      </button>
+      <button
+        type="button"
+        onClick={onAddSpecialization}
+        disabled={!canAddSpecialization}
+        aria-label="Nueva especialización"
+        title={canAddSpecialization ? 'Crear especialización ISA con el supertipo seleccionado' : 'Selecciona la entidad supertipo'}
+      >
+        ISA
       </button>
       <button type="button" onClick={onDelete} disabled={!canDelete} aria-label="Eliminar selección">
         Eliminar

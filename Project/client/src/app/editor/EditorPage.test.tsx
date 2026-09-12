@@ -444,6 +444,128 @@ describe('EditorPage', () => {
     expect(aside.textContent).toContain('edad')
     expect(aside.textContent).toContain('Derivada')
   })
+
+  async function selectTwoEntities(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: 'Nueva entidad' }))
+  await userEvent.click(screen.getByRole('button', { name: 'Nueva entidad' }))
+  const model = sessionStore.getState().session?.model
+  const ids = model?.entities.map((e) => e.id) ?? []
+  sessionStore.getState().setSelection(ids)
+}
+
+it('crea una relación entre 2 entidades seleccionadas y la selecciona', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await selectTwoEntities()
+    expect(sessionStore.getState().selection.size).toBe(2)
+
+    const relButton = await screen.findByRole('button', { name: 'Nueva relación' })
+    expect(relButton).not.toBeDisabled()
+    await userEvent.click(relButton)
+
+    const model = sessionStore.getState().session?.model
+    expect(model?.relationships).toHaveLength(1)
+    expect(model?.relationships[0]?.endpoints).toHaveLength(2)
+    const rId = model?.relationships[0]?.id
+    expect([...sessionStore.getState().selection]).toEqual([rId])
+    const aside = screen.getByRole('complementary', { name: 'Inspector' })
+    expect(aside.textContent).toContain('Extremos (2)')
+  })
+
+  it('renombra una relación seleccionada desde el inspector', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await selectTwoEntities()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
+
+    const relInput = await screen.findByRole('textbox', { name: 'Nombre de relación' })
+    await userEvent.clear(relInput)
+    await userEvent.type(relInput, 'Compra')
+    await userEvent.keyboard('{Enter}')
+    expect(sessionStore.getState().session?.model.relationships[0]?.name).toBe('Compra')
+  })
+
+  it('cambia cardinalidad y participación de un extremo desde el inspector', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await selectTwoEntities()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
+
+    const cardinalitySelect = await screen.findByRole('combobox', { name: 'Cardinalidad extremo 1' })
+    await userEvent.selectOptions(cardinalitySelect, '1')
+    const participationSelect = await screen.findByRole('combobox', { name: 'Participación extremo 1' })
+    await userEvent.selectOptions(participationSelect, 'TOTAL')
+    const rel = sessionStore.getState().session?.model.relationships[0]
+    expect(rel?.endpoints[0]).toMatchObject({ cardinality: '1', participation: 'TOTAL' })
+    expect(rel?.endpoints[1]).toMatchObject({ cardinality: 'N', participation: 'PARTIAL' })
+  })
+
+  it('alterna una relación identificadora (T7-02)', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await selectTwoEntities()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
+
+    const toggle = await screen.findByRole('button', { name: 'Alternar relación identificadora' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(toggle)
+    expect(sessionStore.getState().session?.model.relationships[0]?.isIdentifying).toBe(true)
+  })
+
+  it('añade atributos a la relación seleccionada (T7-03)', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await selectTwoEntities()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
+
+    const addAttr = await screen.findByRole('button', { name: 'Añadir atributo a relación' })
+    await userEvent.click(addAttr)
+    const rId = sessionStore.getState().session?.model.relationships[0]?.id
+    expect(sessionStore.getState().session?.model.attributes[0]?.ownerId).toBe(rId)
+    await userEvent.keyboard('{Enter}')
+    if (rId !== undefined) sessionStore.getState().setSelection([rId])
+    const aside = await waitFor(
+      () => screen.getByRole('complementary', { name: 'Inspector' }),
+    )
+    await waitFor(() => {
+      expect(aside.textContent).toContain('Atributos (1)')
+    })
+  })
+
+  it('crea una especialización ISA desde el supertipo seleccionado (T7-04)', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    const supertypeId = [...sessionStore.getState().selection][0]
+
+    const specialButton = await screen.findByRole('button', { name: 'Nueva especialización' })
+    expect(specialButton).not.toBeDisabled()
+    await userEvent.click(specialButton)
+    const model = sessionStore.getState().session?.model
+    expect(model?.specializations).toHaveLength(1)
+    expect(model?.specializations[0]?.supertypeId).toBe(supertypeId)
+    const aside = screen.getByRole('complementary', { name: 'Inspector' })
+    expect(aside.textContent).toContain('Supertipo')
+    expect(screen.getByTestId('specialization-supertype').textContent).toBe('Entidad')
+  })
+
+  it('elimina una relación seleccionada con Delete', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    const scene = await waitForScene()
+    await selectTwoEntities()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
+    await userEvent.keyboard('{Enter}')
+    expect(sessionStore.getState().session?.model.relationships).toHaveLength(1)
+    fireEvent.keyDown(scene, { key: 'Delete' })
+    expect(sessionStore.getState().session?.model.relationships).toHaveLength(0)
+  })
 })
 
 async function waitForScene(): Promise<SVGSVGElement> {
