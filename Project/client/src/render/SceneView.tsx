@@ -1,6 +1,7 @@
 import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from 'react'
@@ -22,6 +23,7 @@ export interface SceneViewProps {
   onPointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
   onWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onKeyDown?: (event: ReactKeyboardEvent<SVGSVGElement>) => void
+  onShapeDoubleClick?: (id: string) => void
 }
 
 const ROLE_STYLES: Record<PrimitiveRole, CSSProperties> = {
@@ -135,8 +137,13 @@ function PrimitiveView({ prim }: { prim: Primitive }) {
   return <ShapeGeometry prim={prim} />
 }
 
-export function SceneView({ scene, viewport, size, className, onPointerDown, onWheel, onKeyDown }: SceneViewProps) {
+export function SceneView({ scene, viewport, size, className, onPointerDown, onWheel, onKeyDown, onShapeDoubleClick }: SceneViewProps) {
   const transform = `translate(${size.width / 2} ${size.height / 2}) scale(${viewport.zoom}) translate(${-viewport.cx} ${-viewport.cy})`
+  const handleDoubleClick = (event: ReactMouseEvent<SVGGElement>) => {
+    event.stopPropagation()
+    const id = (event.currentTarget as Element).getAttribute('data-id')
+    if (id !== null && onShapeDoubleClick !== undefined) onShapeDoubleClick(id)
+  }
   return (
     <svg
       data-testid="scene"
@@ -152,7 +159,7 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onW
         {scene.layers.map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
             {layer.items.map((prim) => (
-              <g key={prim.id} data-id={prim.id} data-kind={prim.kind}>
+              <g key={prim.id} data-id={prim.id} onDoubleClick={handleDoubleClick}>
                 <PrimitiveView prim={prim} />
               </g>
             ))}

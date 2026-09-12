@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
-  PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -10,8 +9,12 @@ import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
 import { modelToBounds, sceneBounds } from '../../render/layout'
 import type { Viewport, ViewportSize } from '../../editor/viewport'
-import { createViewport, fitRect, zoomAt } from '../../editor/viewport'
+import { createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
+import {
+  useEditorInteractions,
+  type EditorInteractions,
+} from './editorInteractions'
 import './editor.css'
 
 export function EditorPage() {
@@ -43,6 +46,8 @@ export function EditorPage() {
       .setViewport(bounds === null ? createViewport() : fitRect(sessionStore.getState().viewport, size, bounds))
   }, [status, model, size])
 
+  const interactions = useEditorInteractions(viewport, size, model)
+
   return (
     <div className="editor-page">
       <EditorHeader
@@ -60,7 +65,35 @@ export function EditorPage() {
           viewport={viewport}
           model={model}
           selection={selection}
+          interactions={interactions}
         />
+        {status === 'ready' && model !== null ? (
+          <EditorToolbar
+            canDelete={selection.size > 0}
+            onCreate={() =>
+              interactions.createEntity(
+                screenToWorld(
+                  viewport,
+                  size,
+                  { x: size.width / 2, y: size.height / 2 + 80 },
+                ),
+              )
+            }
+            onDelete={interactions.deleteSelected}
+          />
+        ) : null}
+        {status === 'ready' && interactions.renamingId !== null && model !== null ? (
+          <InlineRename
+            id={interactions.renamingId}
+            model={model}
+            viewport={viewport}
+            size={size}
+            value={interactions.renamingValue}
+            onChange={interactions.setRenamingValue}
+            onCommit={interactions.commitRename}
+            onCancel={interactions.cancelRename}
+          />
+        ) : null}
       </main>
     </div>
   )
@@ -73,6 +106,7 @@ function EditorBody({
   viewport,
   model,
   selection,
+  interactions,
 }: {
   status: 'idle' | 'loading' | 'ready' | 'notFound' | 'invalid' | 'error'
   id: string | undefined
@@ -80,6 +114,7 @@ function EditorBody({
   viewport: Viewport
   model: ConceptualModel | null
   selection: ReadonlySet<NodeId>
+  interactions: EditorInteractions
 }) {
   if (status === 'notFound') {
     return (
@@ -104,15 +139,21 @@ function EditorBody({
   if (model === null) {
     return <p className="status">Cargando diagrama…</p>
   }
-  const scene = sceneRenderer(model, viewport, size, { selected: selection, marquee: null })
+  const renderModel =
+    interactions.dragLayout !== null ? { ...model, layout: interactions.dragLayout } : model
+  const scene = sceneRenderer(renderModel, viewport, size, {
+    selected: selection,
+    marquee: interactions.marquee,
+  })
   return (
     <SceneView
       scene={scene}
       viewport={viewport}
       size={size}
       onWheel={handleWheel}
-      onPointerDown={handleCanvasPointerDown}
-      onKeyDown={handleCanvasKeyDown}
+      onPointerDown={interactions.handleCanvasPointerDown}
+      onKeyDown={interactions.handleCanvasKeyDown}
+      onShapeDoubleClick={interactions.startRename}
     />
   )
 }
@@ -127,48 +168,68 @@ function handleWheel(event: ReactWheelEvent<SVGSVGElement>) {
   )
 }
 
-function handleCanvasPointerDown(event: ReactPointerEvent<SVGSVGElement>) {
-  const target = event.target as Element
-  if (target.closest('[data-id]') !== null) return
-  const svg = event.currentTarget
-  const start = { x: event.clientX, y: event.clientY }
-  const initial = sessionStore.getState().viewport
-  let pointerId: number | null = null
-
-  const onMove = (moveEvent: PointerEvent) => {
-    const delta = { x: moveEvent.clientX - start.x, y: moveEvent.clientY - start.y }
-    sessionStore.getState().setViewport({
-      cx: initial.cx - delta.x / initial.zoom,
-      cy: initial.cy - delta.y / initial.zoom,
-      zoom: initial.zoom,
-    })
-  }
-  const onUp = () => {
-    if (pointerId !== null) svg.releasePointerCapture(pointerId)
-    svg.removeEventListener('pointermove', onMove)
-    svg.removeEventListener('pointerup', onUp)
-    svg.removeEventListener('pointercancel', onUp)
-  }
-
-  svg.setPointerCapture(event.pointerId)
-  pointerId = event.pointerId
-  svg.addEventListener('pointermove', onMove)
-  svg.addEventListener('pointerup', onUp)
-  svg.addEventListener('pointercancel', onUp)
+function EditorToolbar({ canDelete, onCreate, onDelete }: { canDelete: boolean; onCreate: () => void; onDelete: () => void }) {
+  return (
+    <div className="editor-toolbar" role="toolbar" aria-label="Herramientas">
+      <button type="button" onClick={onCreate} aria-label="Nueva entidad">
+        Nueva entidad
+      </button>
+      <button type="button" onClick={onDelete} disabled={!canDelete} aria-label="Eliminar selección">
+        Eliminar
+      </button>
+    </div>
+  )
 }
 
-function handleCanvasKeyDown(event: ReactKeyboardEvent<SVGSVGElement>) {
-  const actions = sessionStore.getState()
-  if (event.key === 'z' && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
-    event.preventDefault()
-    actions.undo()
-  } else if (event.key === 'y' && (event.ctrlKey || event.metaKey)) {
-    event.preventDefault()
-    actions.redo()
-  } else if (event.key === 'z' && (event.ctrlKey || event.metaKey) && event.shiftKey) {
-    event.preventDefault()
-    actions.redo()
-  }
+function InlineRename({
+  id,
+  model,
+  viewport,
+  size,
+  value,
+  onChange,
+  onCommit,
+  onCancel,
+}: {
+  id: NodeId
+  model: ConceptualModel
+  viewport: Viewport
+  size: ViewportSize
+  value: string
+  onChange: (value: string) => void
+  onCommit: () => void
+  onCancel: () => void
+}) {
+  const bounds = modelToBounds(model).get(id)
+  const [draft, setDraft] = useState(value)
+  if (bounds === undefined) return null
+  const center = worldToScreen(viewport, size, { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 })
+  return (
+    <input
+      key={id}
+      className="rename-input"
+      role="textbox"
+      aria-label="Nombre"
+      style={{ left: center.x - bounds.width * viewport.zoom / 2, top: center.y - 12, width: bounds.width * viewport.zoom }}
+      defaultValue={draft}
+      autoFocus
+      onChange={(e) => {
+        setDraft(e.target.value)
+        onChange(e.target.value)
+      }}
+      onBlur={onCancel}
+      onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          onCommit()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          onCancel()
+        }
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
+  )
 }
 
 function EditorHeader({
