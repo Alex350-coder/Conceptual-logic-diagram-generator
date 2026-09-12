@@ -125,6 +125,38 @@ describe('sceneRenderer', () => {
     for (const e of roleEdges) expect(e).toHaveLength(1)
   })
 
+  it('wires nested attributes to their composite parent and auto-lays them', () => {
+    const model = createEmptyConceptualModel()
+    model.entities = [{ id: id(1), name: 'Cliente', kind: 'STRONG' }]
+    model.attributes = [
+      {
+        id: id(10),
+        name: 'direccion',
+        kind: 'COMPOSITE',
+        isKey: false,
+        ownerId: id(1),
+        parentId: null,
+      } satisfies Attribute,
+      {
+        id: id(11),
+        name: 'calle',
+        kind: 'SIMPLE',
+        isKey: false,
+        ownerId: id(1),
+        parentId: id(10),
+      } satisfies Attribute,
+    ]
+    model.layout = { [id(1)]: { x: 0, y: 0 } }
+    const scene = sceneRenderer(model, viewport, size, options)
+    const edges = scene.layers.find((l) => l.id === 'edges')?.items ?? []
+    const shapes = scene.layers.find((l) => l.id === 'shapes')?.items ?? []
+    expect(byId({ items: edges }, `edge-${id(10)}-${id(11)}`)).toHaveLength(1)
+    expect(byId({ items: edges }, `edge-${id(1)}-${id(11)}`)).toHaveLength(0)
+    expect(byId({ items: shapes }, id(11))[0]!.kind).toBe('ellipse')
+    const childBounds = byId({ items: shapes }, id(11))[0]!.bounds
+    expect(childBounds.y).toBeGreaterThan(byId({ items: shapes }, id(10))[0]!.bounds.y)
+  })
+
   it('puts node names as labels and underlines keys', () => {
     const scene = sceneRenderer(makeModel(), viewport, size, options)
     const labels = scene.layers.find((l) => l.id === 'labels')?.items ?? []

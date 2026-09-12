@@ -52,6 +52,22 @@ export function positionOf(bounds: Rect): Point {
   }
 }
 
+/** Bounding box que contiene todos los bounds dados; null si no hay ninguno. */
+export function sceneBounds(boundsById: ReadonlyMap<NodeId, Rect>): Rect | null {
+  if (boundsById.size === 0) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const b of boundsById.values()) {
+    minX = Math.min(minX, b.x)
+    minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.width)
+    maxY = Math.max(maxY, b.y + b.height)
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
 /** Live variables usadas para deduplicar ids de role labels en la capa de textos. */
 export function labelId(id: NodeId): string {
   return `label-${id}`
