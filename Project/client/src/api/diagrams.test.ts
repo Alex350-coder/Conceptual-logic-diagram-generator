@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { DiagramFull, DiagramSummary } from './diagrams'
-import { createDiagram, getDiagram, listDiagrams, updateDiagram } from './diagrams'
+import { ApiError, createDiagram, getDiagram, listDiagrams, updateDiagram } from './diagrams'
 
 const SUMMARY: DiagramSummary = {
   id: 'd1',
@@ -80,10 +80,12 @@ describe('diagrams api client', () => {
     expect(result).toEqual(updated)
   })
 
-  it('throws a typed error on non-ok responses', async () => {
+  it('throws a typed ApiError on non-ok responses', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: { code: 'NOT_FOUND' } }), { status: 404 }),
     )
-    await expect(getDiagram('missing')).rejects.toThrow(/404/)
+    const promise = getDiagram('missing')
+    await expect(promise).rejects.toThrow(ApiError)
+    await expect(promise).rejects.toMatchObject({ status: 404 })
   })
 })

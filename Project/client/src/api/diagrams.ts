@@ -20,13 +20,22 @@ export interface UpdateDiagramInput {
 
 const API_BASE = '/api/v1/diagrams'
 
+export class ApiError extends Error {
+  readonly status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`)
+    throw new ApiError(res.status, `HTTP ${res.status}`)
   }
   const body = (await res.json()) as { data: T }
   return body.data
