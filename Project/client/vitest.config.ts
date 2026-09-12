@@ -2,11 +2,13 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     environment: 'node',
+    environmentMatchGlobs: [['src/**/*.test.tsx', 'jsdom']],
+    setupFiles: ['src/test/setup.ts'],
     coverage: {
       provider: 'v8',
-      exclude: ['src/index.ts'],
+      exclude: ['src/index.ts', 'src/main.tsx'],
     },
   },
 })
