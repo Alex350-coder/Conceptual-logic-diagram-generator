@@ -108,8 +108,32 @@ function ShapeGeometry({ prim }: { prim: Extract<Primitive, { kind: string }> })
   }
 }
 
+function offsetPolyline(points: WorldPoint[], distance: number): WorldPoint[] {
+  if (points.length < 2) return points
+  const from = points[0]
+  const to = points[points.length - 1]
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const length = Math.hypot(dx, dy)
+  if (length === 0) return points
+  const nx = (-dy / length) * distance
+  const ny = (dx / length) * distance
+  return points.map((p) => ({ x: p.x + nx, y: p.y + ny }))
+}
+
 function PolylineView({ prim }: { prim: Extract<Primitive, { kind: 'polyline' }> }) {
   const points = prim.points.map((p) => `${p.x},${p.y}`).join(' ')
+  if (prim.emphasized) {
+    const inner = offsetPolyline(prim.points, 4)
+      .map((p) => `${p.x},${p.y}`)
+      .join(' ')
+    return (
+      <g>
+        <polyline points={points} style={ROLE_STYLES[prim.role]} data-emphasized="true" />
+        <polyline points={inner} style={ROLE_STYLES[prim.role]} />
+      </g>
+    )
+  }
   return <polyline points={points} style={ROLE_STYLES[prim.role]} />
 }
 

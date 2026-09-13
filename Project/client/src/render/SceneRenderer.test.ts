@@ -166,6 +166,42 @@ describe('sceneRenderer', () => {
     expect(name).toMatchObject({ kind: 'text', text: 'Cliente', underlined: false })
   })
 
+  it('renders cardinality labels (1/N/M) near the entity of each endpoint (D-CC-02)', () => {
+    const scene = sceneRenderer(makeModel(), viewport, size, options)
+    const labels = scene.layers.find((l) => l.id === 'labels')?.items ?? []
+    const relA = byId({ items: labels }, `card-${id(4)}-${id(1)}`)[0]
+    const relB = byId({ items: labels }, `card-${id(4)}-${id(2)}`)[0]
+    expect(relA).toMatchObject({ kind: 'text', text: '1', role: 'label' })
+    expect(relB).toMatchObject({ kind: 'text', text: 'N', role: 'label' })
+  })
+
+  it('labels relation names inside the diamond (not as separate edge label)', () => {
+    const scene = sceneRenderer(makeModel(), viewport, size, options)
+    const labels = scene.layers.find((l) => l.id === 'labels')?.items ?? []
+    const relName = byId({ items: labels }, `label-${id(4)}`)[0]
+    expect(relName).toMatchObject({ kind: 'text', text: 'genera' })
+  })
+
+  it('emphasizes edges with TOTAL participation (double line, D-CC-06) and ISA total (D-CC-05)', () => {
+    const scene = sceneRenderer(makeModel(), viewport, size, options)
+    const edges = scene.layers.find((l) => l.id === 'edges')?.items ?? []
+    const totalEdge = byId({ items: edges }, `edge-${id(1)}-${id(4)}`)[0]
+    const partialEdge = byId({ items: edges }, `edge-${id(2)}-${id(4)}`)[0]
+    expect(totalEdge).toMatchObject({ kind: 'polyline', emphasized: true })
+    expect(partialEdge).toMatchObject({ kind: 'polyline', emphasized: false })
+    const supertypeEdge = byId({ items: edges }, `edge-${id(1)}-${id(9)}`)[0]
+    expect(supertypeEdge).toMatchObject({ emphasized: true })
+  })
+
+  it('renders the ISA node with a visible D/O mark (D-CC-05)', () => {
+    const scene = sceneRenderer(makeModel(), viewport, size, options)
+    const labels = scene.layers.find((l) => l.id === 'labels')?.items ?? []
+    const isaNode = byId({ items: labels }, `label-${id(9)}`)[0]
+    expect(isaNode).toMatchObject({ kind: 'text', text: 'ISA' })
+    const disjointMark = byId({ items: labels }, `isa-do-${id(9)}`)[0]
+    expect(disjointMark).toMatchObject({ kind: 'text', text: 'D', role: 'label' })
+  })
+
   it('adds a selection layer for selected shapes', () => {
     const scene = sceneRenderer(makeModel(), viewport, size, {
       selected: new Set([id(2)]),

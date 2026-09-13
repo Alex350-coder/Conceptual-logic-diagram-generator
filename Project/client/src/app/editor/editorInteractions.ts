@@ -5,10 +5,14 @@ import type {
 } from 'react'
 import type {
   AttributeKind,
+  CardinalityLabel,
+  Completeness,
   ConceptualModel,
+  Disjointness,
   DomainCommand,
   Layout,
   NodeId,
+  Participation,
   Point,
 } from '@erd-studio/shared'
 import { newId, toNodeId } from '@erd-studio/shared'
@@ -16,7 +20,7 @@ import type { Rect } from '../../editor/geometry'
 import { SNAP_STEP, snapPoint } from '../../editor/grid'
 import { applyDelta, resolveMoveSet } from '../../editor/drag'
 import { marqueeRect, marqueeSelect, selectOnly, toggleSelection } from '../../editor/selection'
-import { modelToBounds } from '../../render/layout'
+import { modelToBounds, SHAPE_SIZES } from '../../render/layout'
 import type { Viewport, ViewportSize, WorldPoint } from '../../editor/viewport'
 import { screenToWorld } from '../../editor/viewport'
 import { sessionStore } from '../../store/sessionStore'
@@ -62,6 +66,31 @@ export function nextAttributeName(model: ConceptualModel | null, base = 'Atribut
   return ownedByBase.length === 0 ? base : `${base} ${ownedByBase.length + 1}`
 }
 
+/** Nombre por defecto auto-numerado para relaciones nuevas (Relacion, Relacion 2, …). */
+export function nextRelationshipName(model: ConceptualModel | null, base = 'Relacion'): string {
+  if (model === null) return base
+  const taken = model.relationships.filter((r) => {
+    const name = r.name ?? ''
+    return name === base || name.startsWith(`${base} `)
+  })
+  return taken.length === 0 ? base : `${base} ${taken.length + 1}`
+}
+
+/** Centroide de las entidades dadas (punto medio del rombo); null si ninguna tiene layout. */
+export function relationshipPlacement(
+  model: ConceptualModel,
+  entityIds: readonly NodeId[],
+): Point | null {
+  const bounds = modelToBounds(model)
+  const centers = entityIds
+    .map((id) => bounds.get(id))
+    .filter((rect): rect is Rect => rect !== undefined)
+    .map((rect) => ({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }))
+  if (centers.length === 0) return null
+  const sum = centers.reduce((acc, c) => ({ x: acc.x + c.x, y: acc.y + c.y }))
+  return { x: sum.x / centers.length, y: sum.y / centers.length }
+}
+
 export interface EditorInteractions {
   marquee: Rect | null
   /** Layout en vivo durante un drag (override local; se commitea un solo Op al soltar). */
@@ -77,6 +106,27 @@ export interface EditorInteractions {
   addChildAttribute(parentId: NodeId): void
   setAttributeKind(id: NodeId, kind: AttributeKind): void
   toggleIsKey(id: NodeId): void
+  createRelationship(entityIds: NodeId[]): void
+  setIsIdentifying(id: NodeId, isIdentifying: boolean): void
+  addRelationEndpoint(relationshipId: NodeId, entityId: NodeId): void
+  removeRelationEndpoint(relationshipId: NodeId, endpointIndex: number): void
+  moveRelationEndpoint(relationshipId: NodeId, endpointIndex: number, entityId: NodeId): void
+  setEndpointCardinality(
+    relationshipId: NodeId,
+    endpointIndex: number,
+    cardinality: CardinalityLabel,
+  ): void
+  setEndpointParticipation(
+    relationshipId: NodeId,
+    endpointIndex: number,
+    participation: Participation,
+  ): void
+  setEndpointRole(relationshipId: NodeId, endpointIndex: number, roleName: string | null): void
+  createSpecialization(supertypeId: NodeId): void
+  addSubtype(specializationId: NodeId, subtypeId: NodeId): void
+  removeSubtype(specializationId: NodeId, subtypeId: NodeId): void
+  setDisjointness(id: NodeId, disjointness: Disjointness): void
+  setCompleteness(id: NodeId, completeness: Completeness): void
   deleteSelected(): void
   handleCanvasPointerDown(event: ReactPointerEvent<SVGSVGElement>): void
   handleCanvasKeyDown(event: ReactKeyboardEvent<SVGSVGElement>): void
@@ -92,7 +142,7 @@ export function useEditorInteractions(
   const [renaming, setRenaming] = useState<{
     id: NodeId
     value: string
-    kind: 'entity' | 'attribute'
+    kind: 'entity' | 'attribute' | 'relationship'
   } | null>(null)
 
   const cleanupRef = useRef<(() => void) | null>(null)
@@ -253,6 +303,11 @@ export function useEditorInteractions(
       const attribute = m?.attributes.find((a) => a.id === id)
       if (attribute !== undefined) {
         setRenaming({ id, value: attribute.name, kind: 'attribute' })
+        return
+      }
+      const relationship = m?.relationships.find((r) => r.id === id)
+      if (relationship !== undefined) {
+        setRenaming({ id, value: relationship.name, kind: 'relationship' })
       }
     },
     [],
@@ -271,7 +326,9 @@ export function useEditorInteractions(
       const command: DomainCommand =
         renaming.kind === 'entity'
           ? { type: 'renameEntity', payload: { id: renaming.id, name } }
-          : { type: 'setAttributeName', payload: { id: renaming.id, name } }
+          : renaming.kind === 'attribute'
+            ? { type: 'setAttributeName', payload: { id: renaming.id, name } }
+            : { type: 'renameRelationship', payload: { id: renaming.id, name } }
       s.sendCommands([command])
     }
     setRenaming(null)
@@ -293,6 +350,127 @@ export function useEditorInteractions(
     [],
   )
 
+  const createRelationship = useCallback(
+    (entityIds: NodeId[]) => {
+      const m = currentModel()
+      if (m === null) return
+      const center = relationshipPlacement(m, entityIds)
+      if (center === null) return
+      const s = sessionStore.getState()
+      const id = newId()
+      const name = nextRelationshipName(m)
+      const movedCenter: Point = {
+        x: center.x - SHAPE_SIZES.relationship.width / 2,
+        y: center.y - SHAPE_SIZES.relationship.height / 2,
+      }
+      const create = s.sendCommands([
+        {
+          type: 'createRelationship',
+          payload: { id, name, endpoints: entityIds.map((entityId) => ({ entityId })) },
+        },
+        { type: 'moveNode', payload: { id, x: movedCenter.x, y: movedCenter.y } },
+      ])
+      if (create.ok) {
+        s.setSelection([id])
+        setRenaming({ id, value: name, kind: 'relationship' })
+      }
+    },
+    [],
+  )
+
+  const setIsIdentifying = useCallback((id: NodeId, isIdentifying: boolean) => {
+    sessionStore.getState().sendCommands([{ type: 'setIsIdentifying', payload: { id, isIdentifying } }])
+  }, [])
+
+  const addRelationEndpoint = useCallback((relationshipId: NodeId, entityId: NodeId) => {
+    sessionStore.getState().sendCommands([
+      { type: 'addEndpoint', payload: { relationshipId, entityId } },
+    ])
+  }, [])
+
+  const removeRelationEndpoint = useCallback((relationshipId: NodeId, endpointIndex: number) => {
+    sessionStore.getState().sendCommands([
+      { type: 'removeEndpoint', payload: { relationshipId, endpointIndex } },
+    ])
+  }, [])
+
+  const moveRelationEndpoint = useCallback(
+    (relationshipId: NodeId, endpointIndex: number, entityId: NodeId) => {
+      sessionStore.getState().sendCommands([
+        { type: 'moveEndpoint', payload: { relationshipId, endpointIndex, entityId } },
+      ])
+    },
+    [],
+  )
+
+  const setEndpointCardinality = useCallback(
+    (relationshipId: NodeId, endpointIndex: number, cardinality: CardinalityLabel) => {
+      sessionStore.getState().sendCommands([
+        { type: 'setEndpointCardinality', payload: { relationshipId, endpointIndex, cardinality } },
+      ])
+    },
+    [],
+  )
+
+  const setEndpointParticipation = useCallback(
+    (relationshipId: NodeId, endpointIndex: number, participation: Participation) => {
+      sessionStore.getState().sendCommands([
+        { type: 'setEndpointParticipation', payload: { relationshipId, endpointIndex, participation } },
+      ])
+    },
+    [],
+  )
+
+  const setEndpointRole = useCallback(
+    (relationshipId: NodeId, endpointIndex: number, roleName: string | null) => {
+      sessionStore.getState().sendCommands([
+        { type: 'setRole', payload: { relationshipId, endpointIndex, roleName } },
+      ])
+    },
+    [],
+  )
+
+  const createSpecialization = useCallback(
+    (supertypeId: NodeId) => {
+      const m = currentModel()
+      if (m === null) return
+      const supertypeBounds = modelToBounds(m).get(supertypeId)
+      if (supertypeBounds === undefined) return
+      const s = sessionStore.getState()
+      const id = newId()
+      const spec: Point = {
+        x: supertypeBounds.x + supertypeBounds.width + SHAPE_SIZES.entity.width / 2,
+        y: supertypeBounds.y + supertypeBounds.height / 2 - SHAPE_SIZES.specialization.height / 2,
+      }
+      const create = s.sendCommands([
+        { type: 'createSpecialization', payload: { id, supertypeId } },
+        { type: 'moveNode', payload: { id, x: spec.x, y: spec.y } },
+      ])
+      if (create.ok) s.setSelection([id])
+    },
+    [],
+  )
+
+  const addSubtype = useCallback((specializationId: NodeId, subtypeId: NodeId) => {
+    sessionStore.getState().sendCommands([
+      { type: 'addSubtype', payload: { specializationId, subtypeId } },
+    ])
+  }, [])
+
+  const removeSubtype = useCallback((specializationId: NodeId, subtypeId: NodeId) => {
+    sessionStore.getState().sendCommands([
+      { type: 'removeSubtype', payload: { specializationId, subtypeId } },
+    ])
+  }, [])
+
+  const setDisjointness = useCallback((id: NodeId, disjointness: Disjointness) => {
+    sessionStore.getState().sendCommands([{ type: 'setDisjointness', payload: { id, disjointness } }])
+  }, [])
+
+  const setCompleteness = useCallback((id: NodeId, completeness: Completeness) => {
+    sessionStore.getState().sendCommands([{ type: 'setCompleteness', payload: { id, completeness } }])
+  }, [])
+
   const deleteSelected = useCallback(() => {
     const s = sessionStore.getState()
     const selected = [...s.selection]
@@ -301,9 +479,13 @@ export function useEditorInteractions(
     if (m === undefined) return
     const entityIds = selected.filter((id) => m.entities.some((e) => e.id === id))
     const attributeIds = selected.filter((id) => m.attributes.some((a) => a.id === id))
+    const relationshipIds = selected.filter((id) => m.relationships.some((r) => r.id === id))
+    const specializationIds = selected.filter((id) => m.specializations.some((s) => s.id === id))
     const commands: DomainCommand[] = [
       ...entityIds.map((id) => ({ type: 'deleteEntity' as const, payload: { id } })),
       ...attributeIds.map((id) => ({ type: 'deleteAttribute' as const, payload: { id } })),
+      ...relationshipIds.map((id) => ({ type: 'deleteRelationship' as const, payload: { id } })),
+      ...specializationIds.map((id) => ({ type: 'deleteSpecialization' as const, payload: { id } })),
     ]
     if (commands.length === 0) return
     const result = s.sendCommands(commands)
@@ -397,6 +579,19 @@ export function useEditorInteractions(
     addChildAttribute,
     setAttributeKind,
     toggleIsKey,
+    createRelationship,
+    setIsIdentifying,
+    addRelationEndpoint,
+    removeRelationEndpoint,
+    moveRelationEndpoint,
+    setEndpointCardinality,
+    setEndpointParticipation,
+    setEndpointRole,
+    createSpecialization,
+    addSubtype,
+    removeSubtype,
+    setDisjointness,
+    setCompleteness,
     deleteSelected,
     handleCanvasPointerDown,
     handleCanvasKeyDown,

@@ -1,4 +1,4 @@
-import type { ConceptualModel, NodeId } from '@erd-studio/shared'
+import type { ConceptualModel, NodeId, Point } from '@erd-studio/shared'
 import { GRID_STEP, visibleGridLines } from '../editor/grid'
 import type { Rect } from '../editor/geometry'
 import type { Viewport, ViewportSize, WorldPoint } from '../editor/viewport'
@@ -76,20 +76,22 @@ export function buildEdgeLayer(
   boundsById: ReadonlyMap<NodeId, Rect>,
 ): Primitive[] {
   const items: Primitive[] = []
-  const edge = (from: NodeId, to: NodeId): void => {
+  const edge = (from: NodeId, to: NodeId, emphasized = false): void => {
     const a = boundsById.get(from)
     const b = boundsById.get(to)
     if (a === undefined || b === undefined) return
-    items.push(makePolyline('edge', `edge-${from}-${to}`, [positionOf(a), positionOf(b)]))
+    items.push(makePolyline('edge', `edge-${from}-${to}`, [positionOf(a), positionOf(b)], emphasized))
   }
 
   for (const r of model.relationships) {
     for (const ep of r.endpoints) {
-      edge(ep.entityId, r.id)
+      // D-CC-06: participación total -> línea doble.
+      edge(ep.entityId, r.id, ep.participation === 'TOTAL')
     }
   }
   for (const s of model.specializations) {
-    edge(s.supertypeId, s.id)
+    // D-CC-05: participación total del supertipo -> línea doble hacia el nodo ISA.
+    edge(s.supertypeId, s.id, s.completeness === 'TOTAL')
     for (const subtype of s.subtypeIds) {
       edge(s.id, subtype)
     }
@@ -146,10 +148,40 @@ export function buildLabelLayer(
     if (bounds === undefined) return
     items.push(makeText(role, labelId(id), bounds, text, underlined))
   }
+  const floatingText = (
+    id: string,
+    at: Point,
+    text: string,
+    role: PrimitiveRole = 'label',
+  ): void => {
+    items.push(makeText(role, id, { x: at.x, y: at.y, width: 0, height: 0 }, text))
+  }
   for (const e of model.entities) label(e.id, e.name, 'label')
   for (const r of model.relationships) label(r.id, r.name, 'label')
   for (const a of model.attributes) label(a.id, a.name, 'label', a.isKey)
-  for (const s of model.specializations) label(s.id, s.disjointness, 'label')
+
+  // D-CC-05: nodo ISA con etiqueta "ISA"; la marca D/O se dibuja al borde del nodo.
+  for (const s of model.specializations) {
+    label(s.id, 'ISA', 'label')
+    const bounds = boundsById.get(s.id)
+    if (bounds === undefined) continue
+    const mark = s.disjointness === 'OVERLAP' ? 'O' : 'D'
+    floatingText(`isa-do-${s.id}`, { x: bounds.x, y: bounds.y - 14 }, mark)
+  }
+
+  // D-CC-02: cardinalidad 1/N/M junto a la entidad de cada extremo.
+  for (const r of model.relationships) {
+    const rel = boundsById.get(r.id)
+    if (rel === undefined) continue
+    for (const ep of r.endpoints) {
+      const ent = boundsById.get(ep.entityId)
+      if (ent === undefined) continue
+      const from = positionOf(ent)
+      const to = positionOf(rel)
+      const at = { x: from.x + (to.x - from.x) * 0.35, y: from.y + (to.y - from.y) * 0.35 }
+      floatingText(`card-${r.id}-${ep.entityId}`, at, ep.cardinality)
+    }
+  }
   return items
 }
 
