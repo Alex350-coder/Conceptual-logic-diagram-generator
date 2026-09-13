@@ -567,6 +567,16 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
     expect(sessionStore.getState().session?.model.relationships).toHaveLength(0)
   })
 
+  it('restaura el viewportHint del documento al abrir (P8.8)', async () => {
+    const doc = envelope()
+    doc.data.viewportHint = { cx: 123, cy: -45, zoom: 0.6 }
+    vi.stubGlobal('fetch', stubFetch(diagramResponse('Personas', doc)))
+    setup()
+    await waitFor(() => {
+      expect(sessionStore.getState().viewport).toEqual({ cx: 123, cy: -45, zoom: 0.6 })
+    })
+  })
+
   it('actualiza el indicador de guardado al mutar el modelo (P8.7)', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()

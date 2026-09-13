@@ -1,6 +1,12 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
-import type { ConceptualModel, DiagramId, DocumentEnvelope, NodeId } from '@erd-studio/shared'
+import type {
+  ConceptualModel,
+  DiagramId,
+  DocumentEnvelope,
+  NodeId,
+  ViewportHint,
+} from '@erd-studio/shared'
 import {
   applyCommands,
   canRedo,
@@ -50,6 +56,8 @@ export interface SessionState {
   selection: ReadonlySet<NodeId>
   /** Cámara del editor (UI state). */
   viewport: Viewport
+  /** Snapshot de vista persistido en el documento (Architecture.md §5.1). null si el documento no lo trae. */
+  viewportHint: ViewportHint | null
   // derived
   isDirty: boolean
   canUndo: boolean
@@ -72,14 +80,14 @@ export interface SessionActions {
 
 export type SessionStoreApi = StoreApi<SessionState & SessionActions>
 
-function toDocumentEnvelope(model: ConceptualModel): DocumentEnvelope {
+function toDocumentEnvelope(model: ConceptualModel, viewportHint: ViewportHint | null): DocumentEnvelope {
   return {
     schemaVersion: 1,
     kind: 'erd-studio/diagram',
-    data: {
-      model,
-      logical: null,
-    },
+    data:
+      viewportHint === null
+        ? { model, logical: null }
+        : { model, logical: null, viewportHint },
   }
 }
 
@@ -97,6 +105,7 @@ function initial(): SessionState {
     conflict: null,
     selection: new Set<NodeId>(),
     viewport: createViewport(),
+    viewportHint: null,
     isDirty: false,
     canUndo: false,
     canRedo: false,
@@ -161,6 +170,7 @@ export function createSessionStore(): SessionStoreApi {
         conflict: null,
         selection: new Set<NodeId>(),
         viewport: createViewport(),
+        viewportHint: envelope.data.viewportHint ?? null,
         isDirty: false,
         canUndo: false,
         canRedo: false,
@@ -220,7 +230,10 @@ export function createSessionStore(): SessionStoreApi {
     },
 
     setViewport: (viewport) => {
-      set({ viewport })
+      set((s) => {
+        const virgin = s.viewportHint === null && viewport.cx === 0 && viewport.cy === 0 && viewport.zoom === 1
+        return { viewport, viewportHint: virgin ? null : viewport }
+      })
     },
 
     persist: async () => {
@@ -231,7 +244,7 @@ export function createSessionStore(): SessionStoreApi {
       set({ saveStatus: 'saving' })
       try {
         const updated = await updateDiagram(toDiagramId(id), serverVersion, {
-          document: toDocumentEnvelope(session.model),
+          document: toDocumentEnvelope(session.model, get().viewportHint),
         })
         set({
           serverVersion: updated.version,
@@ -265,7 +278,7 @@ export function createSessionStore(): SessionStoreApi {
       try {
         const updated = await updateDiagram(toDiagramId(id), serverVersion, {
           name: trimmed,
-          document: toDocumentEnvelope(session.model),
+          document: toDocumentEnvelope(session.model, get().viewportHint),
         })
         set({
           name: updated.name,

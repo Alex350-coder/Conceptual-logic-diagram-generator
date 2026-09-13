@@ -11,7 +11,7 @@ import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, sceneBounds } from '../../render/layout'
 import type { Rect } from '../../editor/geometry'
 import type { Viewport, ViewportSize } from '../../editor/viewport'
-import { createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
+import { clampZoom, createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
 import { sessionAutosave, startAutosave } from '../../store/autosave'
 import {
@@ -53,10 +53,16 @@ export function EditorPage() {
   useEffect(() => {
     if (status !== 'ready' || model === null || fittedRef.current) return
     fittedRef.current = true
+    const store = sessionStore.getState()
+    const hint = store.viewportHint
+    if (hint !== null) {
+      store.setViewport({ cx: hint.cx, cy: hint.cy, zoom: clampZoom(hint.zoom) })
+      return
+    }
     const bounds = sceneBounds(allBounds)
-    sessionStore
-      .getState()
-      .setViewport(bounds === null ? createViewport() : fitRect(sessionStore.getState().viewport, size, bounds))
+    store.setViewport(
+      bounds === null ? createViewport() : fitRect(store.viewport, size, bounds),
+    )
   }, [status, model, size, allBounds])
 
   useEffect(() => {

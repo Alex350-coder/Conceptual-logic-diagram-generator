@@ -118,6 +118,65 @@ describe('sessionStore', () => {
     expect(s.revision).toBe(0)
   })
 
+  it('loadFromEnvelope captura el viewportHint del documento (P8.8)', () => {
+    const doc = envelope()
+    doc.data.viewportHint = { cx: 120, cy: -40, zoom: 0.5 }
+    api.getState().loadFromEnvelope(diagramId, 'Personas', doc)
+    expect(api.getState().viewportHint).toEqual({ cx: 120, cy: -40, zoom: 0.5 })
+  })
+
+  it('setViewport persiste el hint solo tras salir de la cámara virgen (P8.8)', () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    expect(api.getState().viewportHint).toBeNull()
+    api.getState().setViewport({ cx: 0, cy: 0, zoom: 1 })
+    expect(api.getState().viewportHint).toBeNull()
+    api.getState().setViewport({ cx: 40, cy: 25, zoom: 0.8 })
+    expect(api.getState().viewportHint).toEqual({ cx: 40, cy: 25, zoom: 0.8 })
+  })
+
+  it('persist envía el viewportHint actual en el envelope (P8.8)', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    api.getState().setViewport({ cx: 55, cy: 66, zoom: 2 })
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { id: diagramId, name: 'Personas', version: 2, document: envelope() } }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    await api.getState().persist()
+
+    const fetchMock = vi.mocked(fetch)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as { document: { data: Record<string, unknown> } }
+    expect(body.document.data.viewportHint).toEqual({ cx: 55, cy: 66, zoom: 2 })
+  })
+
+  it('persist omite viewportHint cuando la cámara nunca se movió (P8.8)', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { id: diagramId, name: 'Personas', version: 2, document: envelope() } }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    await api.getState().persist()
+
+    const fetchMock = vi.mocked(fetch)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as { document: { data: Record<string, unknown> } }
+    expect(body.document.data.viewportHint).toBeUndefined()
+  })
+
   it('a command batch records exactly one history operation and undoes as one', () => {
     api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
     const entityId: NodeId = newId()
