@@ -75,8 +75,12 @@ export interface SessionActions {
   setViewport(viewport: Viewport): void
   persist(opts?: { keepalive?: boolean }): Promise<void>
   rename(name: string): Promise<void>
+  resolveConflict(decision: ConflictDecision): Promise<void>
   reset(): void
 }
+
+/** Resolución del conflicto 409 (IPC.md §5): el usuario decide qué conservar. */
+export type ConflictDecision = 'reload' | 'keep' | 'overwrite'
 
 export type SessionStoreApi = StoreApi<SessionState & SessionActions>
 
@@ -296,6 +300,57 @@ export function createSessionStore(): SessionStoreApi {
             saveStatus: 'error',
             conflict: {
               localVersion: serverVersion,
+              serverVersion: err.serverVersion,
+            },
+          })
+          return
+        }
+        set({ saveStatus: 'error' })
+      }
+    },
+
+    resolveConflict: async (decision) => {
+      const { id, session, name, conflict } = get()
+      if (id === null || conflict === null) {
+        return
+      }
+      if (decision === 'reload') {
+        set({ status: 'loading', error: null })
+        try {
+          const diagram = await getDiagram(toDiagramId(id))
+          const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
+          get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope, diagram.version)
+        } catch (error) {
+          set({
+            status: error instanceof ApiError && error.status === 404 ? 'notFound' : 'error',
+            error: error instanceof Error ? error.message : 'Error al recargar el diagrama',
+          })
+        }
+        return
+      }
+      if (session === null) {
+        return
+      }
+      set({ saveStatus: 'saving' })
+      try {
+        const updated = await updateDiagram(toDiagramId(id), conflict.serverVersion, {
+          name,
+          document: toDocumentEnvelope(session.model, get().viewportHint),
+        })
+        set({
+          serverVersion: updated.version,
+          lastPersistedRevision: get().revision,
+          name: updated.name,
+          saveStatus: 'saved',
+          isDirty: false,
+          conflict: null,
+        })
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409 && err.serverVersion !== undefined) {
+          set({
+            saveStatus: 'error',
+            conflict: {
+              localVersion: conflict.serverVersion,
               serverVersion: err.serverVersion,
             },
           })

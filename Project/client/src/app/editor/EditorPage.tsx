@@ -13,6 +13,7 @@ import type { Rect } from '../../editor/geometry'
 import type { Viewport, ViewportSize } from '../../editor/viewport'
 import { clampZoom, createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
+import type { ConflictDecision } from '../../store/sessionStore'
 import { sessionAutosave, startAutosave } from '../../store/autosave'
 import {
   useEditorInteractions,
@@ -53,25 +54,32 @@ export function EditorPage() {
 
   const blocker = useBlocker(isDirty)
   const [discardDialog, setDiscardDialog] = useState(false)
+  const conflict = useSessionStore((s) => s.conflict)
 
   useEffect(() => {
-    if (blocker.state !== 'blocked' || discardDialog) return
+    if (blocker.state !== 'blocked' || discardDialog || sessionStore.getState().conflict !== null) {
+      return
+    }
     let cancelled = false
     void sessionStore
       .getState()
       .persist()
       .finally(() => {
         if (cancelled) return
-        if (sessionStore.getState().isDirty) {
+        const state = sessionStore.getState()
+        if (state.isDirty && state.conflict === null) {
           setDiscardDialog(true)
-        } else {
-          blocker.proceed()
         }
       })
     return () => {
       cancelled = true
     }
   }, [blocker, blocker.state, discardDialog])
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked' || isDirty || conflict !== null || discardDialog) return
+    blocker.proceed()
+  }, [blocker, isDirty, conflict, discardDialog])
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -196,7 +204,15 @@ export function EditorPage() {
           />
         ) : null}
       </main>
-      {discardDialog && blocker.state === 'blocked' ? (
+      {conflict !== null ? (
+        <ConflictDialog
+          localVersion={conflict.localVersion}
+          serverVersion={conflict.serverVersion}
+          onResolve={(decision) => {
+            void sessionStore.getState().resolveConflict(decision)
+          }}
+        />
+      ) : discardDialog && blocker.state === 'blocked' ? (
         <SaveBlockDialog
           onDiscard={() => {
             setDiscardDialog(false)
@@ -235,6 +251,51 @@ function SaveBlockDialog({
           </button>
           <button type="button" className="danger" onClick={onDiscard}>
             Descartar y continuar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ConflictDialog({
+  localVersion,
+  serverVersion,
+  onResolve,
+}: {
+  localVersion: number
+  serverVersion: number
+  onResolve: (decision: ConflictDecision) => void
+}) {
+  return (
+    <div className="conflict-overlay">
+      <div
+        className="conflict-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conflict-title"
+      >
+        <h2 id="conflict-title">Conflicto de versión</h2>
+        <p>El diagrama cambió en el servidor. Elige cómo resolver el conflicto.</p>
+        <dl className="conflict-versions">
+          <div>
+            <dt>Tu versión local</dt>
+            <dd>v{localVersion}</dd>
+          </div>
+          <div>
+            <dt>Versión remota</dt>
+            <dd>v{serverVersion}</dd>
+          </div>
+        </dl>
+        <div className="conflict-actions">
+          <button type="button" onClick={() => onResolve('reload')}>
+            Recargar remoto
+          </button>
+          <button type="button" onClick={() => onResolve('keep')}>
+            Conservar local
+          </button>
+          <button type="button" className="danger" onClick={() => onResolve('overwrite')}>
+            Sobrescribir remoto
           </button>
         </div>
       </div>
