@@ -60,7 +60,7 @@ describe('EditorPage', () => {
     expect(screen.getByText('Cargando diagrama…')).toBeDefined()
     await waitFor(() => {
       expect(screen.getByText('Personas')).toBeDefined()
-      expect(screen.getByText(/guardado/)).toBeDefined()
+      expect(screen.getByText('Guardado')).toBeDefined()
     })
   })
 
@@ -565,6 +565,63 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
     expect(sessionStore.getState().session?.model.relationships).toHaveLength(1)
     fireEvent.keyDown(scene, { key: 'Delete' })
     expect(sessionStore.getState().session?.model.relationships).toHaveLength(0)
+  })
+
+  it('actualiza el indicador de guardado al mutar el modelo (P8.7)', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    expect(screen.getByText('Sin guardar')).toBeDefined()
+  })
+
+  it('Ctrl+S persiste de inmediato y vuelve el indicador a Guardado (P8.7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ...diagramResponse('Personas'), version: 2 } })),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    expect(screen.getByText('Sin guardar')).toBeDefined()
+    await userEvent.keyboard('{Control>}s{/Control}')
+    await waitFor(() => {
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[1]).toMatchObject({ method: 'PUT' })
+  })
+
+  it('renombra el diagrama por doble clic en el título (P8.7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ...diagramResponse('Clientes'), version: 2 } })),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText('Personas')).toBeDefined()
+    })
+    await userEvent.dblClick(screen.getByTestId('diagram-title'))
+    const input = await screen.findByRole('textbox', { name: 'Nombre del diagrama' })
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Clientes')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => {
+      expect(screen.getByText('Clientes')).toBeDefined()
+    })
+    expect(sessionStore.getState().name).toBe('Clientes')
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[1]).toMatchObject({ method: 'PUT' })
   })
 })
 

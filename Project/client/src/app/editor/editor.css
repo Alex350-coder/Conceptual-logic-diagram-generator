@@ -34,15 +34,50 @@
   gap: 0.75rem;
 }
 
-.editor-save-status {
-  font-size: 0.85rem;
+.editor-title {
+  font-weight: 600;
+  cursor: text;
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
 }
 
-.editor-save-status.saved {
+.editor-title:hover {
+  background: #f3f4f6;
+}
+
+.editor-title-input {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+  width: 12rem;
+}
+
+.editor-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
   color: #6b7280;
 }
 
-.editor-save-status.dirty {
+.editor-save-indicator .editor-save-icon {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.editor-save-indicator.saved {
+  color: #15803d;
+}
+
+.editor-save-indicator.saving {
+  color: #1d4ed8;
+}
+
+.editor-save-indicator.dirty {
   color: #b45309;
 }
 

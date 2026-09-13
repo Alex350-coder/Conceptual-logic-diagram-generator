@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
-import type { DiagramId, DocumentEnvelope, NodeId } from '@erd-studio/shared'
+import type { ConceptualModel, DiagramId, DocumentEnvelope, NodeId } from '@erd-studio/shared'
 import {
   applyCommands,
   canRedo,
@@ -66,10 +66,22 @@ export interface SessionActions {
   setSelection(ids: readonly NodeId[]): void
   setViewport(viewport: Viewport): void
   persist(): Promise<void>
+  rename(name: string): Promise<void>
   reset(): void
 }
 
 export type SessionStoreApi = StoreApi<SessionState & SessionActions>
+
+function toDocumentEnvelope(model: ConceptualModel): DocumentEnvelope {
+  return {
+    schemaVersion: 1,
+    kind: 'erd-studio/diagram',
+    data: {
+      model,
+      logical: null,
+    },
+  }
+}
 
 function initial(): SessionState {
   return {
@@ -218,16 +230,45 @@ export function createSessionStore(): SessionStoreApi {
       }
       set({ saveStatus: 'saving' })
       try {
-        const document: DocumentEnvelope = {
-          schemaVersion: 1,
-          kind: 'erd-studio/diagram',
-          data: {
-            model: session.model,
-            logical: null,
-          },
-        }
-        const updated = await updateDiagram(toDiagramId(id), serverVersion, { document })
+        const updated = await updateDiagram(toDiagramId(id), serverVersion, {
+          document: toDocumentEnvelope(session.model),
+        })
         set({
+          serverVersion: updated.version,
+          lastPersistedRevision: get().revision,
+          saveStatus: 'saved',
+          isDirty: false,
+          conflict: null,
+        })
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409 && err.serverVersion !== undefined) {
+          set({
+            saveStatus: 'error',
+            conflict: {
+              localVersion: serverVersion,
+              serverVersion: err.serverVersion,
+            },
+          })
+          return
+        }
+        set({ saveStatus: 'error' })
+      }
+    },
+
+    rename: async (name) => {
+      const trimmed = name.trim()
+      const { id, session, serverVersion } = get()
+      if (id === null || session === null || trimmed === '') {
+        return
+      }
+      set({ saveStatus: 'saving' })
+      try {
+        const updated = await updateDiagram(toDiagramId(id), serverVersion, {
+          name: trimmed,
+          document: toDocumentEnvelope(session.model),
+        })
+        set({
+          name: updated.name,
           serverVersion: updated.version,
           lastPersistedRevision: get().revision,
           saveStatus: 'saved',

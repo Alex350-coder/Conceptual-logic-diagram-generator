@@ -13,6 +13,7 @@ import type { Rect } from '../../editor/geometry'
 import type { Viewport, ViewportSize } from '../../editor/viewport'
 import { createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
+import { sessionAutosave, startAutosave } from '../../store/autosave'
 import {
   useEditorInteractions,
   type EditorInteractions,
@@ -24,7 +25,6 @@ import './editor.css'
 export function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const status = useSessionStore((s) => s.status)
-  const isDirty = useSessionStore((s) => s.isDirty)
   const canUndo = useSessionStore((s) => s.canUndo)
   const canRedo = useSessionStore((s) => s.canRedo)
   const viewport = useSessionStore((s) => s.viewport)
@@ -44,6 +44,11 @@ export function EditorPage() {
     fittedRef.current = false
     void sessionStore.getState().load(id)
   }, [id])
+
+  useEffect(() => {
+    const stop = startAutosave()
+    return () => stop()
+  }, [])
 
   useEffect(() => {
     if (status !== 'ready' || model === null || fittedRef.current) return
@@ -73,6 +78,9 @@ export function EditorPage() {
       } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
         event.preventDefault()
         sessionStore.getState().redo()
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        void sessionAutosave.flush()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -94,7 +102,6 @@ export function EditorPage() {
   return (
     <div className="editor-page">
       <EditorHeader
-        isDirty={isDirty}
         canUndo={canUndo}
         canRedo={canRedo}
         viewport={viewport}
@@ -346,12 +353,10 @@ function InlineRename({
 }
 
 function EditorHeader({
-  isDirty,
   canUndo,
   canRedo,
   viewport,
 }: {
-  isDirty: boolean
   canUndo: boolean
   canRedo: boolean
   viewport: Viewport
@@ -360,9 +365,8 @@ function EditorHeader({
     <header className="editor-header">
       <span className="editor-menu-area">
         <DiagramMenu />
-        <span className={`editor-save-status${isDirty ? ' dirty' : ' saved'}`}>
-          {isDirty ? '• sin guardar' : '• guardado'}
-        </span>
+        <EditableTitle />
+        <SaveIndicator />
       </span>
       <span className="editor-actions">
         <button
@@ -397,6 +401,91 @@ function zoomCanvas(factor: number) {
   const s = sessionStore.getState()
   const center: ViewportSize = { width: 800, height: 600 }
   s.setViewport(zoomAt(s.viewport, center, { x: center.width / 2, y: center.height / 2 }, factor))
+}
+
+function EditableTitle() {
+  const name = useSessionStore((s) => s.name)
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(name)
+
+  const startEdit = () => {
+    setValue(name)
+    setEditing(true)
+  }
+
+  const commit = () => {
+    setEditing(false)
+    const next = value.trim()
+    if (next === '' || next === name) return
+    void sessionStore.getState().rename(next)
+  }
+
+  const cancel = () => {
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <span
+        className="editor-title"
+        title="Doble clic para renombrar"
+        data-testid="diagram-title"
+        onDoubleClick={startEdit}
+      >
+        {name}
+      </span>
+    )
+  }
+  return (
+    <input
+      className="editor-title-input"
+      role="textbox"
+      aria-label="Nombre del diagrama"
+      value={value}
+      autoFocus
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={cancel}
+      onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          commit()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          cancel()
+        }
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
+  )
+}
+
+function SaveIndicator() {
+  const status = useSessionStore((s) => s.status)
+  const saveStatus = useSessionStore((s) => s.saveStatus)
+  const isDirty = useSessionStore((s) => s.isDirty)
+
+  if (status !== 'ready') return null
+
+  let label = 'Guardado'
+  let tone = 'saved'
+  if (saveStatus === 'saving') {
+    label = 'Guardando…'
+    tone = 'saving'
+  } else if (saveStatus === 'error' || isDirty) {
+    label = 'Sin guardar'
+    tone = 'dirty'
+  }
+
+  return (
+    <span
+      className={`editor-save-indicator ${tone}`}
+      aria-live="polite"
+      data-save-status={saveStatus}
+    >
+      <span className="editor-save-icon" aria-hidden="true" />
+      {label}
+    </span>
+  )
 }
 
 const DEFAULT_SIZE: ViewportSize = { width: 800, height: 600 }

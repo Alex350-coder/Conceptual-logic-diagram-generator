@@ -28,7 +28,6 @@ export function DiagramMenu() {
   const saveStatus = useSessionStore((s) => s.saveStatus)
   const navigate = useNavigate()
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const name = useSessionStore((s) => s.name)
 
   const applyResult = useCallback((items: DiagramSummary[]) => {
     setList(items)
@@ -100,7 +99,7 @@ export function DiagramMenu() {
         aria-label="Cambiar de diagrama"
         onClick={() => setOpen((prev) => !prev)}
       >
-        <span className="diagram-menu-title">{name || 'Sin título'}</span>
+        <span className="diagram-menu-title">Diagramas</span>
         <span className="diagram-menu-caret" aria-hidden="true">
           ▾
         </span>

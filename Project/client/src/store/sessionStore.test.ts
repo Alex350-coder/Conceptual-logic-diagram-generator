@@ -235,6 +235,62 @@ it('exposes the raw session for engine consumers', () => {
     expect(s.conflict).toEqual({ localVersion: 2, serverVersion: 9 })
   })
 
+  it('rename PUTs name+documento y actualiza localmente la versión', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { id: diagramId, name: 'Clientes', version: 2, document: envelope() } }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getState().rename('Cliente')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/diagrams/${diagramId}`,
+      expect.objectContaining({ method: 'PUT' }),
+    )
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as { name: string }
+    expect(body.name).toBe('Cliente')
+    const s = api.getState()
+    expect(s.name).toBe('Clientes')
+    expect(s.serverVersion).toBe(2)
+    expect(s.saveStatus).toBe('saved')
+    expect(s.isDirty).toBe(false)
+  })
+
+  it('rename captura un 409 sin mutar el nombre local', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }), {
+          status: 409,
+        }),
+      ),
+    )
+
+    await api.getState().rename('Clientes')
+
+    const s = api.getState()
+    expect(s.name).toBe('Personas')
+    expect(s.saveStatus).toBe('error')
+    expect(s.conflict).toEqual({ localVersion: 1, serverVersion: 9 })
+  })
+
+  it('rename ignora nombres vacíos y no hace fetch', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getState().rename('   ')
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(api.getState().name).toBe('Personas')
+  })
+
   it('switchDiagram flusha cambios pendientes y carga el diagrama objetivo', async () => {
     api.getState().loadFromEnvelope(diagramId, 'A', envelope(), 1)
     dirtyWithEntity(api)
