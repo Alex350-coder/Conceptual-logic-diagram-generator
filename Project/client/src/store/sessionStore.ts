@@ -16,15 +16,25 @@ import {
   type EditorSession,
 } from '@erd-studio/shared'
 import { parseDiagramDocument } from '@erd-studio/shared'
-import { ApiError, getDiagram } from '../api/diagrams'
+import { ApiError, getDiagram, updateDiagram } from '../api/diagrams'
 import { createViewport, type Viewport } from '../editor/viewport'
 
 /** Estados del editor (Routes.md §2.2, gestionados por sessionStore). */
 export type EditorStatus = 'idle' | 'loading' | 'ready' | 'notFound' | 'invalid' | 'error'
 
+/** Estado de persistencia (StateManagement.md §4). */
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+/** Conflicto de version 409 pendiente de decisión del usuario (IPC.md §5). */
+export interface ConflictState {
+  localVersion: number
+  serverVersion: number
+}
+
 export interface SessionState {
   status: EditorStatus
   error: string | null
+  id: DiagramId | null
   name: string
   /** Sesión de dominio (modelo + historial). null hasta el primer load. */
   session: EditorSession | null
@@ -32,6 +42,10 @@ export interface SessionState {
   revision: number
   /** Última revisión persistida; isDirty = revision !== lastPersistedRevision. */
   lastPersistedRevision: number
+  /** Versión conocida del servidor (DiagramFull.version). */
+  serverVersion: number
+  saveStatus: SaveStatus
+  conflict: ConflictState | null
   /** Selección de nodos (UI state, nunca serializada). */
   selection: ReadonlySet<NodeId>
   /** Cámara del editor (UI state). */
@@ -44,12 +58,13 @@ export interface SessionState {
 
 export interface SessionActions {
   load(id: string): Promise<void>
-  loadFromEnvelope(id: DiagramId, name: string, document: DocumentEnvelope): void
+  loadFromEnvelope(id: DiagramId, name: string, document: DocumentEnvelope, version?: number): void
   sendCommands(commands: DomainCommand[]): CommandResult
   undo(): void
   redo(): void
   setSelection(ids: readonly NodeId[]): void
   setViewport(viewport: Viewport): void
+  persist(): Promise<void>
   reset(): void
 }
 
@@ -59,10 +74,14 @@ function initial(): SessionState {
   return {
     status: 'idle',
     error: null,
+    id: null,
     name: '',
     session: null,
     revision: 0,
     lastPersistedRevision: 0,
+    serverVersion: 0,
+    saveStatus: 'idle',
+    conflict: null,
     selection: new Set<NodeId>(),
     viewport: createViewport(),
     isDirty: false,
@@ -81,7 +100,7 @@ export function createSessionStore(): SessionStoreApi {
       try {
         const diagram = await getDiagram(toDiagramId(id))
         const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
-        get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope)
+        get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope, diagram.version)
       } catch (error) {
         const status: EditorStatus = isDomainError(error)
           ? 'invalid'
@@ -92,23 +111,26 @@ export function createSessionStore(): SessionStoreApi {
       }
     },
 
-    loadFromEnvelope: (id, name, document) => {
+    loadFromEnvelope: (id, name, document, version = 1) => {
       const envelope = parseDiagramDocument(JSON.stringify(document))
       const session = createEditorSession(envelope.data.model)
       set({
         status: 'ready',
         error: null,
+        id,
         name,
         session,
         revision: 0,
         lastPersistedRevision: 0,
+        serverVersion: version,
+        saveStatus: 'saved',
+        conflict: null,
         selection: new Set<NodeId>(),
         viewport: createViewport(),
         isDirty: false,
         canUndo: false,
         canRedo: false,
       })
-      void id
     },
 
     sendCommands: (commands) => {
@@ -165,6 +187,44 @@ export function createSessionStore(): SessionStoreApi {
 
     setViewport: (viewport) => {
       set({ viewport })
+    },
+
+    persist: async () => {
+      const { id, session, revision, serverVersion } = get()
+      if (id === null || session === null || revision === get().lastPersistedRevision) {
+        return
+      }
+      set({ saveStatus: 'saving' })
+      try {
+        const document: DocumentEnvelope = {
+          schemaVersion: 1,
+          kind: 'erd-studio/diagram',
+          data: {
+            model: session.model,
+            logical: null,
+          },
+        }
+        const updated = await updateDiagram(toDiagramId(id), serverVersion, { document })
+        set({
+          serverVersion: updated.version,
+          lastPersistedRevision: get().revision,
+          saveStatus: 'saved',
+          isDirty: false,
+          conflict: null,
+        })
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409 && err.serverVersion !== undefined) {
+          set({
+            saveStatus: 'error',
+            conflict: {
+              localVersion: serverVersion,
+              serverVersion: err.serverVersion,
+            },
+          })
+          return
+        }
+        set({ saveStatus: 'error' })
+      }
     },
 
     reset: () => {

@@ -33,6 +33,12 @@ function fetchStatus(status: number): void {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })))
 }
 
+function dirtyWithEntity(store: SessionStoreApi): void {
+  store.getState().sendCommands([
+    { type: 'createEntity', payload: { id: newId(), name: 'Persona' } },
+  ])
+}
+
 describe('sessionStore', () => {
   let api: SessionStoreApi
 
@@ -49,8 +55,10 @@ describe('sessionStore', () => {
     const s = api.getState()
     expect(s.status).toBe('ready')
     expect(s.name).toBe('Personas')
+    expect(s.id).toBe(diagramId)
     expect(s.revision).toBe(0)
     expect(s.isDirty).toBe(false)
+    expect(s.saveStatus).toBe('saved')
     expect(s.selection.size).toBe(0)
   })
 
@@ -155,5 +163,74 @@ it('exposes the raw session for engine consumers', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network down')))
     await api.getState().load(diagramId)
     expect(api.getState().status).toBe('error')
+  })
+
+  it('persist skips network when the session is already saved', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    await api.getState().persist()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(api.getState().saveStatus).toBe('saved')
+  })
+
+  it('persist PUTs the document and marks the session saved', async () => {
+    const store = api
+    store.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 3)
+    dirtyWithEntity(store)
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { id: diagramId, name: 'Personas', version: 4, document: envelope() } }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await store.getState().persist()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/diagrams/${diagramId}`,
+      expect.objectContaining({ method: 'PUT' }),
+    )
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toMatchObject({ version: 3 })
+    const s = store.getState()
+    expect(s.saveStatus).toBe('saved')
+    expect(s.serverVersion).toBe(4)
+    expect(s.isDirty).toBe(false)
+    expect(s.lastPersistedRevision).toBe(s.revision)
+  })
+
+  it('persist failure keeps the session dirty and surfaces error status', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    dirtyWithEntity(api)
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network down')))
+
+    await api.getState().persist()
+
+    const s = api.getState()
+    expect(s.saveStatus).toBe('error')
+    expect(s.isDirty).toBe(true)
+    expect(s.conflict).toBeNull()
+  })
+
+  it('persist captures a 409 conflict with both versions', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 2)
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+          { status: 409 },
+        ),
+      ),
+    )
+
+    await api.getState().persist()
+
+    const s = api.getState()
+    expect(s.saveStatus).toBe('error')
+    expect(s.conflict).toEqual({ localVersion: 2, serverVersion: 9 })
   })
 })
