@@ -456,7 +456,7 @@ describe('EditorPage', () => {
 it('crea una relación entre 2 entidades seleccionadas y la selecciona', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()
-    const scene = await waitForScene()
+    await waitForScene()
     await selectTwoEntities()
     expect(sessionStore.getState().selection.size).toBe(2)
 
@@ -476,7 +476,7 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
   it('renombra una relación seleccionada desde el inspector', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()
-    const scene = await waitForScene()
+    await waitForScene()
     await selectTwoEntities()
     await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
 
@@ -490,7 +490,7 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
   it('cambia cardinalidad y participación de un extremo desde el inspector', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()
-    const scene = await waitForScene()
+    await waitForScene()
     await selectTwoEntities()
     await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
 
@@ -506,7 +506,7 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
   it('alterna una relación identificadora (T7-02)', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()
-    const scene = await waitForScene()
+    await waitForScene()
     await selectTwoEntities()
     await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
 
@@ -519,7 +519,7 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
   it('añade atributos a la relación seleccionada (T7-03)', async () => {
     vi.stubGlobal('fetch', stubFetch(diagramResponse()))
     setup()
-    const scene = await waitForScene()
+    await waitForScene()
     await selectTwoEntities()
     await userEvent.click(await screen.findByRole('button', { name: 'Nueva relación' }))
 

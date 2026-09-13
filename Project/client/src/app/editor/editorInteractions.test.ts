@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createEmptyConceptualModel, toNodeId, type NodeId } from '@erd-studio/shared'
+import { createEmptyConceptualModel, toNodeId } from '@erd-studio/shared'
 import { layoutToCommands, nextRelationshipName, relationshipPlacement } from './editorInteractions'
 
 const a = toNodeId('a')
