@@ -58,6 +58,7 @@ export interface SessionState {
 
 export interface SessionActions {
   load(id: string): Promise<void>
+  switchDiagram(id: DiagramId): Promise<void>
   loadFromEnvelope(id: DiagramId, name: string, document: DocumentEnvelope, version?: number): void
   sendCommands(commands: DomainCommand[]): CommandResult
   undo(): void
@@ -108,6 +109,27 @@ export function createSessionStore(): SessionStoreApi {
             ? 'notFound'
             : 'error'
         set({ status, error: error instanceof Error ? error.message : 'Error al cargar' })
+      }
+    },
+
+    switchDiagram: async (id) => {
+      await get().persist()
+      if (get().conflict !== null) {
+        set({
+          status: 'error',
+          error: 'Conflicto de versión: resuelve el diálogo antes de cambiar de diagrama.',
+        })
+        return
+      }
+      set({ status: 'loading', error: null })
+      try {
+        const diagram = await getDiagram(toDiagramId(id))
+        const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
+        get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope, diagram.version)
+      } catch (error) {
+        const status: EditorStatus =
+          error instanceof ApiError && error.status === 404 ? 'notFound' : 'error'
+        set({ status, error: error instanceof Error ? error.message : 'Error al cambiar de diagrama' })
       }
     },
 

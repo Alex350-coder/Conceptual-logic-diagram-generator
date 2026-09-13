@@ -5,6 +5,7 @@ import type { DocumentEnvelope } from '@erd-studio/shared'
 import { createSessionStore, type SessionStoreApi } from './sessionStore'
 
 const diagramId: DiagramId = toDiagramId(newId())
+const diagramId2: DiagramId = toDiagramId(newId())
 
 function envelope(): DocumentEnvelope {
   return {
@@ -232,5 +233,68 @@ it('exposes the raw session for engine consumers', () => {
     const s = api.getState()
     expect(s.saveStatus).toBe('error')
     expect(s.conflict).toEqual({ localVersion: 2, serverVersion: 9 })
+  })
+
+  it('switchDiagram flusha cambios pendientes y carga el diagrama objetivo', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'A', envelope(), 1)
+    dirtyWithEntity(api)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { id: diagramId, name: 'A', version: 2, document: envelope() } }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { id: diagramId2, name: 'B', version: 1, document: envelope() } }), {
+          status: 200,
+        }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getState().switchDiagram(diagramId2)
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/v1/diagrams/${diagramId}`)
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'PUT' })
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/v1/diagrams/${diagramId2}`)
+    const s = api.getState()
+    expect(s.id).toBe(diagramId2)
+    expect(s.name).toBe('B')
+    expect(s.revision).toBe(0)
+    expect(s.isDirty).toBe(false)
+    expect(s.saveStatus).toBe('saved')
+  })
+
+  it('switchDiagram aborta si hay un conflicto 409 pendiente de resolver', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'A', envelope(), 1)
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }), {
+          status: 409,
+        }),
+      ),
+    )
+
+    await api.getState().switchDiagram(diagramId2)
+
+    const s = api.getState()
+    expect(s.id).toBe(diagramId)
+    expect(s.conflict).toEqual({ localVersion: 1, serverVersion: 9 })
+    expect(s.status).toBe('error')
+    expect(s.saveStatus).toBe('error')
+  })
+
+  it('switchDiagram con 404 en el objetivo mapea a notFound y conserva la sesión', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'A', envelope(), 1)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 404 })))
+
+    await api.getState().switchDiagram(diagramId2)
+
+    const s = api.getState()
+    expect(s.status).toBe('notFound')
+    expect(s.id).toBe(diagramId)
+    expect(s.isDirty).toBe(false)
   })
 })
