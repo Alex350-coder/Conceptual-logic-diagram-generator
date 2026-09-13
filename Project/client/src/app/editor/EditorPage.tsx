@@ -17,13 +17,13 @@ import {
   useEditorInteractions,
   type EditorInteractions,
 } from './editorInteractions'
+import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
 import './editor.css'
 
 export function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const status = useSessionStore((s) => s.status)
-  const name = useSessionStore((s) => s.name)
   const isDirty = useSessionStore((s) => s.isDirty)
   const canUndo = useSessionStore((s) => s.canUndo)
   const canRedo = useSessionStore((s) => s.canRedo)
@@ -94,7 +94,6 @@ export function EditorPage() {
   return (
     <div className="editor-page">
       <EditorHeader
-        name={name}
         isDirty={isDirty}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -347,13 +346,11 @@ function InlineRename({
 }
 
 function EditorHeader({
-  name,
   isDirty,
   canUndo,
   canRedo,
   viewport,
 }: {
-  name: string
   isDirty: boolean
   canUndo: boolean
   canRedo: boolean
@@ -361,9 +358,11 @@ function EditorHeader({
 }) {
   return (
     <header className="editor-header">
-      <span className="editor-name">
-        {name}
-        {isDirty ? <span className="dirty"> • sin guardar</span> : <span className="saved"> • guardado</span>}
+      <span className="editor-menu-area">
+        <DiagramMenu />
+        <span className={`editor-save-status${isDirty ? ' dirty' : ' saved'}`}>
+          {isDirty ? '• sin guardar' : '• guardado'}
+        </span>
       </span>
       <span className="editor-actions">
         <button
