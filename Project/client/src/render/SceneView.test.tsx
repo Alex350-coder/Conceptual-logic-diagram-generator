@@ -21,6 +21,10 @@ function scene() {
         { x: 0, y: 0 },
         { x: 100, y: 0 },
       ]),
+      makePolyline('edge', 'e2', [
+        { x: 0, y: 10 },
+        { x: 100, y: 10 },
+      ], true),
     ],
     shapes: [
       makeRect('entity', 'ent1', { x: 0, y: 0, width: 180, height: 90 }, 'rect', false),
@@ -57,6 +61,12 @@ describe('SceneView (adapter SVG)', () => {
     expect(keyLabel?.textContent).toBe('dni')
     expect(keyLabel?.getAttribute('style')).toContain('underline')
     expect(container.querySelector('[data-id="lbl-ent1"] text')?.textContent).toBe('Persona')
+  })
+
+  it('edge emphasized (participación total) dibuja doble polyline', () => {
+    const { container } = render(<SceneView scene={scene()} viewport={viewport} size={size} />)
+    expect(container.querySelectorAll('[data-id="e2"] polyline')).toHaveLength(2)
+    expect(container.querySelector('[data-id="e2"] [data-emphasized]')).not.toBeNull()
   })
 
   it('atributo derivado (emphasized) dibuja doble ellipse', () => {
