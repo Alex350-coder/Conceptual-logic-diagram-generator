@@ -20,12 +20,40 @@ export interface UpdateDiagramInput {
 
 const API_BASE = '/api/v1/diagrams'
 
+interface ErrorEnvelope {
+  code?: unknown
+  message?: unknown
+  details?: { serverVersion?: unknown }
+}
+
 export class ApiError extends Error {
   readonly status: number
-  constructor(status: number, message: string) {
+  readonly code: string
+  readonly serverVersion: number | undefined
+
+  constructor(
+    status: number,
+    message: string,
+    options?: { code?: string; serverVersion?: number },
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = options?.code ?? 'HTTP_ERROR'
+    this.serverVersion = options?.serverVersion
+  }
+}
+
+function parseErrorEnvelope(raw: string): ErrorEnvelope {
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (typeof parsed !== 'object' || parsed === null) {
+      return {}
+    }
+    const error = (parsed as { error?: unknown }).error
+    return typeof error === 'object' && error !== null ? (error as ErrorEnvelope) : {}
+  } catch {
+    return {}
   }
 }
 
@@ -35,7 +63,16 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
     ...init,
   })
   if (!res.ok) {
-    throw new ApiError(res.status, `HTTP ${res.status}`)
+    const { code, message, details } = parseErrorEnvelope(await res.text())
+    const serverVersion =
+      typeof details?.serverVersion === 'number' ? details.serverVersion : undefined
+    throw new ApiError(res.status, typeof message === 'string' ? message : `HTTP ${res.status}`, {
+      code: typeof code === 'string' ? code : 'HTTP_ERROR',
+      ...(serverVersion === undefined ? {} : { serverVersion }),
+    })
+  }
+  if (res.status === 204) {
+    return undefined as T
   }
   const body = (await res.json()) as { data: T }
   return body.data
@@ -68,4 +105,12 @@ export function updateDiagram(
     method: 'PUT',
     body: JSON.stringify({ ...input, version }),
   })
+}
+
+export function deleteDiagram(id: string): Promise<void> {
+  return request<void>(`/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export function duplicateDiagram(id: string): Promise<DiagramSummary> {
+  return request<DiagramSummary>(`/${encodeURIComponent(id)}/duplicate`, { method: 'POST' })
 }

@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { DiagramFull, DiagramSummary } from './diagrams'
-import { ApiError, createDiagram, getDiagram, listDiagrams, updateDiagram } from './diagrams'
+import {
+  ApiError,
+  createDiagram,
+  deleteDiagram,
+  duplicateDiagram,
+  getDiagram,
+  listDiagrams,
+  updateDiagram,
+} from './diagrams'
 
 const SUMMARY: DiagramSummary = {
   id: 'd1',
@@ -80,12 +88,63 @@ describe('diagrams api client', () => {
     expect(result).toEqual(updated)
   })
 
+  it('duplicateDiagram POSTs to the duplicate endpoint and returns a summary', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { ...SUMMARY, id: 'd2', name: 'Personas (copia)' } }), {
+        status: 201,
+      }),
+    )
+    const result = await duplicateDiagram('d1')
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/diagrams/d1/duplicate',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(result).toEqual({ ...SUMMARY, id: 'd2', name: 'Personas (copia)' })
+  })
+
+  it('deleteDiagram DELETEs and resolves on 204 without body parsing', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    await expect(deleteDiagram('d1')).resolves.toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/diagrams/d1',
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
   it('throws a typed ApiError on non-ok responses', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: { code: 'NOT_FOUND' } }), { status: 404 }),
     )
     const promise = getDiagram('missing')
     await expect(promise).rejects.toThrow(ApiError)
-    await expect(promise).rejects.toMatchObject({ status: 404 })
+    await expect(promise).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' })
+  })
+
+  it('surfaces code, message and serverVersion from a 409 conflict envelope', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'CONFLICT_VERSION',
+            message: 'La versión del diagrama ha cambiado.',
+            details: { serverVersion: 5 },
+          },
+        }),
+        { status: 409 },
+      ),
+    )
+    const promise = updateDiagram('d1', 4, { document: FULL.document })
+    await expect(promise).rejects.toThrow(ApiError)
+    await expect(promise).rejects.toMatchObject({
+      status: 409,
+      code: 'CONFLICT_VERSION',
+      serverVersion: 5,
+    })
+  })
+
+  it('falls back to HTTP status message when the error body is not JSON', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('<html>oops</html>', { status: 500 }))
+    const promise = listDiagrams()
+    await expect(promise).rejects.toMatchObject({ status: 500, message: 'HTTP 500', code: 'HTTP_ERROR' })
   })
 })

@@ -6,7 +6,7 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import type { Rect } from '../editor/geometry'
-import type { Viewport, ViewportSize } from '../editor/viewport'
+import type { Viewport, ViewportSize, WorldPoint } from '../editor/viewport'
 import type { Scene } from './layers'
 import type { Primitive, PrimitiveRole } from './shapes'
 
@@ -112,6 +112,7 @@ function offsetPolyline(points: WorldPoint[], distance: number): WorldPoint[] {
   if (points.length < 2) return points
   const from = points[0]
   const to = points[points.length - 1]
+  if (from === undefined || to === undefined) return points
   const dx = to.x - from.x
   const dy = to.y - from.y
   const length = Math.hypot(dx, dy)
