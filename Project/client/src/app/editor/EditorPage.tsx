@@ -3,7 +3,7 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   WheelEvent as ReactWheelEvent,
 } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useBlocker, useParams } from 'react-router-dom'
 import type { ConceptualModel, NodeId } from '@erd-studio/shared'
 import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
@@ -25,6 +25,7 @@ import './editor.css'
 export function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const status = useSessionStore((s) => s.status)
+  const isDirty = useSessionStore((s) => s.isDirty)
   const canUndo = useSessionStore((s) => s.canUndo)
   const canRedo = useSessionStore((s) => s.canRedo)
   const viewport = useSessionStore((s) => s.viewport)
@@ -48,6 +49,40 @@ export function EditorPage() {
   useEffect(() => {
     const stop = startAutosave()
     return () => stop()
+  }, [])
+
+  const blocker = useBlocker(isDirty)
+  const [discardDialog, setDiscardDialog] = useState(false)
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked' || discardDialog) return
+    let cancelled = false
+    void sessionStore
+      .getState()
+      .persist()
+      .finally(() => {
+        if (cancelled) return
+        if (sessionStore.getState().isDirty) {
+          setDiscardDialog(true)
+        } else {
+          blocker.proceed()
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [blocker, blocker.state, discardDialog])
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      const state = sessionStore.getState()
+      if (!state.isDirty) return
+      event.preventDefault()
+      void state.persist({ keepalive: true })
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [])
 
   useEffect(() => {
@@ -161,6 +196,48 @@ export function EditorPage() {
           />
         ) : null}
       </main>
+      {discardDialog && blocker.state === 'blocked' ? (
+        <SaveBlockDialog
+          onDiscard={() => {
+            setDiscardDialog(false)
+            blocker.proceed()
+          }}
+          onStay={() => {
+            setDiscardDialog(false)
+            blocker.reset()
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function SaveBlockDialog({
+  onDiscard,
+  onStay,
+}: {
+  onDiscard: () => void
+  onStay: () => void
+}) {
+  return (
+    <div className="save-block-overlay">
+      <div
+        className="save-block-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="save-block-title"
+      >
+        <h2 id="save-block-title">Cambios sin guardar</h2>
+        <p>No se pudo guardar el diagrama. Si continúas, perderás los cambios locales.</p>
+        <div className="save-block-actions">
+          <button type="button" onClick={onStay}>
+            Cancelar
+          </button>
+          <button type="button" className="danger" onClick={onDiscard}>
+            Descartar y continuar
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

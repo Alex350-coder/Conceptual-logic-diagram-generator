@@ -81,6 +81,43 @@
   color: #b45309;
 }
 
+.save-block-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.save-block-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.save-block-card p {
+  margin: 8px 0 0;
+  color: #4b5563;
+}
+
+.save-block-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.save-block-actions button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
 .diagram-menu {
   position: relative;
 }

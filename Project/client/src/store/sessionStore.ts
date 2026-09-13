@@ -73,7 +73,7 @@ export interface SessionActions {
   redo(): void
   setSelection(ids: readonly NodeId[]): void
   setViewport(viewport: Viewport): void
-  persist(): Promise<void>
+  persist(opts?: { keepalive?: boolean }): Promise<void>
   rename(name: string): Promise<void>
   reset(): void
 }
@@ -236,16 +236,18 @@ export function createSessionStore(): SessionStoreApi {
       })
     },
 
-    persist: async () => {
+    persist: async (opts) => {
       const { id, session, revision, serverVersion } = get()
       if (id === null || session === null || revision === get().lastPersistedRevision) {
         return
       }
       set({ saveStatus: 'saving' })
       try {
-        const updated = await updateDiagram(toDiagramId(id), serverVersion, {
-          document: toDocumentEnvelope(session.model, get().viewportHint),
-        })
+        const input = { document: toDocumentEnvelope(session.model, get().viewportHint) }
+        const updated =
+          opts?.keepalive === true
+            ? await updateDiagram(toDiagramId(id), serverVersion, input, { keepalive: true })
+            : await updateDiagram(toDiagramId(id), serverVersion, input)
         set({
           serverVersion: updated.version,
           lastPersistedRevision: get().revision,

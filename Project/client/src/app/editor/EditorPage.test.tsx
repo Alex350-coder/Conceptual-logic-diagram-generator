@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { createEmptyConceptualModel, toDiagramId, newId } from '@erd-studio/shared'
 import type { DocumentEnvelope } from '@erd-studio/shared'
 import { sessionStore } from '../../store/sessionStore'
@@ -36,13 +36,15 @@ function stubFetchStatus(status: number) {
 }
 
 function setup(route = '/diagrams/test-id') {
-  return render(
-    <MemoryRouter initialEntries={[route]}>
-      <Routes>
-        <Route path="/diagrams/:id" element={<EditorPage />} />
-      </Routes>
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [
+      { path: '/diagrams/:id', element: <EditorPage /> },
+      { path: '/', element: <div>Página de inicio</div> },
+    ],
+    { initialEntries: [route] },
   )
+  render(<RouterProvider router={router} />)
+  return { router }
 }
 
 describe('EditorPage', () => {
@@ -632,6 +634,58 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
     expect(sessionStore.getState().name).toBe('Clientes')
     const lastCall = fetchMock.mock.calls.at(-1)
     expect(lastCall?.[1]).toMatchObject({ method: 'PUT' })
+  })
+
+  it('navegar con cambios pendientes persiste y, si falla, bloquea y ofrece descartar (P8.9)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockRejectedValue(new Error('network down'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { router } = setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await waitFor(() => {
+      expect(screen.getByText('Sin guardar')).toBeDefined()
+    })
+    act(() => {
+      void router.navigate('/')
+    })
+    const dialog = await screen.findByRole('dialog', { name: 'Cambios sin guardar' })
+    expect(dialog).toBeDefined()
+    expect(screen.queryByText('Página de inicio')).toBeNull()
+    const putCall = fetchMock.mock.calls.find(
+      ([, init]) => (init as RequestInit).method === 'PUT',
+    )
+    expect(putCall).toBeDefined()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Cambios sin guardar' })).toBeNull()
+    })
+    expect(screen.queryByText('Página de inicio')).toBeNull()
+  })
+
+  it('beforeunload con cambios pendientes dispara PUT keepalive (P8.9)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ...diagramResponse('Personas'), version: 2 } })),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    const event = new Event('beforeunload', { cancelable: true })
+    fireEvent(window, event)
+    expect(event.defaultPrevented).toBe(true)
+    await waitFor(() => {
+      const putCall = fetchMock.mock.calls.find(
+        ([, init]) => (init as RequestInit).method === 'PUT',
+      )
+      expect(putCall).toBeDefined()
+      expect((putCall?.[1] as RequestInit).keepalive).toBe(true)
+    })
   })
 })
 

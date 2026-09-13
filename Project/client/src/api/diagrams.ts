@@ -100,9 +100,11 @@ export function updateDiagram(
   id: string,
   version: number,
   input: UpdateDiagramInput,
+  opts?: { keepalive?: boolean },
 ): Promise<DiagramFull> {
   return request<DiagramFull>(`/${encodeURIComponent(id)}`, {
     method: 'PUT',
+    ...(opts?.keepalive === true ? { keepalive: true as const } : {}),
     body: JSON.stringify({ ...input, version }),
   })
 }
