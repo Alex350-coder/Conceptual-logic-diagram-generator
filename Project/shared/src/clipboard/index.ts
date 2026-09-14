@@ -7,3 +7,5 @@ export {
   decodeClipboardPayload,
   extractPayloadNodeIds,
 } from './codec'
+export { validateClipboardPayload, validatePasteInContext } from './validate'
+export type { ClipboardValidationResult } from './validate'

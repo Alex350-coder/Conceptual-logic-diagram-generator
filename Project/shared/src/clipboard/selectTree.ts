@@ -1,9 +1,5 @@
 import type {
   ConceptualModel,
-  Entity,
-  Attribute,
-  Relationship,
-  Specialization,
   Layout,
   Point,
 } from '../domain/conceptual'
