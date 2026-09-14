@@ -22,12 +22,19 @@ const navigatorClipboardAdapter: ClipboardAdapter = {
   async write(_payload, text) {
     const clipboard = globalThis.navigator?.clipboard
     if (clipboard === undefined) return false
-    const item = new ClipboardItem({
-      [CLIPBOARD_MIME]: new Blob([text], { type: CLIPBOARD_MIME }),
+    const ClipboardItemCtor = globalThis.ClipboardItem
+    if (typeof ClipboardItemCtor !== 'function') return false
+    // Async Clipboard API: los formatos custom web usan el prefijo "web " (Chrome 104+).
+    const item = new ClipboardItemCtor({
+      [`web ${CLIPBOARD_MIME}`]: new Blob([text], { type: CLIPBOARD_MIME }),
       'text/plain': new Blob([text], { type: 'text/plain' }),
     })
-    await clipboard.write([item])
-    return true
+    try {
+      await clipboard.write([item])
+      return true
+    } catch {
+      return false
+    }
   },
   readText() {
     return globalThis.navigator.clipboard.readText()
