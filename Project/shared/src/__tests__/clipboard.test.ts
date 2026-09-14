@@ -9,6 +9,7 @@ import {
   decodeClipboardPayload,
   CLIPBOARD_MIME,
   CLIPBOARD_VERSION,
+  type ClipboardPayload,
 } from '../clipboard/index'
 import { validateClipboardPayload } from '../clipboard/validate'
 import { LIMITS } from '../validate/limits'
@@ -117,7 +118,11 @@ describe('codec: encode/decode del payload', () => {
     const model = withModel()
     const subgraph = selectTree(model, new Set([toNodeId('e1'), toNodeId('e2')]))
     expect(subgraph).not.toBeNull()
-    const payload = { version: CLIPBOARD_VERSION, kind: 'erd-studio/subtree', data: subgraph! }
+    const payload: ClipboardPayload = {
+      version: CLIPBOARD_VERSION,
+      kind: 'erd-studio/subtree',
+      data: subgraph!,
+    }
     const json = encodeClipboardPayload(payload)
     const decoded = decodeClipboardPayload(json)
     expect(decoded).not.toBeNull()
@@ -149,7 +154,11 @@ describe('validateClipboardPayload: límites L-005/L-006 (L4)', () => {
   it('acepta un payload válido dentro de límites', () => {
     const model = withModel()
     const subgraph = selectTree(model, new Set([toNodeId('e1'), toNodeId('e2')]))
-    const payload = { version: CLIPBOARD_VERSION, kind: 'erd-studio/subtree', data: subgraph! }
+    const payload: ClipboardPayload = {
+      version: CLIPBOARD_VERSION,
+      kind: 'erd-studio/subtree',
+      data: subgraph!,
+    }
     const result = validateClipboardPayload(payload, 2000)
     expect(result.ok).toBe(true)
     expect(result.violations).toEqual([])
@@ -158,7 +167,11 @@ describe('validateClipboardPayload: límites L-005/L-006 (L4)', () => {
   it('rechaza payload sobre L-005 bytes', () => {
     const model = withModel()
     const subgraph = selectTree(model, new Set([toNodeId('e1')]))
-    const payload = { version: CLIPBOARD_VERSION, kind: 'erd-studio/subtree', data: subgraph! }
+    const payload: ClipboardPayload = {
+      version: CLIPBOARD_VERSION,
+      kind: 'erd-studio/subtree',
+      data: subgraph!,
+    }
     const result = validateClipboardPayload(payload, LIMITS.clipboardMaxBytes + 1)
     expect(result.ok).toBe(false)
     expect(result.violations.map((v) => v.code)).toContain('L-005')
@@ -170,9 +183,9 @@ describe('validateClipboardPayload: límites L-005/L-006 (L4)', () => {
       name: `E${i}`,
       kind: 'STRONG' as const,
     }))
-    const payload = {
-      version: CLIPBOARD_VERSION as const,
-      kind: 'erd-studio/subtree' as const,
+    const payload: ClipboardPayload = {
+      version: CLIPBOARD_VERSION,
+      kind: 'erd-studio/subtree',
       data: {
         entities: manyEntities,
         attributes: [],
@@ -187,9 +200,9 @@ describe('validateClipboardPayload: límites L-005/L-006 (L4)', () => {
   })
 
   it('rechaza referencias huérfanas dentro del subgrafo', () => {
-    const payload = {
-      version: CLIPBOARD_VERSION as const,
-      kind: 'erd-studio/subtree' as const,
+    const payload: ClipboardPayload = {
+      version: CLIPBOARD_VERSION,
+      kind: 'erd-studio/subtree',
       data: {
         entities: [{ id: toNodeId('e1'), name: 'A', kind: 'STRONG' as const }],
         relationships: [
@@ -214,9 +227,9 @@ describe('validateClipboardPayload: límites L-005/L-006 (L4)', () => {
   })
 
   it('rechaza IDs duplicados dentro del subgrafo', () => {
-    const payload = {
-      version: CLIPBOARD_VERSION as const,
-      kind: 'erd-studio/subtree' as const,
+    const payload: ClipboardPayload = {
+      version: CLIPBOARD_VERSION,
+      kind: 'erd-studio/subtree',
       data: {
         entities: [
           { id: toNodeId('dup'), name: 'A', kind: 'STRONG' as const },
