@@ -6,7 +6,7 @@ test('flujo E2E 4: crea relación con cardinalidad 1:N y participación total', 
   await page.getByRole('button', { name: 'Nuevo diagrama' }).click()
   const scene = page.getByTestId('scene')
   await expect(scene).toBeVisible()
-  await expect(page.locator('.editor-name')).toContainText('Diagrama sin nombre')
+  await expect(page.getByTestId('diagram-title')).toContainText('Diagrama sin nombre')
 
   // 2. Crear dos entidades
   async function createEntity(name: string): Promise<string> {

@@ -58,9 +58,11 @@ function parseErrorEnvelope(raw: string): ErrorEnvelope {
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
+  const defaultHeaders: Record<string, string> =
+    init.body !== undefined ? { 'Content-Type': 'application/json' } : {}
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: { ...defaultHeaders, ...(init.headers as Record<string, string> | undefined) },
   })
   if (!res.ok) {
     const { code, message, details } = parseErrorEnvelope(await res.text())
