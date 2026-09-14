@@ -19,6 +19,7 @@ import {
   type Violation,
 } from '../validate/index'
 import { LIMITS } from '../validate/limits'
+import type { ClipboardPayload } from '../clipboard/types'
 
 export interface EndpointRef {
   entityId: NodeId
@@ -29,8 +30,7 @@ export interface EndpointRef {
 
 /**
  * Comandos del dominio (StateManagement.md §2). Objetos inmutables `{ type, payload }`.
- * pasteSubtree/clipboard (P9-10), setDiagramName (P8, metadato) y lógico (P7)
- * quedan fuera de esta fase.
+ * `pasteSubtree` (clipboard) y lógico quedan fuera de fases anteriores.
  */
 export type DomainCommand =
   | { type: 'createEntity'; payload: { id: NodeId; name: string } }
@@ -74,6 +74,10 @@ export type DomainCommand =
   | { type: 'addSubtype'; payload: { specializationId: NodeId; subtypeId: NodeId } }
   | { type: 'removeSubtype'; payload: { specializationId: NodeId; subtypeId: NodeId } }
   | { type: 'duplicateSelection'; payload: { sourceIds: NodeId[] } }
+  | {
+      type: 'pasteSubtree'
+      payload: { clipboard: ClipboardPayload; offset?: { x: number; y: number } }
+    }
 
 export type CommandResult =
   { ok: true; createdId?: NodeId; createdIds?: NodeId[] } | { ok: false; error: DomainError }
@@ -181,6 +185,25 @@ function attributeSubtreeIds(model: ConceptualModel, rootId: NodeId): NodeId[] {
     }
   }
   return Array.from(removed) as NodeId[]
+}
+
+/**
+ * Auto-renombre de colisión (D-CL-02): si `name` ya existe en el set `existing`,
+ * devuelve `name_copia`, luego `name_copia_2`, ... Devuelve el nombre libre.
+ */
+function uniqueName(name: string, existing: ReadonlySet<string>): string {
+  if (!existing.has(name)) {
+    return name
+  }
+  const base = `${name}_copia`
+  if (!existing.has(base)) {
+    return base
+  }
+  let counter = 2
+  while (existing.has(`${base}_${counter}`)) {
+    counter += 1
+  }
+  return `${base}_${counter}`
 }
 
 function reduce(model: ConceptualModel, command: DomainCommand): NextState {
@@ -764,6 +787,128 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
           layout,
         },
         createdIds: newEntities.map((e) => e.id),
+      }
+    }
+    case 'pasteSubtree': {
+      const data = command.payload.clipboard.data
+      const offset = command.payload.offset ?? { x: 20, y: 20 }
+
+      const subgraphSize = countConceptualElements({
+        entities: data.entities,
+        relationships: data.relationships,
+        specializations: data.specializations,
+        attributes: data.attributes,
+        layout: data.layout,
+      })
+      if (subgraphSize > LIMITS.pasteMaxElements) {
+        throw modelInvalid(
+          `El subgrafo excede el límite de ${LIMITS.pasteMaxElements} elementos.`,
+          [{ code: 'L-006', message: 'Límite de elementos' }],
+        )
+      }
+      if (exceedsNodeLimit(model)) {
+        throw modelInvalid(`Se supera el límite de ${LIMITS.maxNodesPerDiagram} nodos.`, [
+          { code: 'L-002', message: 'Límite de nodos' },
+        ])
+      }
+
+      const idMap = new Map<string, NodeId>()
+      const existingEntityNames = new Set(model.entities.map((e) => e.name))
+      const existingRelationshipNames = new Set(model.relationships.map((r) => r.name))
+
+      const newEntities = data.entities.map((source) => {
+        const cloneId = newId()
+        idMap.set(source.id, cloneId)
+        const name = uniqueName(source.name, existingEntityNames)
+        existingEntityNames.add(name)
+        return { id: cloneId, name, kind: source.kind }
+      })
+
+      const newRelationships = data.relationships.map((source) => {
+        const cloneId = newId()
+        idMap.set(source.id, cloneId)
+        const name = uniqueName(source.name, existingRelationshipNames)
+        existingRelationshipNames.add(name)
+        return {
+          id: cloneId,
+          name,
+          isIdentifying: source.isIdentifying,
+          endpoints: source.endpoints.map((ep) => ({
+            entityId: idMap.get(ep.entityId) ?? ep.entityId,
+            roleName: ep.roleName,
+            cardinality: ep.cardinality,
+            participation: ep.participation,
+          })),
+        }
+      })
+
+      const newSpecializations = data.specializations.map((source) => {
+        const cloneId = newId()
+        idMap.set(source.id, cloneId)
+        return {
+          id: cloneId,
+          supertypeId: idMap.get(source.supertypeId) ?? source.supertypeId,
+          subtypeIds: source.subtypeIds.map((sid) => idMap.get(sid) ?? sid),
+          disjointness: source.disjointness,
+          completeness: source.completeness,
+        }
+      })
+
+      const newAttributes = data.attributes.map((source) => {
+        const cloneId = newId()
+        const parentClone = source.parentId !== null ? idMap.get(source.parentId) : undefined
+        const ownerClone = idMap.get(source.ownerId)
+        idMap.set(source.id, cloneId)
+        return {
+          id: cloneId,
+          name: source.name,
+          kind: source.kind,
+          isKey: source.isKey,
+          ownerId: ownerClone ?? source.ownerId,
+          parentId: parentClone ?? null,
+        }
+      })
+
+      const layout = { ...model.layout }
+      for (const source of data.entities) {
+        const position = data.layout[source.id]
+        if (position) {
+          const newIdVal = idMap.get(source.id)!
+          layout[newIdVal] = { x: position.x + offset.x, y: position.y + offset.y }
+        }
+      }
+      for (const source of data.attributes) {
+        const position = data.layout[source.id]
+        if (position) {
+          const newIdVal = idMap.get(source.id)!
+          layout[newIdVal] = { x: position.x + offset.x, y: position.y + offset.y }
+        }
+      }
+      for (const source of data.relationships) {
+        const position = data.layout[source.id]
+        if (position) {
+          const newIdVal = idMap.get(source.id)!
+          layout[newIdVal] = { x: position.x + offset.x, y: position.y + offset.y }
+        }
+      }
+      for (const source of data.specializations) {
+        const position = data.layout[source.id]
+        if (position) {
+          const newIdVal = idMap.get(source.id)!
+          layout[newIdVal] = { x: position.x + offset.x, y: position.y + offset.y }
+        }
+      }
+
+      return {
+        next: {
+          ...model,
+          entities: [...model.entities, ...newEntities],
+          attributes: [...model.attributes, ...newAttributes],
+          relationships: [...model.relationships, ...newRelationships],
+          specializations: [...model.specializations, ...newSpecializations],
+          layout,
+        },
+        createdIds: [...newEntities.map((e) => e.id), ...newRelationships.map((r) => r.id)],
       }
     }
   }

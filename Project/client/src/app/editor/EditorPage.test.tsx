@@ -6,6 +6,7 @@ import { createEmptyConceptualModel, toDiagramId, newId } from '@erd-studio/shar
 import type { DocumentEnvelope } from '@erd-studio/shared'
 import { sessionStore } from '../../store/sessionStore'
 import { EditorPage } from './EditorPage'
+import { buildCopyPayload, encodePayload } from '../../editor/clipboard'
 
 function envelope(): DocumentEnvelope {
   return {
@@ -803,6 +804,77 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
     })
     expect(sessionStore.getState().serverVersion).toBe(10)
   })
+
+  describe('atajos de portapapeles (P9)', () => {
+    it('Ctrl+C copia la selección al portapapeles con el MIME del editor', async () => {
+      const { write } = stubClipboard()
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+
+      await userEvent.keyboard('{Control>}c{/Control}')
+
+      await waitFor(() => {
+        expect(write).toHaveBeenCalledTimes(1)
+      })
+      const items = write.mock.calls[0]?.[0] as Array<unknown>
+      expect(items).toHaveLength(1)
+    })
+
+    it('Ctrl+X copia y elimina la selección', async () => {
+      const { write } = stubClipboard()
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+      expect(sessionStore.getState().session?.model.entities).toHaveLength(1)
+
+      await userEvent.keyboard('{Control>}x{/Control}')
+
+      await waitFor(() => {
+        expect(write).toHaveBeenCalledTimes(1)
+      })
+      await waitFor(() => {
+        expect(sessionStore.getState().session?.model.entities).toHaveLength(0)
+      })
+    })
+
+    it('Ctrl+V pega desde el portapapeles y selecciona los nodos creados', async () => {
+      const text = clipboardTextWithEntity('Cliente')
+      const { readText } = stubClipboard({ readValue: text })
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+      expect(sessionStore.getState().session?.model.entities).toHaveLength(0)
+
+      await userEvent.keyboard('{Control>}v{/Control}')
+
+      await waitFor(() => {
+        expect(readText).toHaveBeenCalledTimes(1)
+      })
+      await waitFor(() => {
+        expect(sessionStore.getState().session?.model.entities).toHaveLength(1)
+      })
+      const pastedId = [...sessionStore.getState().selection][0]
+      expect(sessionStore.getState().session?.model.entities[0]?.id).toBe(pastedId)
+    })
+
+    it('los atajos no disparan copia estando dentro de un campo de texto', async () => {
+      const { write } = stubClipboard()
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      const scene = await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+      await userEvent.dblClick(scene.querySelector('[data-id^="label-"]') as Element)
+      const input = await screen.findByRole('textbox', { name: 'Nombre' })
+      expect(input).toBeDefined()
+
+      await userEvent.keyboard('{Control>}c{/Control}')
+
+      expect(write).not.toHaveBeenCalled()
+    })
+  })
 })
 
 async function waitForScene(): Promise<SVGSVGElement> {
@@ -826,4 +898,32 @@ function mockSvgRect(svg: Element) {
       toJSON: () => ({}),
     }),
   })
+}
+
+function stubClipboard({ readValue = '' }: { readValue?: string } = {}): {
+  write: ReturnType<typeof vi.fn>
+  readText: ReturnType<typeof vi.fn>
+} {
+  class FakeClipboardItem {
+    constructor(
+      public items: Record<string, Blob>,
+    ) {}
+  }
+  const write = vi.fn().mockResolvedValue(undefined)
+  const readText = vi.fn().mockResolvedValue(readValue)
+  vi.stubGlobal('ClipboardItem', FakeClipboardItem)
+  vi.stubGlobal('navigator', {
+    ...globalThis.navigator,
+    clipboard: { write, readText },
+  })
+  return { write, readText }
+}
+
+function clipboardTextWithEntity(name: string): string {
+  const model = createEmptyConceptualModel()
+  const id = newId()
+  model.entities.push({ id, name, kind: 'STRONG' })
+  const payload = buildCopyPayload(model, new Set([id]))
+  if (payload === null) throw new Error('sin payload para el portapapeles')
+  return encodePayload(payload)
 }

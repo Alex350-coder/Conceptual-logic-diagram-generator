@@ -1,4 +1,5 @@
 import type { ConceptualModel } from '../domain/conceptual'
+import type { NodeId } from '../domain/ids'
 import { applyCommand, type CommandResult, type DomainCommand } from '../commands/index'
 import { DomainError } from '../errors'
 import { validateConceptualModel, type Violation } from '../validate/index'
@@ -194,6 +195,7 @@ function inverseOf(command: DomainCommand, before: ConceptualModel): DomainComma
     case 'moveAttribute':
     case 'removeEndpoint':
     case 'duplicateSelection':
+    case 'pasteSubtree':
       return null
   }
 }
@@ -224,10 +226,16 @@ export function applyCommands(session: EditorSession, commands: DomainCommand[])
   let model = session.model
   const inverses: DomainCommand[] = []
   let needsSnapshot = false
+  const createdIds: NodeId[] = []
   for (const command of commands) {
     const outcome = applyCommand(model, command)
     if (!outcome.result.ok) {
       return { session, result: outcome.result, violations: [] }
+    }
+    if (outcome.result.createdIds !== undefined) {
+      createdIds.push(...outcome.result.createdIds)
+    } else if (outcome.result.createdId !== undefined) {
+      createdIds.push(outcome.result.createdId)
     }
     const inverse = inverseOf(command, model)
     if (inverse) {
@@ -245,7 +253,7 @@ export function applyCommands(session: EditorSession, commands: DomainCommand[])
   }
   return {
     session: { model, past: [...session.past, operation], future: [] },
-    result: { ok: true },
+    result: createdIds.length > 0 ? { ok: true, createdIds } : { ok: true },
     violations: validateConceptualModel(model),
   }
 }

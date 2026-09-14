@@ -19,6 +19,7 @@ import {
   useEditorInteractions,
   type EditorInteractions,
 } from './editorInteractions'
+import { useClipboardActions } from './clipboardActions'
 import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
 import './editor.css'
@@ -108,6 +109,10 @@ export function EditorPage() {
     )
   }, [status, model, size, allBounds])
 
+  const interactions = useEditorInteractions(viewport, size, model)
+
+  const { copy, cut, paste } = useClipboardActions(interactions.deleteSelected)
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target
@@ -120,23 +125,31 @@ export function EditorPage() {
       ) {
         return
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      const mod = event.ctrlKey || event.metaKey
+      if (mod && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         if (event.shiftKey) sessionStore.getState().redo()
         else sessionStore.getState().undo()
-      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
+      } else if (mod && event.key.toLowerCase() === 'y') {
         event.preventDefault()
         sessionStore.getState().redo()
-      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      } else if (mod && event.key.toLowerCase() === 's') {
         event.preventDefault()
         void sessionAutosave.flush()
+      } else if (mod && event.key.toLowerCase() === 'c') {
+        event.preventDefault()
+        void copy()
+      } else if (mod && event.key.toLowerCase() === 'x') {
+        event.preventDefault()
+        void cut()
+      } else if (mod && event.key.toLowerCase() === 'v') {
+        event.preventDefault()
+        void paste()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
-
-  const interactions = useEditorInteractions(viewport, size, model)
+  }, [copy, cut, paste])
 
   const selectedId = selection.size === 1 ? [...selection][0] : undefined
   const selectedEntity = selectedId !== undefined ? model?.entities.find((e) => e.id === selectedId) : undefined
