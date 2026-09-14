@@ -194,6 +194,7 @@ function inverseOf(command: DomainCommand, before: ConceptualModel): DomainComma
     case 'moveAttribute':
     case 'removeEndpoint':
     case 'duplicateSelection':
+    case 'pasteSubtree':
       return null
   }
 }
