@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { createEmptyConceptualModel, toDiagramId, newId } from '@erd-studio/shared'
 import type { DocumentEnvelope } from '@erd-studio/shared'
 import { sessionStore } from '../../store/sessionStore'
@@ -36,13 +36,15 @@ function stubFetchStatus(status: number) {
 }
 
 function setup(route = '/diagrams/test-id') {
-  return render(
-    <MemoryRouter initialEntries={[route]}>
-      <Routes>
-        <Route path="/diagrams/:id" element={<EditorPage />} />
-      </Routes>
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [
+      { path: '/diagrams/:id', element: <EditorPage /> },
+      { path: '/', element: <div>Página de inicio</div> },
+    ],
+    { initialEntries: [route] },
   )
+  render(<RouterProvider router={router} />)
+  return { router }
 }
 
 describe('EditorPage', () => {
@@ -60,7 +62,7 @@ describe('EditorPage', () => {
     expect(screen.getByText('Cargando diagrama…')).toBeDefined()
     await waitFor(() => {
       expect(screen.getByText('Personas')).toBeDefined()
-      expect(screen.getByText(/guardado/)).toBeDefined()
+      expect(screen.getByText('Guardado')).toBeDefined()
     })
   })
 
@@ -565,6 +567,241 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
     expect(sessionStore.getState().session?.model.relationships).toHaveLength(1)
     fireEvent.keyDown(scene, { key: 'Delete' })
     expect(sessionStore.getState().session?.model.relationships).toHaveLength(0)
+  })
+
+  it('restaura el viewportHint del documento al abrir (P8.8)', async () => {
+    const doc = envelope()
+    doc.data.viewportHint = { cx: 123, cy: -45, zoom: 0.6 }
+    vi.stubGlobal('fetch', stubFetch(diagramResponse('Personas', doc)))
+    setup()
+    await waitFor(() => {
+      expect(sessionStore.getState().viewport).toEqual({ cx: 123, cy: -45, zoom: 0.6 })
+    })
+  })
+
+  it('actualiza el indicador de guardado al mutar el modelo (P8.7)', async () => {
+    vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    expect(screen.getByText('Sin guardar')).toBeDefined()
+  })
+
+  it('Ctrl+S persiste de inmediato y vuelve el indicador a Guardado (P8.7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ...diagramResponse('Personas'), version: 2 } })),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    expect(screen.getByText('Sin guardar')).toBeDefined()
+    await userEvent.keyboard('{Control>}s{/Control}')
+    await waitFor(() => {
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[1]).toMatchObject({ method: 'PUT' })
+  })
+
+  it('renombra el diagrama por doble clic en el título (P8.7)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ...diagramResponse('Clientes'), version: 2 } })),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText('Personas')).toBeDefined()
+    })
+    await userEvent.dblClick(screen.getByTestId('diagram-title'))
+    const input = await screen.findByRole('textbox', { name: 'Nombre del diagrama' })
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Clientes')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => {
+      expect(screen.getByText('Clientes')).toBeDefined()
+    })
+    expect(sessionStore.getState().name).toBe('Clientes')
+    const lastCall = fetchMock.mock.calls.at(-1)
+    expect(lastCall?.[1]).toMatchObject({ method: 'PUT' })
+  })
+
+  it('navegar con cambios pendientes persiste y, si falla, bloquea y ofrece descartar (P8.9)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockRejectedValue(new Error('network down'))
+    vi.stubGlobal('fetch', fetchMock)
+    const { router } = setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await waitFor(() => {
+      expect(screen.getByText('Sin guardar')).toBeDefined()
+    })
+    act(() => {
+      void router.navigate('/')
+    })
+    const dialog = await screen.findByRole('dialog', { name: 'Cambios sin guardar' })
+    expect(dialog).toBeDefined()
+    expect(screen.queryByText('Página de inicio')).toBeNull()
+    const putCall = fetchMock.mock.calls.find(
+      ([, init]) => (init as RequestInit).method === 'PUT',
+    )
+    expect(putCall).toBeDefined()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Cambios sin guardar' })).toBeNull()
+    })
+    expect(screen.queryByText('Página de inicio')).toBeNull()
+  })
+
+  it('beforeunload con cambios pendientes dispara PUT keepalive (P8.9)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: diagramResponse('Personas') })))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { ...diagramResponse('Personas'), version: 2 } })),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    const event = new Event('beforeunload', { cancelable: true })
+    fireEvent(window, event)
+    expect(event.defaultPrevented).toBe(true)
+    await waitFor(() => {
+      const putCall = fetchMock.mock.calls.find(
+        ([, init]) => (init as RequestInit).method === 'PUT',
+      )
+      expect(putCall).toBeDefined()
+      expect((putCall?.[1] as RequestInit).keepalive).toBe(true)
+    })
+  })
+
+  it('un 409 en el guardado abre el diálogo con las tres estrategias y las versiones (P8.10)', async () => {
+    const fetchMock = vi.fn()
+    fetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      if (method === 'GET') {
+        return new Response(JSON.stringify({ data: diagramResponse('Personas') }))
+      }
+      return new Response(
+        JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+        { status: 409 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.keyboard('{Control>}s{/Control}')
+    const dialog = await screen.findByRole('dialog', { name: 'Conflicto de versión' })
+    expect(dialog).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Recargar remoto' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Conservar local' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Sobrescribir remoto' })).toBeDefined()
+    expect(screen.getByText('v1')).toBeDefined()
+    expect(screen.getByText('v9')).toBeDefined()
+  })
+
+  it('Conservar local re-guarda sobre la versión remota y cierra el diálogo (P8.10)', async () => {
+    const fetchMock = vi.fn()
+    fetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      if (method === 'GET') {
+        return new Response(JSON.stringify({ data: diagramResponse('Personas') }))
+      }
+      const body = JSON.parse(String(init?.body)) as { version?: number }
+      if (body.version === 9) {
+        return new Response(
+          JSON.stringify({ data: { ...diagramResponse('Personas'), version: 10 } }),
+          { status: 200 },
+        )
+      }
+      return new Response(
+        JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+        { status: 409 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.keyboard('{Control>}s{/Control}')
+    await screen.findByRole('dialog', { name: 'Conflicto de versión' })
+    await userEvent.click(screen.getByRole('button', { name: 'Conservar local' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Conflicto de versión' })).toBeNull()
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+  })
+
+  it('Recargar remoto descarta los cambios locales y carga la versión del servidor (P8.10)', async () => {
+    const fetchMock = vi.fn()
+    fetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      if (method === 'GET') {
+        return new Response(JSON.stringify({ data: diagramResponse('Personas') }))
+      }
+      return new Response(
+        JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+        { status: 409 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.keyboard('{Control>}s{/Control}')
+    await screen.findByRole('dialog', { name: 'Conflicto de versión' })
+    await userEvent.click(screen.getByRole('button', { name: 'Recargar remoto' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Conflicto de versión' })).toBeNull()
+    })
+    expect(sessionStore.getState().session?.model.entities).toHaveLength(0)
+  })
+
+  it('Sobrescribir remoto fuerza la copia local contra la versión remota y cierra el diálogo (P8.10)', async () => {
+    const fetchMock = vi.fn()
+    fetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      if (method === 'GET') {
+        return new Response(JSON.stringify({ data: diagramResponse('Personas') }))
+      }
+      const body = JSON.parse(String(init?.body)) as { version?: number }
+      if (body.version === 9) {
+        return new Response(
+          JSON.stringify({ data: { ...diagramResponse('Personas'), version: 10 } }),
+          { status: 200 },
+        )
+      }
+      return new Response(
+        JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+        { status: 409 },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    setup()
+    await waitForScene()
+    await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+    await userEvent.keyboard('{Control>}s{/Control}')
+    await screen.findByRole('dialog', { name: 'Conflicto de versión' })
+    await userEvent.click(screen.getByRole('button', { name: 'Sobrescribir remoto' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Conflicto de versión' })).toBeNull()
+      expect(screen.getByText('Guardado')).toBeDefined()
+    })
+    expect(sessionStore.getState().serverVersion).toBe(10)
   })
 })
 

@@ -3,7 +3,7 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   WheelEvent as ReactWheelEvent,
 } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useBlocker, useParams } from 'react-router-dom'
 import type { ConceptualModel, NodeId } from '@erd-studio/shared'
 import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
@@ -11,19 +11,21 @@ import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, sceneBounds } from '../../render/layout'
 import type { Rect } from '../../editor/geometry'
 import type { Viewport, ViewportSize } from '../../editor/viewport'
-import { createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
+import { clampZoom, createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
+import type { ConflictDecision } from '../../store/sessionStore'
+import { sessionAutosave, startAutosave } from '../../store/autosave'
 import {
   useEditorInteractions,
   type EditorInteractions,
 } from './editorInteractions'
+import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
 import './editor.css'
 
 export function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const status = useSessionStore((s) => s.status)
-  const name = useSessionStore((s) => s.name)
   const isDirty = useSessionStore((s) => s.isDirty)
   const canUndo = useSessionStore((s) => s.canUndo)
   const canRedo = useSessionStore((s) => s.canRedo)
@@ -46,12 +48,64 @@ export function EditorPage() {
   }, [id])
 
   useEffect(() => {
+    const stop = startAutosave()
+    return () => stop()
+  }, [])
+
+  const blocker = useBlocker(isDirty)
+  const [discardDialog, setDiscardDialog] = useState(false)
+  const conflict = useSessionStore((s) => s.conflict)
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked' || discardDialog || sessionStore.getState().conflict !== null) {
+      return
+    }
+    let cancelled = false
+    void sessionStore
+      .getState()
+      .persist()
+      .finally(() => {
+        if (cancelled) return
+        const state = sessionStore.getState()
+        if (state.isDirty && state.conflict === null) {
+          setDiscardDialog(true)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [blocker, blocker.state, discardDialog])
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked' || isDirty || conflict !== null || discardDialog) return
+    blocker.proceed()
+  }, [blocker, isDirty, conflict, discardDialog])
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      const state = sessionStore.getState()
+      if (!state.isDirty) return
+      event.preventDefault()
+      void state.persist({ keepalive: true })
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [])
+
+  useEffect(() => {
     if (status !== 'ready' || model === null || fittedRef.current) return
     fittedRef.current = true
+    const store = sessionStore.getState()
+    const hint = store.viewportHint
+    if (hint !== null) {
+      store.setViewport({ cx: hint.cx, cy: hint.cy, zoom: clampZoom(hint.zoom) })
+      return
+    }
     const bounds = sceneBounds(allBounds)
-    sessionStore
-      .getState()
-      .setViewport(bounds === null ? createViewport() : fitRect(sessionStore.getState().viewport, size, bounds))
+    store.setViewport(
+      bounds === null ? createViewport() : fitRect(store.viewport, size, bounds),
+    )
   }, [status, model, size, allBounds])
 
   useEffect(() => {
@@ -73,6 +127,9 @@ export function EditorPage() {
       } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
         event.preventDefault()
         sessionStore.getState().redo()
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        void sessionAutosave.flush()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -94,8 +151,6 @@ export function EditorPage() {
   return (
     <div className="editor-page">
       <EditorHeader
-        name={name}
-        isDirty={isDirty}
         canUndo={canUndo}
         canRedo={canRedo}
         viewport={viewport}
@@ -149,6 +204,101 @@ export function EditorPage() {
           />
         ) : null}
       </main>
+      {conflict !== null ? (
+        <ConflictDialog
+          localVersion={conflict.localVersion}
+          serverVersion={conflict.serverVersion}
+          onResolve={(decision) => {
+            void sessionStore.getState().resolveConflict(decision)
+          }}
+        />
+      ) : discardDialog && blocker.state === 'blocked' ? (
+        <SaveBlockDialog
+          onDiscard={() => {
+            setDiscardDialog(false)
+            blocker.proceed()
+          }}
+          onStay={() => {
+            setDiscardDialog(false)
+            blocker.reset()
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function SaveBlockDialog({
+  onDiscard,
+  onStay,
+}: {
+  onDiscard: () => void
+  onStay: () => void
+}) {
+  return (
+    <div className="save-block-overlay">
+      <div
+        className="save-block-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="save-block-title"
+      >
+        <h2 id="save-block-title">Cambios sin guardar</h2>
+        <p>No se pudo guardar el diagrama. Si continúas, perderás los cambios locales.</p>
+        <div className="save-block-actions">
+          <button type="button" onClick={onStay}>
+            Cancelar
+          </button>
+          <button type="button" className="danger" onClick={onDiscard}>
+            Descartar y continuar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ConflictDialog({
+  localVersion,
+  serverVersion,
+  onResolve,
+}: {
+  localVersion: number
+  serverVersion: number
+  onResolve: (decision: ConflictDecision) => void
+}) {
+  return (
+    <div className="conflict-overlay">
+      <div
+        className="conflict-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conflict-title"
+      >
+        <h2 id="conflict-title">Conflicto de versión</h2>
+        <p>El diagrama cambió en el servidor. Elige cómo resolver el conflicto.</p>
+        <dl className="conflict-versions">
+          <div>
+            <dt>Tu versión local</dt>
+            <dd>v{localVersion}</dd>
+          </div>
+          <div>
+            <dt>Versión remota</dt>
+            <dd>v{serverVersion}</dd>
+          </div>
+        </dl>
+        <div className="conflict-actions">
+          <button type="button" onClick={() => onResolve('reload')}>
+            Recargar remoto
+          </button>
+          <button type="button" onClick={() => onResolve('keep')}>
+            Conservar local
+          </button>
+          <button type="button" className="danger" onClick={() => onResolve('overwrite')}>
+            Sobrescribir remoto
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -347,23 +497,20 @@ function InlineRename({
 }
 
 function EditorHeader({
-  name,
-  isDirty,
   canUndo,
   canRedo,
   viewport,
 }: {
-  name: string
-  isDirty: boolean
   canUndo: boolean
   canRedo: boolean
   viewport: Viewport
 }) {
   return (
     <header className="editor-header">
-      <span className="editor-name">
-        {name}
-        {isDirty ? <span className="dirty"> • sin guardar</span> : <span className="saved"> • guardado</span>}
+      <span className="editor-menu-area">
+        <DiagramMenu />
+        <EditableTitle />
+        <SaveIndicator />
       </span>
       <span className="editor-actions">
         <button
@@ -398,6 +545,91 @@ function zoomCanvas(factor: number) {
   const s = sessionStore.getState()
   const center: ViewportSize = { width: 800, height: 600 }
   s.setViewport(zoomAt(s.viewport, center, { x: center.width / 2, y: center.height / 2 }, factor))
+}
+
+function EditableTitle() {
+  const name = useSessionStore((s) => s.name)
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(name)
+
+  const startEdit = () => {
+    setValue(name)
+    setEditing(true)
+  }
+
+  const commit = () => {
+    setEditing(false)
+    const next = value.trim()
+    if (next === '' || next === name) return
+    void sessionStore.getState().rename(next)
+  }
+
+  const cancel = () => {
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <span
+        className="editor-title"
+        title="Doble clic para renombrar"
+        data-testid="diagram-title"
+        onDoubleClick={startEdit}
+      >
+        {name}
+      </span>
+    )
+  }
+  return (
+    <input
+      className="editor-title-input"
+      role="textbox"
+      aria-label="Nombre del diagrama"
+      value={value}
+      autoFocus
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={cancel}
+      onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          commit()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          cancel()
+        }
+      }}
+      onClick={(e) => e.stopPropagation()}
+    />
+  )
+}
+
+function SaveIndicator() {
+  const status = useSessionStore((s) => s.status)
+  const saveStatus = useSessionStore((s) => s.saveStatus)
+  const isDirty = useSessionStore((s) => s.isDirty)
+
+  if (status !== 'ready') return null
+
+  let label = 'Guardado'
+  let tone = 'saved'
+  if (saveStatus === 'saving') {
+    label = 'Guardando…'
+    tone = 'saving'
+  } else if (saveStatus === 'error' || isDirty) {
+    label = 'Sin guardar'
+    tone = 'dirty'
+  }
+
+  return (
+    <span
+      className={`editor-save-indicator ${tone}`}
+      aria-live="polite"
+      data-save-status={saveStatus}
+    >
+      <span className="editor-save-icon" aria-hidden="true" />
+      {label}
+    </span>
+  )
 }
 
 const DEFAULT_SIZE: ViewportSize = { width: 800, height: 600 }

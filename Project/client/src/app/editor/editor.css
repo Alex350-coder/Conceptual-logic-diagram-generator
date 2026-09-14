@@ -28,6 +28,269 @@
   color: #6b7280;
 }
 
+.editor-menu-area {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.editor-title {
+  font-weight: 600;
+  cursor: text;
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+}
+
+.editor-title:hover {
+  background: #f3f4f6;
+}
+
+.editor-title-input {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.3rem;
+  width: 12rem;
+}
+
+.editor-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.editor-save-indicator .editor-save-icon {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.editor-save-indicator.saved {
+  color: #15803d;
+}
+
+.editor-save-indicator.saving {
+  color: #1d4ed8;
+}
+
+.editor-save-indicator.dirty {
+  color: #b45309;
+}
+
+.save-block-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.save-block-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.save-block-card p {
+  margin: 8px 0 0;
+  color: #4b5563;
+}
+
+.save-block-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.save-block-actions button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.conflict-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.conflict-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.conflict-card p {
+  margin: 8px 0 0;
+  color: #4b5563;
+}
+
+.conflict-versions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.conflict-versions div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.conflict-versions dt {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.conflict-versions dd {
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+
+.conflict-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.conflict-actions button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.diagram-menu {
+  position: relative;
+}
+
+.diagram-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+.diagram-menu-trigger:hover {
+  background: #f3f4f6;
+}
+
+.diagram-menu-caret {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.diagram-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 16rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  z-index: 30;
+}
+
+.diagram-menu-status {
+  padding: 0.75rem 1rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.diagram-menu-error {
+  color: #b91c1c;
+}
+
+.diagram-menu-retry {
+  margin-left: 0.4rem;
+}
+
+.diagram-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.diagram-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.diagram-menu-item:hover {
+  background: #f3f4f6;
+}
+
+.diagram-menu-item[aria-current='true'] {
+  background: #eff6ff;
+}
+
+.diagram-menu-item-name {
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.diagram-menu-item[aria-current='true'] .diagram-menu-item-name {
+  color: #1d4ed8;
+}
+
+.diagram-menu-item-date {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.diagram-menu-footer {
+  border-top: 1px solid #e5e7eb;
+  padding: 0.4rem;
+}
+
+.diagram-menu-footer button {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  background: #f8fafc;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
 .editor-actions {
   display: flex;
   align-items: center;

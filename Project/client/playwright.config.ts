@@ -5,7 +5,9 @@ import os from 'node:os'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const serverRoot = path.resolve(__dirname, '../server')
-const dbPath = path.join(os.tmpdir(), 'erd-studio-e2e.db')
+// DB temporal unica por run: evita colisiones con WAL/SHM huerfanos de runs cortados
+// (Windows no permite borrar un archivo abierto por un proceso zombie).
+const dbPath = path.join(os.tmpdir(), `erd-studio-e2e-${Date.now()}.db`)
 
 export default defineConfig({
   testDir: 'e2e',

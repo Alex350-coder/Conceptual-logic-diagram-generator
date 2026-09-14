@@ -42,16 +42,19 @@ export interface DocumentEnvelope {
   data: {
     model: ConceptualModel
     logical: LogicalModel | null
+    /** Metadato de vista opcional (Architecture.md §5.1). Campo aditivo, schemaVersion se mantiene en 1. */
+    viewportHint?: ViewportHint
   }
 }
 
 export function makeEnvelope(
   model: ConceptualModel,
   logical: LogicalModel | null,
+  viewportHint?: ViewportHint,
 ): DocumentEnvelope {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: DOCUMENT_KIND,
-    data: { model, logical },
+    data: viewportHint === undefined ? { model, logical } : { model, logical, viewportHint },
   }
 }

@@ -326,7 +326,7 @@ describe('validador de modelo conceptual', () => {
       supertypeId: id(1),
       subtypeIds: [id(2)],
       disjointness: 'OTHER' as 'DISJOINT',
-      completeness: 'TOTAL',
+      completeness: 'TOTAL' as const,
     }
     model.specializations.push(spec)
     expect(codes(validateConceptualModel(model))).toContain('V-010')

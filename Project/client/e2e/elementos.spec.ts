@@ -6,7 +6,7 @@ test('flujo E2E 1-3: crea diagrama, entidad y atributos en el canvas', async ({ 
   await page.getByRole('button', { name: 'Nuevo diagrama' }).click()
   const scene = page.getByTestId('scene')
   await expect(scene).toBeVisible()
-  await expect(page.locator('.editor-name')).toContainText('Diagrama sin nombre')
+  await expect(page.getByTestId('diagram-title')).toContainText('Diagrama sin nombre')
 
   // 2. Crear entidad con nombre
   await page.getByRole('button', { name: 'Nueva entidad' }).click()

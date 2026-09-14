@@ -60,6 +60,27 @@ describe('serialize: round-trip', () => {
   })
 })
 
+describe('serialize: viewportHint (metadato aditivo P8)', () => {
+  it('serializa y parsea el viewportHint del envelope', () => {
+    const envelope = validEnvelope()
+    envelope.data.viewportHint = { cx: 120.5, cy: -80, zoom: 0.75 }
+    const parsed = parseDiagramDocument(serializeDiagramDocument(envelope))
+    expect(parsed.data.viewportHint).toEqual({ cx: 120.5, cy: -80, zoom: 0.75 })
+  })
+
+  it('documentos sin viewportHint siguen parseando (campo opcional)', () => {
+    const parsed = parseDiagramDocument(serializeDiagramDocument(validEnvelope()))
+    expect('viewportHint' in parsed.data).toBe(false)
+  })
+
+  it('viewportHint con forma inválida se descarta sin romper el parse', () => {
+    const root = JSON.parse(serializeDiagramDocument(validEnvelope()))
+    root.data.viewportHint = { cx: 'x', cy: 1, zoom: NaN }
+    const parsed = parseDiagramDocument(JSON.stringify(root))
+    expect('viewportHint' in parsed.data).toBe(false)
+  })
+})
+
 describe('serialize: errores de entrada (sin exponer raw)', () => {
   it('JSON inválido → INVALID_REQUEST', () => {
     try {

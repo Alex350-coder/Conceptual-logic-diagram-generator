@@ -1,5 +1,5 @@
 import { CURRENT_SCHEMA_VERSION, DOCUMENT_KIND } from '../constants'
-import type { DocumentEnvelope } from '../domain/diagram'
+import type { DocumentEnvelope, ViewportHint } from '../domain/diagram'
 import { validateConceptualModel, validateLogicalModel, type Violation } from '../validate/index'
 import { DomainError } from '../errors'
 import { decodeConceptualModel, decodeLogicalModel } from './decode'
@@ -35,7 +35,35 @@ const decodedEnvelope = (sanitized: unknown): DocumentEnvelope => {
   const model = decodeConceptualModel(dataRecord['model'])
   const logicalValue = dataRecord['logical']
   const logical = logicalValue === null ? null : decodeLogicalModel(logicalValue)
-  return { schemaVersion: CURRENT_SCHEMA_VERSION, kind: DOCUMENT_KIND, data: { model, logical } }
+  const viewportHintValue = dataRecord['viewportHint']
+  const viewportHint =
+    viewportHintValue === null || viewportHintValue === undefined
+      ? undefined
+      : decodeViewportHint(viewportHintValue)
+  return {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    kind: DOCUMENT_KIND,
+    data: viewportHint === undefined ? { model, logical } : { model, logical, viewportHint },
+  }
+}
+
+/**
+ * ViewportHint es metadato opaco: se acepta cualquier objeto con números finitos
+ * { cx, cy, zoom } y se descarta cualquier otra forma sin romper el parse.
+ */
+function decodeViewportHint(value: unknown): ViewportHint | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+  const record = value as { cx?: unknown; cy?: unknown; zoom?: unknown }
+  const { cx, cy, zoom } = record
+  if (typeof cx !== 'number' || typeof cy !== 'number' || typeof zoom !== 'number') {
+    return undefined
+  }
+  if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(zoom)) {
+    return undefined
+  }
+  return { cx, cy, zoom }
 }
 
 /**
@@ -93,6 +121,9 @@ export function serializeDiagramDocument(envelope: DocumentEnvelope): string {
     data: {
       model: envelope.data.model,
       logical: envelope.data.logical,
+      ...(envelope.data.viewportHint === undefined
+        ? {}
+        : { viewportHint: envelope.data.viewportHint }),
     },
   }
   return JSON.stringify(envelopeToWrite)
@@ -102,10 +133,14 @@ export function serializeDiagramDocument(envelope: DocumentEnvelope): string {
 export function serializeDocument(
   model: DocumentEnvelope['data']['model'],
   logical: DocumentEnvelope['data']['logical'],
+  viewportHint?: ViewportHint,
 ): string {
   return serializeDiagramDocument({
     schemaVersion: CURRENT_SCHEMA_VERSION,
     kind: DOCUMENT_KIND,
-    data: { model, logical },
+    data:
+      viewportHint === undefined
+        ? { model, logical }
+        : { model, logical, viewportHint },
   })
 }

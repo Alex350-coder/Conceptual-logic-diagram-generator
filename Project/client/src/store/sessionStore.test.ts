@@ -5,6 +5,7 @@ import type { DocumentEnvelope } from '@erd-studio/shared'
 import { createSessionStore, type SessionStoreApi } from './sessionStore'
 
 const diagramId: DiagramId = toDiagramId(newId())
+const diagramId2: DiagramId = toDiagramId(newId())
 
 function envelope(): DocumentEnvelope {
   return {
@@ -33,6 +34,12 @@ function fetchStatus(status: number): void {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })))
 }
 
+function dirtyWithEntity(store: SessionStoreApi): void {
+  store.getState().sendCommands([
+    { type: 'createEntity', payload: { id: newId(), name: 'Persona' } },
+  ])
+}
+
 describe('sessionStore', () => {
   let api: SessionStoreApi
 
@@ -49,8 +56,10 @@ describe('sessionStore', () => {
     const s = api.getState()
     expect(s.status).toBe('ready')
     expect(s.name).toBe('Personas')
+    expect(s.id).toBe(diagramId)
     expect(s.revision).toBe(0)
     expect(s.isDirty).toBe(false)
+    expect(s.saveStatus).toBe('saved')
     expect(s.selection.size).toBe(0)
   })
 
@@ -109,6 +118,65 @@ describe('sessionStore', () => {
     expect(s.revision).toBe(0)
   })
 
+  it('loadFromEnvelope captura el viewportHint del documento (P8.8)', () => {
+    const doc = envelope()
+    doc.data.viewportHint = { cx: 120, cy: -40, zoom: 0.5 }
+    api.getState().loadFromEnvelope(diagramId, 'Personas', doc)
+    expect(api.getState().viewportHint).toEqual({ cx: 120, cy: -40, zoom: 0.5 })
+  })
+
+  it('setViewport persiste el hint solo tras salir de la cámara virgen (P8.8)', () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    expect(api.getState().viewportHint).toBeNull()
+    api.getState().setViewport({ cx: 0, cy: 0, zoom: 1 })
+    expect(api.getState().viewportHint).toBeNull()
+    api.getState().setViewport({ cx: 40, cy: 25, zoom: 0.8 })
+    expect(api.getState().viewportHint).toEqual({ cx: 40, cy: 25, zoom: 0.8 })
+  })
+
+  it('persist envía el viewportHint actual en el envelope (P8.8)', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    api.getState().setViewport({ cx: 55, cy: 66, zoom: 2 })
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { id: diagramId, name: 'Personas', version: 2, document: envelope() } }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    await api.getState().persist()
+
+    const fetchMock = vi.mocked(fetch)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as { document: { data: Record<string, unknown> } }
+    expect(body.document.data.viewportHint).toEqual({ cx: 55, cy: 66, zoom: 2 })
+  })
+
+  it('persist omite viewportHint cuando la cámara nunca se movió (P8.8)', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { id: diagramId, name: 'Personas', version: 2, document: envelope() } }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    await api.getState().persist()
+
+    const fetchMock = vi.mocked(fetch)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as { document: { data: Record<string, unknown> } }
+    expect(body.document.data.viewportHint).toBeUndefined()
+  })
+
   it('a command batch records exactly one history operation and undoes as one', () => {
     api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
     const entityId: NodeId = newId()
@@ -155,5 +223,347 @@ it('exposes the raw session for engine consumers', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network down')))
     await api.getState().load(diagramId)
     expect(api.getState().status).toBe('error')
+  })
+
+  it('persist skips network when the session is already saved', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    await api.getState().persist()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(api.getState().saveStatus).toBe('saved')
+  })
+
+  it('persist PUTs the document and marks the session saved', async () => {
+    const store = api
+    store.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 3)
+    dirtyWithEntity(store)
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { id: diagramId, name: 'Personas', version: 4, document: envelope() } }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await store.getState().persist()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/diagrams/${diagramId}`,
+      expect.objectContaining({ method: 'PUT' }),
+    )
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toMatchObject({ version: 3 })
+    const s = store.getState()
+    expect(s.saveStatus).toBe('saved')
+    expect(s.serverVersion).toBe(4)
+    expect(s.isDirty).toBe(false)
+    expect(s.lastPersistedRevision).toBe(s.revision)
+  })
+
+  it('persist failure keeps the session dirty and surfaces error status', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    dirtyWithEntity(api)
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network down')))
+
+    await api.getState().persist()
+
+    const s = api.getState()
+    expect(s.saveStatus).toBe('error')
+    expect(s.isDirty).toBe(true)
+    expect(s.conflict).toBeNull()
+  })
+
+  it('persist captures a 409 conflict with both versions', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 2)
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+          { status: 409 },
+        ),
+      ),
+    )
+
+    await api.getState().persist()
+
+    const s = api.getState()
+    expect(s.saveStatus).toBe('error')
+    expect(s.conflict).toEqual({ localVersion: 2, serverVersion: 9 })
+  })
+
+  it('rename PUTs name+documento y actualiza localmente la versión', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { id: diagramId, name: 'Clientes', version: 2, document: envelope() } }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getState().rename('Cliente')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/diagrams/${diagramId}`,
+      expect.objectContaining({ method: 'PUT' }),
+    )
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(String(init.body)) as { name: string }
+    expect(body.name).toBe('Cliente')
+    const s = api.getState()
+    expect(s.name).toBe('Clientes')
+    expect(s.serverVersion).toBe(2)
+    expect(s.saveStatus).toBe('saved')
+    expect(s.isDirty).toBe(false)
+  })
+
+  it('rename captura un 409 sin mutar el nombre local', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }), {
+          status: 409,
+        }),
+      ),
+    )
+
+    await api.getState().rename('Clientes')
+
+    const s = api.getState()
+    expect(s.name).toBe('Personas')
+    expect(s.saveStatus).toBe('error')
+    expect(s.conflict).toEqual({ localVersion: 1, serverVersion: 9 })
+  })
+
+  it('rename ignora nombres vacíos y no hace fetch', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 1)
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getState().rename('   ')
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(api.getState().name).toBe('Personas')
+  })
+
+  it('switchDiagram flusha cambios pendientes y carga el diagrama objetivo', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'A', envelope(), 1)
+    dirtyWithEntity(api)
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { id: diagramId, name: 'A', version: 2, document: envelope() } }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { id: diagramId2, name: 'B', version: 1, document: envelope() } }), {
+          status: 200,
+        }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getState().switchDiagram(diagramId2)
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/v1/diagrams/${diagramId}`)
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'PUT' })
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/v1/diagrams/${diagramId2}`)
+    const s = api.getState()
+    expect(s.id).toBe(diagramId2)
+    expect(s.name).toBe('B')
+    expect(s.revision).toBe(0)
+    expect(s.isDirty).toBe(false)
+    expect(s.saveStatus).toBe('saved')
+  })
+
+  it('switchDiagram aborta si hay un conflicto 409 pendiente de resolver', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'A', envelope(), 1)
+    dirtyWithEntity(api)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }), {
+          status: 409,
+        }),
+      ),
+    )
+
+    await api.getState().switchDiagram(diagramId2)
+
+    const s = api.getState()
+    expect(s.id).toBe(diagramId)
+    expect(s.conflict).toEqual({ localVersion: 1, serverVersion: 9 })
+    expect(s.status).toBe('error')
+    expect(s.saveStatus).toBe('error')
+  })
+
+  describe('resolveConflict (P8.10)', () => {
+    it('keep re-PUTa contra la versión remota y limpia el conflicto', async () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 2)
+      dirtyWithEntity(api)
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+            { status: 409 },
+          ),
+        ),
+      )
+      await api.getState().persist()
+      expect(api.getState().conflict).toEqual({ localVersion: 2, serverVersion: 9 })
+
+      const retryMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: { id: diagramId, name: 'Personas', version: 10, document: envelope() },
+          }),
+          { status: 200 },
+        ),
+      )
+      vi.stubGlobal('fetch', retryMock)
+
+      await api.getState().resolveConflict('keep')
+
+      const [, init] = retryMock.mock.calls[0] as [string, RequestInit]
+      expect(JSON.parse(String(init.body))).toMatchObject({ version: 9 })
+      const s = api.getState()
+      expect(s.saveStatus).toBe('saved')
+      expect(s.isDirty).toBe(false)
+      expect(s.conflict).toBeNull()
+      expect(s.serverVersion).toBe(10)
+      expect(s.lastPersistedRevision).toBe(s.revision)
+    })
+
+    it('overwrite fuerza la copia local contra la versión remota', async () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 2)
+      dirtyWithEntity(api)
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+            { status: 409 },
+          ),
+        ),
+      )
+      await api.getState().persist()
+
+      const retryMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: { id: diagramId, name: 'Personas', version: 11, document: envelope() },
+          }),
+          { status: 200 },
+        ),
+      )
+      vi.stubGlobal('fetch', retryMock)
+
+      await api.getState().resolveConflict('overwrite')
+
+      const [, init] = retryMock.mock.calls[0] as [string, RequestInit]
+      expect(JSON.parse(String(init.body))).toMatchObject({ version: 9 })
+      const s = api.getState()
+      expect(s.saveStatus).toBe('saved')
+      expect(s.isDirty).toBe(false)
+      expect(s.conflict).toBeNull()
+      expect(s.serverVersion).toBe(11)
+    })
+
+    it('reload descarta los cambios locales y carga la versión del servidor', async () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 2)
+      dirtyWithEntity(api)
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+            { status: 409 },
+          ),
+        ),
+      )
+      await api.getState().persist()
+
+      const reloadMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: { id: diagramId, name: 'Personas', version: 9, document: envelope() },
+          }),
+          { status: 200 },
+        ),
+      )
+      vi.stubGlobal('fetch', reloadMock)
+
+      await api.getState().resolveConflict('reload')
+
+      const [url] = reloadMock.mock.calls[0] as [string]
+      expect(url).toBe(`/api/v1/diagrams/${diagramId}`)
+      expect(reloadMock.mock.calls[0]?.[1]).toMatchObject({ method: 'GET' })
+      const s = api.getState()
+      expect(s.status).toBe('ready')
+      expect(s.session?.model.entities).toHaveLength(0)
+      expect(s.isDirty).toBe(false)
+      expect(s.conflict).toBeNull()
+      expect(s.saveStatus).toBe('saved')
+    })
+
+    it('no hace nada sin conflicto pendiente', async () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 2)
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      await api.getState().resolveConflict('keep')
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(api.getState().conflict).toBeNull()
+    })
+
+    it('keep ante un nuevo 409 actualiza el conflicto con la nueva versión remota', async () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope(), 2)
+      dirtyWithEntity(api)
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 9 } } }),
+            { status: 409 },
+          ),
+        ),
+      )
+      await api.getState().persist()
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: 'CONFLICT_VERSION', details: { serverVersion: 11 } } }),
+            { status: 409 },
+          ),
+        ),
+      )
+
+      await api.getState().resolveConflict('keep')
+
+      const s = api.getState()
+      expect(s.conflict).toEqual({ localVersion: 9, serverVersion: 11 })
+      expect(s.saveStatus).toBe('error')
+      expect(s.isDirty).toBe(true)
+    })
+  })
+
+  it('switchDiagram con 404 en el objetivo mapea a notFound y conserva la sesión', async () => {
+    api.getState().loadFromEnvelope(diagramId, 'A', envelope(), 1)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 404 })))
+
+    await api.getState().switchDiagram(diagramId2)
+
+    const s = api.getState()
+    expect(s.status).toBe('notFound')
+    expect(s.id).toBe(diagramId)
+    expect(s.isDirty).toBe(false)
   })
 })
