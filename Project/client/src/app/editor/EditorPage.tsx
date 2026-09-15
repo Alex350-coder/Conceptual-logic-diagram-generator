@@ -4,7 +4,7 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Link, useBlocker, useParams } from 'react-router-dom'
-import type { ConceptualModel, NodeId } from '@erd-studio/shared'
+import type { ColumnId, ColumnType, ConceptualModel, LogicalModel, NodeId, TableId } from '@erd-studio/shared'
 import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
 import { autoAttributeBounds } from '../../render/attributeLayout'
@@ -22,7 +22,10 @@ import {
 import { useClipboardActions } from './clipboardActions'
 import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
+import { LogicalPanel } from './LogicalPanel'
 import './editor.css'
+
+type EditorMode = 'conceptual' | 'logical'
 
 export function EditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -33,6 +36,9 @@ export function EditorPage() {
   const viewport = useSessionStore((s) => s.viewport)
   const model = useSessionStore((s) => s.session?.model ?? null)
   const selection = useSessionStore((s) => s.selection)
+  const logical = useSessionStore((s) => s.logical)
+  const logicalPending = useSessionStore((s) => s.logicalRecalculationPending)
+  const [mode, setMode] = useState<EditorMode>('conceptual')
 
   const size = useEditorSize()
   const fittedRef = useRef(false)
@@ -167,6 +173,17 @@ export function EditorPage() {
         canUndo={canUndo}
         canRedo={canRedo}
         viewport={viewport}
+        mode={mode}
+        onModeChange={setMode}
+        canTransform={status === 'ready' && model !== null}
+        onTransform={() => {
+          const store = sessionStore.getState()
+          const result =
+            store.logical !== null ? store.recomputeLogical() : store.transformToLogical()
+          if (result.ok && !sessionStore.getState().logicalRecalculationPending) {
+            setMode('logical')
+          }
+        }}
       />
       <main className="editor-canvas">
         <EditorBody
@@ -177,8 +194,13 @@ export function EditorPage() {
           model={model}
           selection={selection}
           interactions={interactions}
+          mode={mode}
+          logical={logical}
+          onSetColumnType={(payload) => {
+            void sessionStore.getState().setColumnType(payload)
+          }}
         />
-        {status === 'ready' && model !== null ? (
+        {status === 'ready' && model !== null && mode === 'conceptual' ? (
           <EditorToolbar
             canDelete={selection.size > 0}
             canAddAttribute={attributeOwner !== undefined}
@@ -201,8 +223,18 @@ export function EditorPage() {
             onDelete={interactions.deleteSelected}
           />
         ) : null}
-        {status === 'ready' && model !== null ? (
+        {status === 'ready' && model !== null && mode === 'conceptual' ? (
           <InspectorPanel model={model} selection={selection} interactions={interactions} />
+        ) : null}
+        {logicalPending ? (
+          <RecalculationBanner
+            onRecalculate={() => {
+              sessionStore.getState().resolveLogicalRecalculation('recompute')
+            }}
+            onKeep={() => {
+              sessionStore.getState().resolveLogicalRecalculation('keep')
+            }}
+          />
         ) : null}
         {status === 'ready' && interactions.renamingId !== null && model !== null ? (
           <InlineRename
@@ -324,6 +356,9 @@ function EditorBody({
   model,
   selection,
   interactions,
+  mode,
+  logical,
+  onSetColumnType,
 }: {
   status: 'idle' | 'loading' | 'ready' | 'notFound' | 'invalid' | 'error'
   id: string | undefined
@@ -332,6 +367,9 @@ function EditorBody({
   model: ConceptualModel | null
   selection: ReadonlySet<NodeId>
   interactions: EditorInteractions
+  mode: EditorMode
+  logical: LogicalModel | null
+  onSetColumnType: (payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }) => void
 }) {
   if (status === 'notFound') {
     return (
@@ -355,6 +393,23 @@ function EditorBody({
   }
   if (model === null) {
     return <p className="status">Cargando diagrama…</p>
+  }
+  if (mode === 'logical') {
+    if (logical === null) {
+      return (
+        <p className="status">
+          Todavía no hay modelo lógico. Usa «Transformar a lógico» en el modo Conceptual.
+        </p>
+      )
+    }
+    return (
+      <LogicalPanel
+        logical={logical}
+        onSetType={(payload) => {
+          void onSetColumnType(payload)
+        }}
+      />
+    )
   }
   const renderModel =
     interactions.dragLayout !== null ? { ...model, layout: interactions.dragLayout } : model
@@ -513,10 +568,18 @@ function EditorHeader({
   canUndo,
   canRedo,
   viewport,
+  mode,
+  onModeChange,
+  canTransform,
+  onTransform,
 }: {
   canUndo: boolean
   canRedo: boolean
   viewport: Viewport
+  mode: EditorMode
+  onModeChange: (mode: EditorMode) => void
+  canTransform: boolean
+  onTransform: () => void
 }) {
   return (
     <header className="editor-header">
@@ -526,6 +589,34 @@ function EditorHeader({
         <SaveIndicator />
       </span>
       <span className="editor-actions">
+        <span className="editor-mode-switch" role="group" aria-label="Modo del editor">
+          <button
+            type="button"
+            className={mode === 'conceptual' ? 'active' : undefined}
+            onClick={() => onModeChange('conceptual')}
+            aria-pressed={mode === 'conceptual'}
+          >
+            Conceptual
+          </button>
+          <button
+            type="button"
+            className={mode === 'logical' ? 'active' : undefined}
+            onClick={() => onModeChange('logical')}
+            aria-pressed={mode === 'logical'}
+          >
+            Lógico
+          </button>
+        </span>
+        {mode === 'conceptual' ? (
+          <button
+            type="button"
+            onClick={onTransform}
+            disabled={!canTransform}
+            title="Transformar el modelo conceptual a un esquema lógico (T1-T10)"
+          >
+            Transformar a lógico
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => sessionStore.getState().undo()}
@@ -551,6 +642,28 @@ function EditorHeader({
         <span className="zoom-level">{Math.round(viewport.zoom * 100)}%</span>
       </span>
     </header>
+  )
+}
+
+function RecalculationBanner({
+  onRecalculate,
+  onKeep,
+}: {
+  onRecalculate: () => void
+  onKeep: () => void
+}) {
+  return (
+    <div className="recalc-banner" role="alert">
+      <p>El modelo conceptual cambió desde la última generación. ¿Recalcular el modelo lógico?</p>
+      <div className="recalc-banner-actions">
+        <button type="button" onClick={onRecalculate}>
+          Recalcular
+        </button>
+        <button type="button" onClick={onKeep}>
+          Conservar actual
+        </button>
+      </div>
+    </div>
   )
 }
 
