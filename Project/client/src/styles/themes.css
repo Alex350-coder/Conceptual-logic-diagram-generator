@@ -1,0 +1,96 @@
+/* Tema oscuro (por defecto) — paleta fría slate/blue/cyan/indigo */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Superficies */
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-2: #334155;
+  --color-divider: #334155;
+  --color-border: #475569;
+  --color-border-strong: #64748b;
+
+  /* Texto */
+  --color-text: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-text-strong: #f8fafc;
+
+  /* Acentos por rol */
+  --color-primary: #60a5fa;
+  --color-primary-strong: #2563eb;
+  --color-on-primary: #ffffff;
+  --color-selection: #22d3ee;
+  --color-selection-soft: #164e63;
+  --color-focus: #818cf8;
+  --color-danger: #f87171;
+  --color-danger-strong: #dc2626;
+  --color-on-danger: #ffffff;
+  --color-warning: #fbbf24;
+  --color-warning-strong: #d97706;
+  --color-warning-bg: #451a03;
+  --color-on-warning: #1f2937;
+  --color-success: #4ade80;
+  --color-success-strong: #16a34a;
+  --color-on-success: #ffffff;
+
+  /* Badges */
+  --color-pk-text: #fbbf24;
+  --color-pk-bg: #78350f;
+
+  /* Capas */
+  --color-overlay: rgba(2, 6, 23, 0.62);
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(2, 6, 23, 0.4);
+  --shadow-md: 0 4px 12px rgba(2, 6, 23, 0.45);
+  --shadow-lg: 0 8px 24px rgba(2, 6, 23, 0.5);
+}
+
+/* Tema claro — alternativa global, ambos AA */
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Superficies */
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-divider: #f1f5f9;
+  --color-border: #cbd5e1;
+  --color-border-strong: #94a3b8;
+
+  /* Texto */
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-strong: #0f172a;
+
+  /* Acentos por rol */
+  --color-primary: #2563eb;
+  --color-primary-strong: #2563eb;
+  --color-on-primary: #ffffff;
+  --color-selection: #0891b2;
+  --color-selection-soft: #eff6ff;
+  --color-focus: #6366f1;
+  --color-danger: #dc2626;
+  --color-danger-strong: #dc2626;
+  --color-on-danger: #ffffff;
+  --color-warning: #b45309;
+  --color-warning-strong: #d97706;
+  --color-warning-bg: #fffbeb;
+  --color-on-warning: #7c2d12;
+  --color-success: #16a34a;
+  --color-success-strong: #16a34a;
+  --color-on-success: #ffffff;
+
+  /* Badges */
+  --color-pk-text: #b45309;
+  --color-pk-bg: #fef3c7;
+
+  /* Capas */
+  --color-overlay: rgba(15, 23, 42, 0.5);
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.16);
+}
