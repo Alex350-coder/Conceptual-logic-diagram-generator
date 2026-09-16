@@ -768,14 +768,14 @@ function EditableTitle() {
 
   if (!editing) {
     return (
-      <span
+      <h1
         className="editor-title"
         title="Doble clic para renombrar"
         data-testid="diagram-title"
         onDoubleClick={startEdit}
       >
         {name}
-      </span>
+      </h1>
     )
   }
   return (

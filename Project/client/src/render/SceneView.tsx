@@ -44,6 +44,37 @@ const ROLE_STYLES: Record<PrimitiveRole, CSSProperties> = {
   },
 }
 
+/** Nombre accesible por tipo de nodo (regla ui-ux-system §Foco y teclado). */
+const SHAPE_TYPE_LABELS: Partial<Record<PrimitiveRole, string>> = {
+  entity: 'Entidad',
+  relationship: 'Relación',
+  attribute: 'Atributo',
+  specialization: 'Especialización',
+}
+
+const NODE_LABEL_PREFIX = 'label-'
+const CARDINALITY_PREFIX = 'card-'
+const ISA_MARK_PREFIX = 'isa-do-'
+
+/** Nombre accesible de una primitiva completa (o undefined si no aplica). */
+function accessibleNameFor(
+  prim: Primitive,
+  nodeNameById: ReadonlyMap<string, string>,
+): string | undefined {
+  const typeLabel = SHAPE_TYPE_LABELS[prim.role]
+  if (typeLabel !== undefined) {
+    const name = nodeNameById.get(prim.id)
+    return name !== undefined ? `${typeLabel} ${name}` : undefined
+  }
+  if (prim.kind === 'text' && prim.id.startsWith(CARDINALITY_PREFIX)) {
+    return `Cardinalidad ${prim.text}`
+  }
+  if (prim.kind === 'text' && prim.id.startsWith(ISA_MARK_PREFIX)) {
+    return `Marca ${prim.text}`
+  }
+  return undefined
+}
+
 const centerX = (b: Rect): number => b.x + b.width / 2
 const centerY = (b: Rect): number => b.y + b.height / 2
 
@@ -165,6 +196,14 @@ function PrimitiveView({ prim }: { prim: Primitive }) {
 
 export function SceneView({ scene, viewport, size, className, onPointerDown, onContextMenu, onWheel, onKeyDown, onShapeDoubleClick }: SceneViewProps) {
   const transform = `translate(${size.width / 2} ${size.height / 2}) scale(${viewport.zoom}) translate(${-viewport.cx} ${-viewport.cy})`
+  const nodeNameById = new Map<string, string>()
+  for (const layer of scene.layers) {
+    for (const prim of layer.items) {
+      if (prim.kind === 'text' && prim.id.startsWith(NODE_LABEL_PREFIX)) {
+        nodeNameById.set(prim.id.slice(NODE_LABEL_PREFIX.length), prim.text)
+      }
+    }
+  }
   const handleDoubleClick = (event: ReactMouseEvent<SVGGElement>) => {
     event.stopPropagation()
     const id = (event.currentTarget as Element).getAttribute('data-id')
@@ -185,11 +224,22 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onC
       <g transform={transform} data-world="true">
         {scene.layers.map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
-            {layer.items.map((prim) => (
-              <g key={prim.id} data-id={prim.id} onDoubleClick={handleDoubleClick}>
-                <PrimitiveView prim={prim} />
-              </g>
-            ))}
+            {layer.items.map((prim) => {
+              const accessibleName = accessibleNameFor(prim, nodeNameById)
+              const hideFromAt = prim.kind === 'text' && prim.id.startsWith(NODE_LABEL_PREFIX)
+              return (
+                <g
+                  key={prim.id}
+                  data-id={prim.id}
+                  role={accessibleName !== undefined ? 'img' : undefined}
+                  aria-label={accessibleName}
+                  aria-hidden={hideFromAt ? 'true' : undefined}
+                  onDoubleClick={handleDoubleClick}
+                >
+                  <PrimitiveView prim={prim} />
+                </g>
+              )
+            })}
           </g>
         ))}
       </g>

@@ -31,7 +31,12 @@ function scene() {
       makeRect('attribute', 'attr1', { x: 200, y: 0, width: 150, height: 60 }, 'ellipse', true),
       makeRect('relationship', 'rel1', { x: 400, y: 0, width: 120, height: 90 }, 'diamond', false),
     ],
-    labels: [makeText('label', 'lbl-ent1', { x: 0, y: 0, width: 180, height: 90 }, 'Persona'), makeText('label', 'lbl-attr1', { x: 200, y: 0, width: 150, height: 60 }, 'dni', true)],
+    labels: [
+      makeText('label', 'label-ent1', { x: 0, y: 0, width: 180, height: 90 }, 'Persona'),
+      makeText('label', 'label-attr1', { x: 200, y: 0, width: 150, height: 60 }, 'dni', true),
+      makeText('label', 'label-rel1', { x: 400, y: 0, width: 120, height: 90 }, 'Empleo'),
+      makeText('label', 'card-rel1-ent1', { x: 300, y: 0, width: 0, height: 0 }, 'N'),
+    ],
     selection: [makeRect('selection', 'sel-ent1', { x: 0, y: 0, width: 180, height: 90 })],
   })
 }
@@ -57,10 +62,10 @@ describe('SceneView (adapter SVG)', () => {
   it('polyline se materializa como <polyline> y texto como <text> con subrayado de clave', () => {
     const { container } = render(<SceneView scene={scene()} viewport={viewport} size={size} />)
     expect(container.querySelector('[data-id="e1"] polyline')).not.toBeNull()
-    const keyLabel = container.querySelector('[data-id="lbl-attr1"] text')
+    const keyLabel = container.querySelector('[data-id="label-attr1"] text')
     expect(keyLabel?.textContent).toBe('dni')
     expect(keyLabel?.getAttribute('style')).toContain('underline')
-    expect(container.querySelector('[data-id="lbl-ent1"] text')?.textContent).toBe('Persona')
+    expect(container.querySelector('[data-id="label-ent1"] text')?.textContent).toBe('Persona')
   })
 
   it('edge emphasized (participación total) dibuja doble polyline', () => {
@@ -77,9 +82,38 @@ describe('SceneView (adapter SVG)', () => {
 
   it('aplica anclas del texto en el centro del bounds en mundo', () => {
     const { container } = render(<SceneView scene={scene()} viewport={viewport} size={size} />)
-    const label = container.querySelector('[data-id="lbl-ent1"] text')
+    const label = container.querySelector('[data-id="label-ent1"] text')
     expect(label?.getAttribute('x')).toBe('90')
     expect(label?.getAttribute('y')).toBe('45')
+  })
+
+  it('forma de nodo expone role=img con nombre accesible tipo + nombre', () => {
+    const { container } = render(<SceneView scene={scene()} viewport={viewport} size={size} />)
+    expect(container.querySelector('[data-id="ent1"]')).toHaveAttribute('role', 'img')
+    expect(container.querySelector('[data-id="ent1"]')).toHaveAttribute(
+      'aria-label',
+      'Entidad Persona',
+    )
+    expect(container.querySelector('[data-id="rel1"]')).toHaveAttribute(
+      'aria-label',
+      'Relación Empleo',
+    )
+    expect(container.querySelector('[data-id="attr1"]')).toHaveAttribute(
+      'aria-label',
+      'Atributo dni',
+    )
+  })
+
+  it('oculta del arbol de accesibilidad el texto duplicado del nombre', () => {
+    const { container } = render(<SceneView scene={scene()} viewport={viewport} size={size} />)
+    expect(container.querySelector('[data-id="label-ent1"]')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+    expect(container.querySelector('[data-id="card-rel1-ent1"]')).toHaveAttribute(
+      'aria-label',
+      'Cardinalidad N',
+    )
   })
 
   it('expone el svg con data-testid y tamaño indicado', () => {

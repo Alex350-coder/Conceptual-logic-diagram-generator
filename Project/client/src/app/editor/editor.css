@@ -40,7 +40,10 @@
 }
 
 .editor-title {
+  font-size: var(--font-size-md);
   font-weight: 600;
+  line-height: inherit;
+  margin: 0;
   cursor: text;
   border-radius: var(--radius-sm);
   padding: 0.15rem 0.3rem;
