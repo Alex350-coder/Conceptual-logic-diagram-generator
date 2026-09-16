@@ -24,6 +24,8 @@ import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
 import { LogicalPanel } from './LogicalPanel'
 import { ThemeToggle } from '../theme/ThemeToggle'
+import { useShortcutListener } from '../shortcuts/useShortcuts'
+import type { ShortcutContext } from '../shortcuts/registry'
 import './editor.css'
 
 type EditorMode = 'conceptual' | 'logical'
@@ -120,43 +122,19 @@ export function EditorPage() {
 
   const { copy, cut, paste } = useClipboardActions(interactions.deleteSelected)
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
-        return
-      }
-      const mod = event.ctrlKey || event.metaKey
-      if (mod && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        if (event.shiftKey) sessionStore.getState().redo()
-        else sessionStore.getState().undo()
-      } else if (mod && event.key.toLowerCase() === 'y') {
-        event.preventDefault()
-        sessionStore.getState().redo()
-      } else if (mod && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        void sessionAutosave.flush()
-      } else if (mod && event.key.toLowerCase() === 'c') {
-        event.preventDefault()
-        void copy()
-      } else if (mod && event.key.toLowerCase() === 'x') {
-        event.preventDefault()
-        void cut()
-      } else if (mod && event.key.toLowerCase() === 'v') {
-        event.preventDefault()
-        void paste()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [copy, cut, paste])
+  const shortcutContext = useMemo<ShortcutContext>(
+    () => ({
+      undo: () => sessionStore.getState().undo(),
+      redo: () => sessionStore.getState().redo(),
+      save: () => void sessionAutosave.flush(),
+      copy: () => void copy(),
+      cut: () => void cut(),
+      paste: () => void paste(),
+      openShortcuts: () => undefined,
+    }),
+    [copy, cut, paste],
+  )
+  useShortcutListener(shortcutContext)
 
   const selectedId = selection.size === 1 ? [...selection][0] : undefined
   const selectedEntity = selectedId !== undefined ? model?.entities.find((e) => e.id === selectedId) : undefined
