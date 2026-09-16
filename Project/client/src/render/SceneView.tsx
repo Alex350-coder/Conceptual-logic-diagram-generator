@@ -21,6 +21,7 @@ export interface SceneViewProps {
   size: ViewportSize
   className?: string
   onPointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
+  onContextMenu?: (event: ReactMouseEvent<SVGSVGElement>) => void
   onWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onKeyDown?: (event: ReactKeyboardEvent<SVGSVGElement>) => void
   onShapeDoubleClick?: (id: string) => void
@@ -162,7 +163,7 @@ function PrimitiveView({ prim }: { prim: Primitive }) {
   return <ShapeGeometry prim={prim} />
 }
 
-export function SceneView({ scene, viewport, size, className, onPointerDown, onWheel, onKeyDown, onShapeDoubleClick }: SceneViewProps) {
+export function SceneView({ scene, viewport, size, className, onPointerDown, onContextMenu, onWheel, onKeyDown, onShapeDoubleClick }: SceneViewProps) {
   const transform = `translate(${size.width / 2} ${size.height / 2}) scale(${viewport.zoom}) translate(${-viewport.cx} ${-viewport.cy})`
   const handleDoubleClick = (event: ReactMouseEvent<SVGGElement>) => {
     event.stopPropagation()
@@ -176,6 +177,7 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onW
       height={size.height}
       className={className}
       onPointerDown={onPointerDown}
+      onContextMenu={onContextMenu}
       onWheel={onWheel}
       onKeyDown={onKeyDown}
       style={{ touchAction: 'none', display: 'block' }}

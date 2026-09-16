@@ -32,6 +32,7 @@ describe('LogicalPanel', () => {
 
   it('muestra un estado vacío cuando no hay tablas', () => {
     const logical: LogicalModel = {
+      schemaVersion: 1,
       logicalVersion: 0,
       tables: [],
     }

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Link, useBlocker, useParams } from 'react-router-dom'
@@ -10,13 +11,14 @@ import { SceneView } from '../../render/SceneView'
 import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, sceneBounds } from '../../render/layout'
 import type { Rect } from '../../editor/geometry'
-import type { Viewport, ViewportSize } from '../../editor/viewport'
+import type { Viewport, ViewportSize, WorldPoint } from '../../editor/viewport'
 import { clampZoom, createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
 import type { ConflictDecision } from '../../store/sessionStore'
 import { sessionAutosave, startAutosave } from '../../store/autosave'
 import {
   useEditorInteractions,
+  closestShapeId,
   type EditorInteractions,
 } from './editorInteractions'
 import { useClipboardActions } from './clipboardActions'
@@ -27,6 +29,9 @@ import { ThemeToggle } from '../theme/ThemeToggle'
 import { useShortcutListener } from '../shortcuts/useShortcuts'
 import { ShortcutPalette } from '../shortcuts/ShortcutPalette'
 import type { ShortcutContext } from '../shortcuts/registry'
+import { ContextMenu } from './ContextMenu'
+import { buildCanvasMenu } from './canvasMenu'
+import type { ContextMenuAction } from './canvasMenu'
 import './editor.css'
 
 type EditorMode = 'conceptual' | 'logical'
@@ -44,6 +49,7 @@ export function EditorPage() {
   const logicalPending = useSessionStore((s) => s.logicalRecalculationPending)
   const [mode, setMode] = useState<EditorMode>('conceptual')
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; world: WorldPoint } | null>(null)
 
   const size = useEditorSize()
   const fittedRef = useRef(false)
@@ -138,6 +144,59 @@ export function EditorPage() {
   )
   useShortcutListener(shortcutContext)
 
+  const handleCanvasContextMenu = useCallback(
+    (event: ReactMouseEvent<SVGSVGElement>) => {
+      if (status !== 'ready' || model === null || mode !== 'conceptual') {
+        event.preventDefault()
+        return
+      }
+      event.preventDefault()
+      const s = sessionStore.getState()
+      const id = closestShapeId(event.target)
+      if (id !== null) {
+        if (!s.selection.has(id)) s.setSelection([id])
+      } else {
+        s.setSelection([])
+      }
+      const rect = event.currentTarget.getBoundingClientRect()
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        world: screenToWorld(viewport, { width: rect.width, height: rect.height }, {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        }),
+      })
+    },
+    [status, model, mode, viewport],
+  )
+
+  const contextMenuActions = useMemo<ContextMenuAction[]>(() => {
+    if (contextMenu === null || model === null) return []
+    const canPaste = typeof navigator !== 'undefined' && navigator.clipboard !== undefined
+    return buildCanvasMenu({
+      model,
+      selection,
+      canPaste,
+      handlers: {
+        onCreateEntity: () => interactions.createEntity(contextMenu.world),
+        onCreateRelation: () => undefined,
+        onSelectAll: () => interactions.selectAll(),
+        onRename: () => {
+          const single = [...selection][0]
+          if (single !== undefined) interactions.startRename(single)
+        },
+        onDuplicate: () => interactions.duplicateSelected(),
+        onCopy: () => void copy(),
+        onCut: () => void cut(),
+        onPaste: () => void paste(),
+        onAlign: (edge) => interactions.alignSelected(edge),
+        onDistribute: (axis) => interactions.distributeSelected(axis),
+        onDelete: () => interactions.deleteSelected(),
+      },
+    })
+  }, [contextMenu, model, selection, interactions, copy, cut, paste])
+
   const selectedId = selection.size === 1 ? [...selection][0] : undefined
   const selectedEntity = selectedId !== undefined ? model?.entities.find((e) => e.id === selectedId) : undefined
   const selectedAttribute = selectedId !== undefined
@@ -177,6 +236,7 @@ export function EditorPage() {
           interactions={interactions}
           mode={mode}
           logical={logical}
+          onContextMenu={handleCanvasContextMenu}
           onSetColumnType={(payload) => {
             void sessionStore.getState().setColumnType(payload)
           }}
@@ -255,6 +315,14 @@ export function EditorPage() {
         onClose={() => setShortcutsOpen(false)}
         ctx={shortcutContext}
       />
+      {contextMenu !== null ? (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          actions={contextMenuActions}
+          onClose={() => setContextMenu(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -344,6 +412,7 @@ function EditorBody({
   interactions,
   mode,
   logical,
+  onContextMenu,
   onSetColumnType,
 }: {
   status: 'idle' | 'loading' | 'ready' | 'notFound' | 'invalid' | 'error'
@@ -355,6 +424,7 @@ function EditorBody({
   interactions: EditorInteractions
   mode: EditorMode
   logical: LogicalModel | null
+  onContextMenu: (event: ReactMouseEvent<SVGSVGElement>) => void
   onSetColumnType: (payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }) => void
 }) {
   if (status === 'notFound') {
@@ -410,6 +480,7 @@ function EditorBody({
       size={size}
       onWheel={handleWheel}
       onPointerDown={interactions.handleCanvasPointerDown}
+      onContextMenu={onContextMenu}
       onKeyDown={interactions.handleCanvasKeyDown}
       onShapeDoubleClick={interactions.startRename}
     />
