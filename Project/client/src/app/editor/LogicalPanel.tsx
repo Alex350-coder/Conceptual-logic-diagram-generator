@@ -38,9 +38,18 @@ export function LogicalPanel({
   onSetType: (payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }) => void
 }) {
   return (
-    <div className="logical-panel" role="region" aria-label="Modelo lógico">
+    <div
+      className={logical.tables.length === 0 ? 'logical-panel' : 'logical-panel has-tables'}
+      role="region"
+      aria-label="Modelo lógico"
+    >
       <p className="logical-panel-version">Versión lógica v{logical.logicalVersion}</p>
-      <div className="logical-table-list">
+      {logical.tables.length === 0 ? (
+        <p className="logical-empty" role="status">
+          Aún no hay tablas. Transforma el modelo conceptual para generar el esquema lógico.
+        </p>
+      ) : (
+        <div className="logical-table-list">
         {logical.tables.map((table) => (
           <section
             key={table.id}
@@ -83,7 +92,8 @@ export function LogicalPanel({
             </ul>
           </section>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

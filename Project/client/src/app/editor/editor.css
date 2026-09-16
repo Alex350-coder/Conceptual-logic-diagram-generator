@@ -519,16 +519,26 @@
   box-sizing: border-box;
 }
 
+.logical-empty {
+  margin: var(--space-xl) 0 0;
+  padding: var(--space-xl);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 .logical-panel-version {
   color: var(--color-text-muted);
-  font-size: 0.8rem;
-  margin: 0 0 1rem;
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-md);
 }
 
 .logical-table-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  gap: 1rem;
+  gap: var(--space-md);
   align-items: start;
 }
 
@@ -544,7 +554,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 0.9rem;
+  padding: var(--space-sm) var(--space-md);
   background: var(--color-surface-2);
   border-bottom: 1px solid var(--color-border);
 }
@@ -556,11 +566,11 @@
 }
 
 .logical-table-source {
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   color: var(--color-primary);
   background: var(--color-selection-soft);
   border-radius: var(--radius-sm);
-  padding: 0.15rem 0.4rem;
+  padding: 2px var(--space-xs);
 }
 
 .logical-column-list {
@@ -572,12 +582,16 @@
 .logical-column-row {
   display: grid;
   grid-template-columns: minmax(8rem, 1fr) auto 1fr;
-  gap: 0.5rem;
+  gap: var(--space-sm);
   align-items: center;
-  padding: 0.4rem 0.9rem;
+  padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--color-divider);
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: var(--font-size-xs);
+}
+
+.logical-column-row:hover {
+  background: var(--color-surface-2);
 }
 
 .logical-column-row:last-child {
@@ -595,17 +609,17 @@
 }
 
 .logical-column-pk {
-  font-size: 0.65rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   color: var(--color-pk-text);
   background: var(--color-pk-bg);
   border-radius: var(--radius-sm);
-  padding: 0.1rem 0.3rem;
+  padding: 1px var(--space-xs);
 }
 
 .logical-column-trace {
   font-family: inherit;
-  font-size: 0.65rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -617,9 +631,13 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface-2);
-  padding: 0.2rem 0.35rem;
-  font-size: 0.8rem;
+  padding: 2px var(--space-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text);
+}
+
+.logical-type-select:hover {
+  border-color: var(--color-primary);
 }
 
 .recalc-banner {
