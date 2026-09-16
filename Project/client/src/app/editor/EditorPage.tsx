@@ -25,6 +25,7 @@ import { InspectorPanel } from './InspectorPanel'
 import { LogicalPanel } from './LogicalPanel'
 import { ThemeToggle } from '../theme/ThemeToggle'
 import { useShortcutListener } from '../shortcuts/useShortcuts'
+import { ShortcutPalette } from '../shortcuts/ShortcutPalette'
 import type { ShortcutContext } from '../shortcuts/registry'
 import './editor.css'
 
@@ -42,6 +43,7 @@ export function EditorPage() {
   const logical = useSessionStore((s) => s.logical)
   const logicalPending = useSessionStore((s) => s.logicalRecalculationPending)
   const [mode, setMode] = useState<EditorMode>('conceptual')
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const size = useEditorSize()
   const fittedRef = useRef(false)
@@ -130,7 +132,7 @@ export function EditorPage() {
       copy: () => void copy(),
       cut: () => void cut(),
       paste: () => void paste(),
-      openShortcuts: () => undefined,
+      openShortcuts: () => setShortcutsOpen(true),
     }),
     [copy, cut, paste],
   )
@@ -248,6 +250,11 @@ export function EditorPage() {
           }}
         />
       ) : null}
+      <ShortcutPalette
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+        ctx={shortcutContext}
+      />
     </div>
   )
 }
