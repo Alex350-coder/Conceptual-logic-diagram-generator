@@ -23,6 +23,7 @@ import { useClipboardActions } from './clipboardActions'
 import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
 import { LogicalPanel } from './LogicalPanel'
+import { ThemeToggle } from '../theme/ThemeToggle'
 import './editor.css'
 
 type EditorMode = 'conceptual' | 'logical'
@@ -640,6 +641,7 @@ function EditorHeader({
           −
         </button>
         <span className="zoom-level">{Math.round(viewport.zoom * 100)}%</span>
+        <ThemeToggle />
       </span>
     </header>
   )

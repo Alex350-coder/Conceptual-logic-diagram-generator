@@ -8,6 +8,7 @@ import {
 } from '../../api/diagrams'
 import type { DiagramSummary } from '../../api/diagrams'
 import { ConfirmDialog } from './ConfirmDialog'
+import { ThemeToggle } from '../theme/ThemeToggle'
 import './dashboard.css'
 
 type Status = 'loading' | 'ready' | 'error'
@@ -105,14 +106,17 @@ export function DashboardPage(): JSX.Element {
     <main className="dashboard-page">
       <header className="dashboard-header">
         <h1>ERD Studio</h1>
-        <button
-          type="button"
-          className="dashboard-button dashboard-button-primary"
-          disabled={busy || status === 'loading'}
-          onClick={() => void handleCreate()}
-        >
-          {busy ? 'Procesando…' : 'Nuevo diagrama'}
-        </button>
+        <span className="dashboard-header-actions">
+          <ThemeToggle />
+          <button
+            type="button"
+            className="dashboard-button dashboard-button-primary"
+            disabled={busy || status === 'loading'}
+            onClick={() => void handleCreate()}
+          >
+            {busy ? 'Procesando…' : 'Nuevo diagrama'}
+          </button>
+        </span>
       </header>
 
       {error !== null && (
