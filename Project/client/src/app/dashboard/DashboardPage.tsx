@@ -9,6 +9,7 @@ import {
 import type { DiagramSummary } from '../../api/diagrams'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ThemeToggle } from '../theme/ThemeToggle'
+import { SkipLink } from '../accessibility/SkipLink'
 import './dashboard.css'
 
 type Status = 'loading' | 'ready' | 'error'
@@ -103,8 +104,10 @@ export function DashboardPage(): JSX.Element {
   }
 
   return (
-    <main className="dashboard-page">
-      <header className="dashboard-header">
+    <>
+      <SkipLink />
+      <main id="main-content" className="dashboard-page">
+        <header className="dashboard-header">
         <h1>ERD Studio</h1>
         <span className="dashboard-header-actions">
           <ThemeToggle />
@@ -145,6 +148,7 @@ export function DashboardPage(): JSX.Element {
           <p className="dashboard-empty">Crea tu primer diagrama con «Nuevo diagrama».</p>
         ) : (
           <table className="dashboard-table">
+            <caption className="sr-only">Diagramas guardados</caption>
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -198,6 +202,7 @@ export function DashboardPage(): JSX.Element {
           onConfirm={() => void handleDelete()}
         />
       )}
-    </main>
+      </main>
+    </>
   )
 }

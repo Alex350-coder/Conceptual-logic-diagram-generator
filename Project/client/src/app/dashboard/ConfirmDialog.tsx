@@ -1,4 +1,5 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
+import { useFocusTrap } from '../accessibility/useFocusTrap'
 import './dashboard.css'
 
 type Props = {
@@ -10,12 +11,17 @@ type Props = {
 export function ConfirmDialog({ diagramName, onCancel, onConfirm }: Props): JSX.Element {
   const titleId = useId()
   const inputId = useId()
+  const cardRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, cardRef)
   const [typed, setTyped] = useState('')
   const confirmed = typed === diagramName
 
   return (
     <div className="confirm-overlay">
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="confirm-card">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="confirm-card" ref={cardRef}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onCancel()
+        }}>
         <h2 id={titleId}>Eliminar diagrama</h2>
         <p>
           Esta acción eliminará <strong>{diagramName}</strong> de forma permanente.

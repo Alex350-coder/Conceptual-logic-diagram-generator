@@ -32,6 +32,8 @@ import type { ShortcutContext } from '../shortcuts/registry'
 import { ContextMenu } from './ContextMenu'
 import { buildCanvasMenu } from './canvasMenu'
 import type { ContextMenuAction } from './canvasMenu'
+import { useFocusTrap } from '../accessibility/useFocusTrap'
+import { SkipLink } from '../accessibility/SkipLink'
 import './editor.css'
 
 type EditorMode = 'conceptual' | 'logical'
@@ -209,6 +211,7 @@ export function EditorPage() {
 
   return (
     <div className="editor-page">
+      <SkipLink />
       <EditorHeader
         canUndo={canUndo}
         canRedo={canRedo}
@@ -225,7 +228,7 @@ export function EditorPage() {
           }
         }}
       />
-      <main className="editor-canvas">
+      <main id="main-content" className="editor-canvas">
         <EditorBody
           status={status}
           id={id}
@@ -334,6 +337,8 @@ function SaveBlockDialog({
   onDiscard: () => void
   onStay: () => void
 }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, cardRef)
   return (
     <div className="save-block-overlay">
       <div
@@ -341,6 +346,10 @@ function SaveBlockDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="save-block-title"
+        ref={cardRef}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onStay()
+        }}
       >
         <h2 id="save-block-title">Cambios sin guardar</h2>
         <p>No se pudo guardar el diagrama. Si continúas, perderás los cambios locales.</p>
@@ -366,6 +375,8 @@ function ConflictDialog({
   serverVersion: number
   onResolve: (decision: ConflictDecision) => void
 }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, cardRef)
   return (
     <div className="conflict-overlay">
       <div
@@ -373,6 +384,7 @@ function ConflictDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="conflict-title"
+        ref={cardRef}
       >
         <h2 id="conflict-title">Conflicto de versión</h2>
         <p>El diagrama cambió en el servidor. Elige cómo resolver el conflicto.</p>
@@ -641,7 +653,9 @@ function EditorHeader({
   return (
     <header className="editor-header">
       <span className="editor-menu-area">
-        <DiagramMenu />
+        <nav className="editor-nav" aria-label="Diagramas">
+          <DiagramMenu />
+        </nav>
         <EditableTitle />
         <SaveIndicator />
       </span>

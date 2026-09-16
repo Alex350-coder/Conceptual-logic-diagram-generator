@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { ShortcutContext, ShortcutDef } from './registry'
 import { APP_SHORTCUTS, SHORTCUT_CATEGORIES } from './registry'
+import { useFocusTrap } from '../accessibility/useFocusTrap'
 import './ShortcutPalette.css'
 
 type Props = {
@@ -28,6 +29,8 @@ export function ShortcutPalette({ open, onClose, ctx }: Props): JSX.Element | nu
   const titleId = useId()
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
+  useFocusTrap(open, panelRef)
 
   useEffect(() => {
     if (!open) return
@@ -66,7 +69,7 @@ export function ShortcutPalette({ open, onClose, ctx }: Props): JSX.Element | nu
       onKeyDown={handleOverlayKeyDown}
       onMouseDown={handleBackdropMouseDown}
     >
-      <section role="dialog" aria-modal="true" aria-labelledby={titleId} className="shortcut-panel">
+      <section role="dialog" aria-modal="true" aria-labelledby={titleId} className="shortcut-panel" ref={panelRef}>
         <h2 id={titleId}>Atajos de teclado</h2>
         <p className="shortcut-hint">Esc para cerrar · clic en un atajo para ejecutarlo</p>
         <input

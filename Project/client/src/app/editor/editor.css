@@ -34,6 +34,11 @@
   gap: var(--space-md);
 }
 
+.editor-nav {
+  display: flex;
+  align-items: center;
+}
+
 .editor-title {
   font-weight: 600;
   cursor: text;
