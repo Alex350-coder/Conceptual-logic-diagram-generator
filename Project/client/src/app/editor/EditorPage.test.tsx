@@ -875,6 +875,166 @@ it('crea una relación entre 2 entidades seleccionadas y la selecciona', async (
       expect(write).not.toHaveBeenCalled()
     })
   })
+
+  describe('modo Lógico', () => {
+    it('muestra las pestañas Conceptual/Lógico y arranca en Conceptual', async () => {
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+
+      const conceptual = screen.getByRole('button', { name: 'Conceptual' })
+      const logical = screen.getByRole('button', { name: 'Lógico' })
+      expect(conceptual.getAttribute('aria-pressed')).toBe('true')
+      expect(logical.getAttribute('aria-pressed')).toBe('false')
+    })
+
+    it('"Transformar a lógico" genera el plano y abre el modo Lógico', async () => {
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      const scene = await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+      await act(async () => {
+        sessionStore.getState().sendCommands([
+          {
+            type: 'renameEntity',
+            payload: { id: sessionStore.getState().session!.model.entities[0]!.id, name: 'Persona' },
+          },
+        ])
+      })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Transformar a lógico' }))
+
+      const s = sessionStore.getState()
+      expect(s.logical).not.toBeNull()
+      expect(s.logical!.logicalVersion).toBe(0)
+      expect(screen.getByRole('button', { name: 'Lógico' }).getAttribute('aria-pressed')).toBe('true')
+      await waitFor(() => {
+        expect(screen.getByText('Versión lógica v0')).toBeDefined()
+      })
+      expect(scene).not.toBeVisible()
+    })
+
+    it('muestra el aviso "Todavía no hay modelo lógico" al entrar a Lógico sin transformar', async () => {
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Lógico' }))
+
+      expect(screen.getByText(/Todavía no hay modelo lógico/)).toBeDefined()
+    })
+
+    it('editar un tipo en el panel lógico persiste el cambio en el store', async () => {
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+      await act(async () => {
+        sessionStore.getState().sendCommands([
+          {
+            type: 'renameEntity',
+            payload: { id: sessionStore.getState().session!.model.entities[0]!.id, name: 'Persona' },
+          },
+          {
+            type: 'createAttribute',
+            payload: {
+              id: newId(),
+              name: 'nombre',
+              ownerId: sessionStore.getState().session!.model.entities[0]!.id,
+            },
+          },
+        ])
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Transformar a lógico' }))
+
+      const select = await screen.findAllByRole('combobox')
+      await userEvent.selectOptions(select[1]!, 'VARCHAR')
+
+      const logical = sessionStore.getState().logical!
+      expect(logical.tables[0]!.columns[1]!.dataType).toBe('VARCHAR')
+    })
+
+    it('banner D-TR-12: Recalcular confirma y Conservar mantiene el plano', async () => {
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+      await act(async () => {
+        sessionStore.getState().sendCommands([
+          {
+            type: 'renameEntity',
+            payload: { id: sessionStore.getState().session!.model.entities[0]!.id, name: 'Persona' },
+          },
+        ])
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Transformar a lógico' }))
+      const logical = sessionStore.getState().logical!
+      await act(async () => {
+        sessionStore.getState().setColumnType({
+          tableId: logical.tables[0]!.id,
+          columnId: logical.tables[0]!.columns[0]!.id,
+          dataType: 'INT',
+        })
+      })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Conceptual' }))
+      await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Transformar a lógico' }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/¿Recalcular el modelo lógico\?/)).toBeDefined()
+      })
+
+      const versionBefore = sessionStore.getState().logical!.logicalVersion
+      await userEvent.click(screen.getByRole('button', { name: 'Conservar actual' }))
+
+      expect(screen.queryByText(/¿Recalcular el modelo lógico\?/)).toBeNull()
+      expect(sessionStore.getState().logical!.logicalVersion).toBe(versionBefore)
+    })
+
+    it('banner D-TR-12: Recalcular regenera y avanza la versión', async () => {
+      vi.stubGlobal('fetch', stubFetch(diagramResponse()))
+      setup()
+      await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+      await act(async () => {
+        sessionStore.getState().sendCommands([
+          {
+            type: 'renameEntity',
+            payload: { id: sessionStore.getState().session!.model.entities[0]!.id, name: 'Persona' },
+          },
+        ])
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Transformar a lógico' }))
+      const logical = sessionStore.getState().logical!
+      await act(async () => {
+        sessionStore.getState().setColumnType({
+          tableId: logical.tables[0]!.id,
+          columnId: logical.tables[0]!.columns[0]!.id,
+          dataType: 'INT',
+        })
+      })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Conceptual' }))
+      await waitForScene()
+      await userEvent.click(await screen.findByRole('button', { name: 'Nueva entidad' }))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Transformar a lógico' }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/¿Recalcular el modelo lógico\?/)).toBeDefined()
+      })
+
+      await userEvent.click(screen.getByRole('button', { name: 'Recalcular' }))
+
+      expect(screen.queryByText(/¿Recalcular el modelo lógico\?/)).toBeNull()
+      const s = sessionStore.getState()
+      expect(s.logicalRecalculationPending).toBe(false)
+      expect(s.logical!.tables).toHaveLength(2)
+    })
+  })
 })
 
 async function waitForScene(): Promise<SVGSVGElement> {

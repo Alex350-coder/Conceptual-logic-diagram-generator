@@ -566,4 +566,155 @@ it('exposes the raw session for engine consumers', () => {
     expect(s.id).toBe(diagramId)
     expect(s.isDirty).toBe(false)
   })
+
+  describe('plano lógico (P10)', () => {
+    function conceptualWithPersona(): void {
+      const personaId: NodeId = newId()
+      api.getState().sendCommands([
+        { type: 'createEntity', payload: { id: personaId, name: 'Persona' } },
+        { type: 'createAttribute', payload: { id: newId(), name: 'nombre', ownerId: personaId } },
+      ])
+    }
+
+    it('transformToLogical produce el plano lógico y marca dirty', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      expect(api.getState().logical).toBeNull()
+      conceptualWithPersona()
+
+      const result = api.getState().transformToLogical()
+
+      expect(result.ok).toBe(true)
+      const s = api.getState()
+      expect(s.logical).not.toBeNull()
+      expect(s.logical?.tables[0]?.name).toBe('persona')
+      expect(s.logical?.logicalVersion).toBe(0)
+      expect(s.logicalRecalculationPending).toBe(false)
+      expect(s.revision).toBe(2)
+      expect(s.isDirty).toBe(true)
+    })
+
+    it('setColumnType actualiza el tipo de una columna y conserva inmutabilidad', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      conceptualWithPersona()
+      api.getState().transformToLogical()
+      const before = api.getState().logical
+
+      const result = api.getState().setColumnType({
+        tableId: api.getState().logical!.tables[0]!.id,
+        columnId: api.getState().logical!.tables[0]!.columns[1]!.id,
+        dataType: 'VARCHAR',
+      })
+
+      expect(result.ok).toBe(true)
+      const after = api.getState().logical
+      expect(after?.tables[0]?.columns[1]?.dataType).toBe('VARCHAR')
+      expect(before?.tables[0]?.columns[1]?.dataType).toBe('UNDEFINED')
+    })
+
+    it('setColumnType sin plano lógico devuelve error INTERNAL', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      const result = api.getState().setColumnType({
+        tableId: 't:e:x' as never,
+        columnId: 'c:t:e:x:0' as never,
+        dataType: 'VARCHAR',
+      })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('INTERNAL')
+    })
+
+    it('recomputeLogical sin cambios no requiere confirmación y actualiza el plano', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      conceptualWithPersona()
+      api.getState().transformToLogical()
+
+      const result = api.getState().recomputeLogical()
+
+      expect(result.ok).toBe(true)
+      const s = api.getState()
+      expect(s.logicalRecalculationPending).toBe(false)
+      expect(s.logical?.logicalVersion).toBe(1)
+      expect(s.revision).toBe(3)
+    })
+
+    it('recomputeLogical con tipos editados sin confirm fija el banner D-TR-12', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      conceptualWithPersona()
+      api.getState().transformToLogical()
+      const logical = api.getState().logical!
+      api.getState().setColumnType({
+        tableId: logical.tables[0]!.id,
+        columnId: logical.tables[0]!.columns[1]!.id,
+        dataType: 'VARCHAR',
+      })
+      const revisionBefore = api.getState().revision
+
+      const result = api.getState().recomputeLogical()
+
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.requiresConfirmation).toBe(true)
+      const s = api.getState()
+      expect(s.logicalRecalculationPending).toBe(true)
+      expect(s.logical?.tables[0]?.columns[1]?.dataType).toBe('VARCHAR')
+      expect(s.revision).toBe(revisionBefore)
+    })
+
+    it('recomputeLogical con confirm conserva los tipos editados', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      conceptualWithPersona()
+      api.getState().transformToLogical()
+      const logical = api.getState().logical!
+      api.getState().setColumnType({
+        tableId: logical.tables[0]!.id,
+        columnId: logical.tables[0]!.columns[1]!.id,
+        dataType: 'INT',
+      })
+
+      const result = api.getState().recomputeLogical(true)
+
+      expect(result.ok).toBe(true)
+      const s = api.getState()
+      expect(s.logicalRecalculationPending).toBe(false)
+      expect(s.logical?.tables[0]?.columns[1]?.dataType).toBe('INT')
+      expect(s.logical?.logicalVersion).toBeGreaterThan(0)
+    })
+
+    it('persist envía el plano lógico en el envelope', async () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      conceptualWithPersona()
+      api.getState().transformToLogical()
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ data: { id: diagramId, name: 'Personas', version: 2, document: envelope() } }),
+            { status: 200 },
+          ),
+        ),
+      )
+
+      await api.getState().persist()
+
+      const fetchMock = vi.mocked(fetch)
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+      const body = JSON.parse(String(init.body)) as { document: { data: { logical: unknown } } }
+      expect(body.document.data.logical).not.toBeNull()
+      expect((body.document.data.logical as { tables: { name: string }[] }).tables[0]?.name).toBe('persona')
+    })
+
+    it('loadFromEnvelope restaura un plano lógico persistido', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      conceptualWithPersona()
+      api.getState().transformToLogical()
+      const persistedLogical = api.getState().logical
+
+      api.getState().loadFromEnvelope(diagramId, 'Personas', {
+        schemaVersion: 1,
+        kind: 'erd-studio/diagram',
+        data: { model: createEmptyConceptualModel(), logical: persistedLogical },
+      })
+
+      expect(api.getState().logical).toEqual(persistedLogical)
+      expect(api.getState().logicalRecalculationPending).toBe(false)
+    })
+  })
 })

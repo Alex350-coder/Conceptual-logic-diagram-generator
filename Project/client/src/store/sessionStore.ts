@@ -1,25 +1,32 @@
-import { createStore, type StoreApi } from 'zustand/vanilla'
+﻿import { createStore, type StoreApi } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import type {
+  ColumnId,
   ConceptualModel,
   DiagramId,
   DocumentEnvelope,
+  LogicalModel,
   NodeId,
+  TableId,
   ViewportHint,
 } from '@erd-studio/shared'
 import {
   applyCommands,
+  applyLogicalCommand,
   canRedo,
   canUndo,
   createEditorSession,
+  createEmptyLogicalModel,
   DomainError,
   isDomainError,
   redo,
   toDiagramId,
   undo,
   type CommandResult,
+  type ColumnType,
   type DomainCommand,
   type EditorSession,
+  type LogicalCommandResult,
 } from '@erd-studio/shared'
 import { parseDiagramDocument } from '@erd-studio/shared'
 import { ApiError, getDiagram, updateDiagram } from '../api/diagrams'
@@ -44,6 +51,10 @@ export interface SessionState {
   name: string
   /** Sesión de dominio (modelo + historial). null hasta el primer load. */
   session: EditorSession | null
+  /** Plano lógico derivado (null hasta transformar; se persiste en el documento). */
+  logical: LogicalModel | null
+  /** Recalcular con confirmación pendiente (D-TR-12). */
+  logicalRecalculationPending: boolean
   /** Contador de mutaciones aplicadas (StateManagement.md §4). */
   revision: number
   /** Última revisión persistida; isDirty = revision !== lastPersistedRevision. */
@@ -69,6 +80,10 @@ export interface SessionActions {
   switchDiagram(id: DiagramId): Promise<void>
   loadFromEnvelope(id: DiagramId, name: string, document: DocumentEnvelope, version?: number): void
   sendCommands(commands: DomainCommand[]): CommandResult
+  transformToLogical(): LogicalCommandResult
+  setColumnType(payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }): LogicalCommandResult
+  recomputeLogical(confirm?: boolean): LogicalCommandResult
+  resolveLogicalRecalculation(decision: 'recompute' | 'keep'): void
   undo(): void
   redo(): void
   setSelection(ids: readonly NodeId[]): void
@@ -84,14 +99,18 @@ export type ConflictDecision = 'reload' | 'keep' | 'overwrite'
 
 export type SessionStoreApi = StoreApi<SessionState & SessionActions>
 
-function toDocumentEnvelope(model: ConceptualModel, viewportHint: ViewportHint | null): DocumentEnvelope {
+function toDocumentEnvelope(
+  model: ConceptualModel,
+  viewportHint: ViewportHint | null,
+  logical: LogicalModel | null = null,
+): DocumentEnvelope {
   return {
     schemaVersion: 1,
     kind: 'erd-studio/diagram',
     data:
       viewportHint === null
-        ? { model, logical: null }
-        : { model, logical: null, viewportHint },
+        ? { model, logical }
+        : { model, logical, viewportHint },
   }
 }
 
@@ -102,6 +121,8 @@ function initial(): SessionState {
     id: null,
     name: '',
     session: null,
+    logical: null,
+    logicalRecalculationPending: false,
     revision: 0,
     lastPersistedRevision: 0,
     serverVersion: 0,
@@ -166,7 +187,9 @@ export function createSessionStore(): SessionStoreApi {
         error: null,
         id,
         name,
-        session,
+session,
+        logical: envelope.data.logical ?? null,
+        logicalRecalculationPending: false,
         revision: 0,
         lastPersistedRevision: 0,
         serverVersion: version,
@@ -199,6 +222,83 @@ export function createSessionStore(): SessionStoreApi {
         canRedo: canRedo(outcome.session),
       })
       return outcome.result
+    },
+
+    transformToLogical: () => {
+      const { session } = get()
+      if (session === null) {
+        return { ok: false, error: new DomainError('INTERNAL', 'Sin sesión cargada.') }
+      }
+      const empty = createEmptyLogicalModel()
+      const outcome = applyLogicalCommand(session.model, empty, { type: 'transformToLogical' })
+      if (!outcome.result.ok) {
+        return outcome.result
+      }
+      const nextRevision = get().revision + 1
+      set({
+        logical: outcome.logical,
+        logicalRecalculationPending: false,
+        revision: nextRevision,
+        isDirty: nextRevision !== get().lastPersistedRevision,
+      })
+      return outcome.result
+    },
+
+    setColumnType: ({ tableId, columnId, dataType }) => {
+      const { session, logical } = get()
+      if (session === null || logical === null) {
+        return { ok: false, error: new DomainError('INTERNAL', 'Sin plano lógico.') }
+      }
+      const outcome = applyLogicalCommand(session.model, logical, {
+        type: 'setColumnType',
+        payload: { tableId, columnId, dataType },
+      })
+      if (!outcome.result.ok) {
+        return outcome.result
+      }
+      const nextRevision = get().revision + 1
+      set({
+        logical: outcome.logical,
+        revision: nextRevision,
+        isDirty: nextRevision !== get().lastPersistedRevision,
+      })
+      return outcome.result
+    },
+
+    recomputeLogical: (confirm) => {
+      const { session, logical } = get()
+      if (session === null || logical === null) {
+        return { ok: false, error: new DomainError('INTERNAL', 'Sin plano lógico.') }
+      }
+      const outcome = applyLogicalCommand(session.model, logical, {
+        type: 'recomputeLogical',
+        payload: confirm === undefined ? {} : { confirm },
+      })
+      if (!outcome.result.ok) {
+        return outcome.result
+      }
+      if (outcome.result.requiresConfirmation === true) {
+        set({ logicalRecalculationPending: true })
+        return outcome.result
+      }
+      const nextRevision = get().revision + 1
+      set({
+        logical: outcome.logical,
+        logicalRecalculationPending: false,
+        revision: nextRevision,
+        isDirty: nextRevision !== get().lastPersistedRevision,
+      })
+      return outcome.result
+    },
+
+    resolveLogicalRecalculation: (decision) => {
+      if (decision === 'keep') {
+        set({ logicalRecalculationPending: false })
+        return
+      }
+      if (get().logicalRecalculationPending) {
+        get().recomputeLogical(true)
+      }
     },
 
     undo: () => {
@@ -247,7 +347,7 @@ export function createSessionStore(): SessionStoreApi {
       }
       set({ saveStatus: 'saving' })
       try {
-        const input = { document: toDocumentEnvelope(session.model, get().viewportHint) }
+        const input = { document: toDocumentEnvelope(session.model, get().viewportHint, get().logical) }
         const updated =
           opts?.keepalive === true
             ? await updateDiagram(toDiagramId(id), serverVersion, input, { keepalive: true })
@@ -284,7 +384,7 @@ export function createSessionStore(): SessionStoreApi {
       try {
         const updated = await updateDiagram(toDiagramId(id), serverVersion, {
           name: trimmed,
-          document: toDocumentEnvelope(session.model, get().viewportHint),
+          document: toDocumentEnvelope(session.model, get().viewportHint, get().logical),
         })
         set({
           name: updated.name,
@@ -335,7 +435,7 @@ export function createSessionStore(): SessionStoreApi {
       try {
         const updated = await updateDiagram(toDiagramId(id), conflict.serverVersion, {
           name,
-          document: toDocumentEnvelope(session.model, get().viewportHint),
+          document: toDocumentEnvelope(session.model, get().viewportHint, get().logical),
         })
         set({
           serverVersion: updated.version,
