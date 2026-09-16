@@ -33,7 +33,7 @@ const DRAG_THRESHOLD_PX = 4
 /** id de la shape bajo el target (data-id del grupo de primitiva). */
 export function closestShapeId(target: EventTarget | null): NodeId | null {
   if (!(target instanceof Element)) return null
-  const id = target.closest('[data-id]')?.getAttribute('data-id')
+  const id = target.closest('[data-selectable]')?.getAttribute('data-id')
   return id === null || id === undefined ? null : canonicalNodeId(id)
 }
 

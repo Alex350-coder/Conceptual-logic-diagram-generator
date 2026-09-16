@@ -52,6 +52,22 @@ const SHAPE_TYPE_LABELS: Partial<Record<PrimitiveRole, string>> = {
   specialization: 'Especialización',
 }
 
+/** Roles de primitiva que representan un nodo seleccionable del modelo. */
+const SELECTABLE_ROLES: ReadonlySet<PrimitiveRole> = new Set([
+  'entity',
+  'relationship',
+  'attribute',
+  'specialization',
+])
+
+/** Solo los nodos y sus etiquetas participan del hit-testing de selección. */
+function isSelectable(prim: Primitive): boolean {
+  return (
+    SELECTABLE_ROLES.has(prim.role) ||
+    (prim.kind === 'text' && prim.id.startsWith(NODE_LABEL_PREFIX))
+  )
+}
+
 const NODE_LABEL_PREFIX = 'label-'
 const CARDINALITY_PREFIX = 'card-'
 const ISA_MARK_PREFIX = 'isa-do-'
@@ -231,6 +247,7 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onC
                 <g
                   key={prim.id}
                   data-id={prim.id}
+                  data-selectable={isSelectable(prim) ? 'true' : undefined}
                   role={accessibleName !== undefined ? 'img' : undefined}
                   aria-label={accessibleName}
                   aria-hidden={hideFromAt ? 'true' : undefined}

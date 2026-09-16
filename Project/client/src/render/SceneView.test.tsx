@@ -116,6 +116,17 @@ describe('SceneView (adapter SVG)', () => {
     )
   })
 
+  it('marca como seleccionables solo los nodos y sus etiquetas', () => {
+    const { container } = render(<SceneView scene={scene()} viewport={viewport} size={size} />)
+    const selectable = [...container.querySelectorAll('[data-selectable]')].map((el) =>
+      el.getAttribute('data-id'),
+    )
+    expect(selectable.sort()).toEqual(['attr1', 'ent1', 'label-attr1', 'label-ent1', 'label-rel1', 'rel1'])
+    expect(container.querySelector('[data-id="g1"]')).not.toHaveAttribute('data-selectable')
+    expect(container.querySelector('[data-id="e1"]')).not.toHaveAttribute('data-selectable')
+    expect(container.querySelector('[data-id="card-rel1-ent1"]')).not.toHaveAttribute('data-selectable')
+  })
+
   it('expone el svg con data-testid y tamaño indicado', () => {
     render(<SceneView scene={scene()} viewport={viewport} size={size} />)
     const svg = screen.getByTestId('scene')
