@@ -202,4 +202,47 @@ describe('diagrams API (T4-04)', () => {
     expect(res.statusCode).toBe(404)
     expect(res.json().error.code).toBe('NOT_FOUND')
   })
+
+  it('GET /api/v1/diagrams/:id/raw returns the stored JSON verbatim without parsing (P12/21)', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/diagrams',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ name: 'Raw' }),
+    })
+    const id = created.json().data.id as string
+    const corrupt = '{"broken":'
+    db.prepare('UPDATE diagrams SET document = ? WHERE id = ?').run(corrupt, id)
+
+    const raw = await app.inject({ method: 'GET', url: `/api/v1/diagrams/${id}/raw` })
+    expect(raw.statusCode).toBe(200)
+    expect(raw.json().data.document).toBe(corrupt)
+    expect(raw.json().data.name).toBe('Raw')
+    expect(raw.json().data.version).toBe(1)
+
+    const normal = await app.inject({ method: 'GET', url: `/api/v1/diagrams/${id}` })
+    expect(normal.statusCode).toBe(400)
+    expect(normal.json().error.code).toBe('INVALID_REQUEST')
+  })
+
+  it('GET /api/v1/diagrams/:id/raw returns 404 for unknown or soft-deleted diagrams', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/diagrams',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ name: 'Para borrar' }),
+    })
+    const id = created.json().data.id as string
+    await app.inject({ method: 'DELETE', url: `/api/v1/diagrams/${id}` })
+
+    const deleted = await app.inject({ method: 'GET', url: `/api/v1/diagrams/${id}/raw` })
+    expect(deleted.statusCode).toBe(404)
+    expect(deleted.json().error.code).toBe('NOT_FOUND')
+
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/api/v1/diagrams/99999999-9999-4999-8999-999999999999/raw',
+    })
+    expect(missing.statusCode).toBe(404)
+  })
 })

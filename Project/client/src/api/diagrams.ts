@@ -18,6 +18,11 @@ export interface UpdateDiagramInput {
   document: DocumentEnvelope
 }
 
+/** Documento tal cual está persistido (JSON crudo), sin parsear (P12, E2E 21). */
+export interface RawDiagram extends DiagramSummary {
+  document: string
+}
+
 const API_BASE = '/api/v1/diagrams'
 
 interface ErrorEnvelope {
@@ -86,6 +91,10 @@ export function listDiagrams(): Promise<DiagramSummary[]> {
 
 export function getDiagram(id: string): Promise<DiagramFull> {
   return request<DiagramFull>(`/${encodeURIComponent(id)}`, { method: 'GET' })
+}
+
+export function getRawDiagram(id: string): Promise<RawDiagram> {
+  return request<RawDiagram>(`/${encodeURIComponent(id)}/raw`, { method: 'GET' })
 }
 
 export function createDiagram(

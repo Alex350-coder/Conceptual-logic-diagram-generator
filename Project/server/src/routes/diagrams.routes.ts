@@ -36,6 +36,13 @@ export function registerDiagramsRoutes(app: FastifyInstance, db: Database.Databa
     return { data: diagram }
   })
 
+  /** JSON crudo persistido sin parsear (P12, E2E 21): permite exportar una copia de un documento inválido. */
+  app.get('/api/v1/diagrams/:id/raw', { schema: { params: IdParamsSchema } }, async (request) => {
+    const { id } = request.params as IdParams
+    const raw = repo.getRawDocument(toDiagramId(id))
+    return { data: raw }
+  })
+
   app.put(
     '/api/v1/diagrams/:id',
     { schema: { params: IdParamsSchema, body: UpdateDiagramBodySchema } },
