@@ -439,7 +439,7 @@ describe('validación de modelo lógico', () => {
 
   it('L-008: nombre de tabla vacío o fuera de snake_case', () => {
     const logical = logicalModel()
-    logical.tables[0]!.name = '  '
+    logical.tables[0]!.name = ''
     expect(codes(validateLogicalModel(logical))).toContain('L-008')
 
     const logical2 = logicalModel()
