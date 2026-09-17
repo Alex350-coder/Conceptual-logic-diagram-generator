@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { countConceptualElements, createEmptyConceptualModel } from '../domain/conceptual'
 import { makeEnvelope } from '../domain/diagram'
-import { isIdLike, newId, toNodeId } from '../domain/ids'
+import { isIdLike, newId, toDiagramId, toNodeId } from '../domain/ids'
 import { createEmptyLogicalModel } from '../domain/logical'
 
 const UUID_FORMAT = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -21,6 +21,10 @@ describe('ids', () => {
     expect(isIdLike('')).toBe(false)
     expect(isIdLike(1)).toBe(false)
     expect(isIdLike(null)).toBe(false)
+  })
+
+  it('toDiagramId afirma el DiagramId sin validación grabada', () => {
+    expect(toDiagramId('d-1')).toBe('d-1')
   })
 })
 
@@ -66,5 +70,11 @@ describe('document envelope', () => {
     expect(envelope.kind).toBe('erd-studio/diagram')
     expect(envelope.data.model).toBe(model)
     expect(envelope.data.logical).toBeNull()
+  })
+
+  it('incluye viewportHint en data cuando se aporta', () => {
+    const model = createEmptyConceptualModel()
+    const envelope = makeEnvelope(model, null, { cx: 10, cy: 20, zoom: 1.5 })
+    expect(envelope.data.viewportHint).toEqual({ cx: 10, cy: 20, zoom: 1.5 })
   })
 })
