@@ -300,7 +300,12 @@ Resultados tras añadir tests de gaps en `domain`, `validate` y `transform`:
 - `transform/recompute.ts` — `preserveType` rama `freshCol.dataType !== UNDEFINED` (líneas 90-91): inalcanzable porque el motor siempre emite `UNDEFINED`; 96.96 stmts / 94.44 branch, cumple.
 - Se descarta subir `engine.ts` branch a 85 % per-file con tests fabricados de modelos inválidos; la carpeta `transform` completa cumple el umbral.
 
+### E2E 19 undo/redo: alcance conceptual puro (decisión con el usuario)
+El E2E 19 (`Testing.md` §4) pide undo/redo de "mover, crear, eliminar y transformar". La investigación del flujo "transformar" encontró que la transformación al plano lógico **no participa del historial**: `transformToLogical`/`setColumnType` (sessionStore) solo actualizan `logical` y `revision`; `applyLogicalCommand` no toca `past/future` de la `EditorSession` (el historial de `shared/src/history` guarda solo transformadores/reversos del modelo conceptual, no del logical). Deshacer tras transformar revertiría la última operación **conceptual**, sin volver las tablas.
+
+**Decisión (registrada con el usuario):** el E2E 19 cubre undo/redo del plano **conceptual** (mover → posición original, crear → vuelve a existir, eliminar con Delete → vuelve, relación rombo → delete/redo), con POM reutilizable (`Project/client/e2e/editor.pom.ts`). La parte de "transformar" queda como **deuda de producto T10-03** (ya anunciada en la fase P10: hay que convertir los comandos lógicos en operaciones del historial para participar de `Ctrl+Z`/`Ctrl+Shift+Z`), fuera del alcance de testing de P12. La entrada de P10 que reclamaba "`setColumnType` undoable" sobreestima el estado real: el lógico es plano derivado, no undoable vía sesión.
+
 ### Pendiente en la fase
-E2E 19-22 (undo/redo, 409, inválido+recuperación, atajos), ruta `/raw` + panel de recuperación, harness de rendimiento, snapshot de tokens/regresión visual, CI coverage+perf, cierre documental (T12-01..04).
+E2E 20-22 (409 multitab, inválido en el spec Playwright, atajos), harness de rendimiento, snapshot de tokens/regresión visual, CI coverage+perf, cierre documental (T12-01..04).
 
 ---

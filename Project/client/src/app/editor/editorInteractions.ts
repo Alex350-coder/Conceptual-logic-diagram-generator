@@ -210,11 +210,16 @@ export function useEditorInteractions(
     const startWorld = mouseWorld(event.clientX, event.clientY, svg)
     let moved = false
     let lastDelta: Point = { x: 0, y: 0 }
+    let captured = false
 
     const onMove = (mv: PointerEvent) => {
       const now = mouseWorld(mv.clientX, mv.clientY, svg)
       const delta: Point = { x: now.x - startWorld.x, y: now.y - startWorld.y }
       if (!moved && Math.hypot(delta.x * viewport.zoom, delta.y * viewport.zoom) < DRAG_THRESHOLD_PX) return
+      if (!captured) {
+        captured = true
+        svg.setPointerCapture?.(mv.pointerId)
+      }
       moved = true
       lastDelta = delta
       setDragLayout(applyDelta(original, moveIds, delta))
@@ -231,12 +236,11 @@ export function useEditorInteractions(
       setDragLayout(null)
     }
 
-    svg.setPointerCapture?.(event.pointerId)
     svg.addEventListener('pointermove', onMove as EventListener)
     svg.addEventListener('pointerup', onUp as EventListener)
     svg.addEventListener('pointercancel', onUp as EventListener)
     cleanupRef.current = () => {
-      if (svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId)
+      if (captured && svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId)
       svg.removeEventListener('pointermove', onMove as EventListener)
       svg.removeEventListener('pointerup', onUp as EventListener)
       svg.removeEventListener('pointercancel', onUp as EventListener)
@@ -289,6 +293,7 @@ export function useEditorInteractions(
         startPan(event)
         return
       }
+      event.currentTarget.focus()
       const id = closestShapeId(event.target)
       if (id !== null) {
         handleShapePointerDown(event, id)

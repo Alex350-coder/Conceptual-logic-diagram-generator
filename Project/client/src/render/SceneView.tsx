@@ -231,6 +231,7 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onC
       width={size.width}
       height={size.height}
       className={className}
+      tabIndex={-1}
       onPointerDown={onPointerDown}
       onContextMenu={onContextMenu}
       onWheel={onWheel}
