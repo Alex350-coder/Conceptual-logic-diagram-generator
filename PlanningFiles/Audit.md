@@ -305,7 +305,10 @@ El E2E 19 (`Testing.md` §4) pide undo/redo de "mover, crear, eliminar y transfo
 
 **Decisión (registrada con el usuario):** el E2E 19 cubre undo/redo del plano **conceptual** (mover → posición original, crear → vuelve a existir, eliminar con Delete → vuelve, relación rombo → delete/redo), con POM reutilizable (`Project/client/e2e/editor.pom.ts`). La parte de "transformar" queda como **deuda de producto T10-03** (ya anunciada en la fase P10: hay que convertir los comandos lógicos en operaciones del historial para participar de `Ctrl+Z`/`Ctrl+Shift+Z`), fuera del alcance de testing de P12. La entrada de P10 que reclamaba "`setColumnType` undoable" sobreestima el estado real: el lógico es plano derivado, no undoable vía sesión.
 
+### E2E 20 conflicto 409 multitab (Testing.md §4)
+Spec `Project/client/e2e/conflict-409.spec.ts` (2 pestañas del mismo `context` sobre el mismo diagrama en la misma DB temporal): A guarda el documento base, B edita y guarda (`Ctrl+S`) → el servidor avanza `version`; A edita con su versión obsoleta y guarda → PUT `409 CONFLICT_VERSION` → `persist()` setea `conflict { localVersion, serverVersion }` (sessionStore.ts:393-401) → la UI muestra el diálogo "Conflicto de versión" con las 3 opciones. Elegir **"Recargar remoto"** (`resolveConflict('reload')` → `loadFromServer`, se descarta la edición local) reemplaza el canvas con el contenido remoto de B; **lost-update verificado**: A no sobrescribe en silencio, el documento de B persiste y tras recargar guardar en A ya no produce 409.
+
 ### Pendiente en la fase
-E2E 20-22 (409 multitab, inválido en el spec Playwright, atajos), harness de rendimiento, snapshot de tokens/regresión visual, CI coverage+perf, cierre documental (T12-01..04).
+E2E 22 (atajos), harness de rendimiento, snapshot de tokens/regresión visual, CI coverage+perf, cierre documental (T12-01..04).
 
 ---
