@@ -194,6 +194,41 @@ Modificaciones clave en la fase (sin archivos 100 % nuevos):
 
 > Los recursos de fase y la guía del motor se documentan en `PlanningFiles/skills/` y `phase-resources.json` (no versionados).
 
+## Fase P11 (2026-09-16) — UI/UX completa (`Project/client`)
+
+```text
+Project/client/src/styles/tokens.css            (T11-01: paleta fría, tipografía, spacing, radios, sombras, estados, z-index)
+Project/client/src/styles/themes.css            (T11-01: dark por defecto + light en [data-theme='light'])
+Project/client/src/styles/base.css              (T11-01: reset, :focus-visible, .sr-only, .skip-link, prefers-reduced-motion)
+Project/client/src/app/theme/ThemeContext.tsx / ThemeToggle.tsx / theme.css  (T11-01: tema global + persistencia)
+Project/client/src/app/shortcuts/registry.ts / registry.test.ts   (T11-02: registro de atajos + política de conflictos)
+Project/client/src/app/shortcuts/useShortcuts.ts                  (T11-02: listener de atajos)
+Project/client/src/app/shortcuts/ShortcutPalette.tsx / .css / .test.tsx  (T11-02: paleta Ctrl+/ con búsqueda)
+Project/client/src/app/accessibility/useFocusTrap.ts / .test.tsx  (T11-04: trap de foco reutilizable)
+Project/client/src/app/accessibility/SkipLink.tsx / .test.tsx     (T11-04: skip link a #main-content)
+Project/client/src/app/editor/canvasMenu.ts / canvasMenu.test.ts  (T11-05: modelo y acciones del menú contextual)
+Project/client/src/app/editor/ContextMenu.tsx / .css / .test.tsx  (T11-05: menú contextual del canvas)
+Project/client/src/app/dashboard/dashboard.css                    (T11-01/04: estilos del dashboard con tokens)
+Project/client/src/test/setup.ts                                  (T11-06: jest-dom + matcher local toHaveNoViolations + stub canvas)
+Project/client/src/test/vitest-axe.d.ts                           (T11-06: augmentation de tipos de vitest)
+Project/client/src/test/a11y.test.tsx                             (T11-06: 4 casos axe — dashboard, diálogo, editor, paleta)
+Project/client/src/test/contrast.test.ts                          (T11-06: fórmula WCAG + 17 pares dark/light AA)
+Project/client/e2e/ui-ux.spec.ts                                  (T11-06: E2E paleta, menú contextual, tema, reduced-motion)
+PlanningFiles/skills/ui-ux-system/SKILL.md                        (skill propia de la fase — ahora versionada)
+PlanningFiles/rules/ui/design-system.md                           (regla de diseño de la fase)
+```
+
+Modificaciones clave en la fase (sin archivos 100 % nuevos):
+- `Project/client/src/render/SceneView.tsx` + `SceneView.test.tsx`: `role="img"`/`aria-label` (T11-04) y `data-selectable`/`isSelectable` + fix del hit-test (T11-06).
+- `Project/client/src/app/editor/editorInteractions.ts`: `closestShapeId` sobre `[data-selectable]`, `selectAll`/`duplicateSelected`/`alignSelected`/`distributeSelected`, guard de botón derecho.
+- `Project/client/src/app/editor/EditorPage.tsx` / `editor.css`: wiring de menú contextual, traps, `h1` y `main#main-content`.
+- `Project/client/src/app/editor/LogicalPanel.tsx` + `.test.tsx`: empty state, tokens y estados visuales (T11-03).
+- `Project/client/src/app/App.tsx`, `DashboardPage.tsx`, `ConfirmDialog.tsx`: landmarks y focus trap (T11-04).
+- `Project/client/src/main.tsx`: aplicación del tema persistido.
+- `Project/client/package.json` + `Project/package-lock.json`: devDep `vitest-axe`.
+
+> Los recursos de fase (skills `ui-ux-pro-max`/`ui-ux-system`, regla `rules/ui/design-system.md`) se documentan en `phase-resources.json` y `Audit.md`.
+
 ## Normas de uso
 - Añadir una entrada por archivo nuevo de **implementación** (no por cada cambio), con fecha y fase.
 - Los archivos de scaffolding masivo se anotan como grupo (p. ej. "migración de BD 002").

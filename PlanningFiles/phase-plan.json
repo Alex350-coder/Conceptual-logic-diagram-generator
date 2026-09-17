@@ -2,7 +2,7 @@
   "planVersion": 1,
   "product": "erd-studio",
   "docType": "phase-plan",
-  "updatedAt": "2026-09-15",
+  "updatedAt": "2026-09-16",
   "notes": "Representación estructurada de Plan.md §7 y Tasks.md. Estados posibles: pending | in_progress | completed | blocked. La fuente humana es Progress.md; este fichero es la vista de máquina (DevelopmentWorkflow.md).",
   "phases": [
     {
@@ -233,7 +233,8 @@
     {
       "id": "P11",
       "name": "UI/UX completa",
-      "status": "pending",
+      "status": "completed",
+      "completedAt": "2026-09-16",
       "summary": "Design system, atajos, panel lógico completo, accesibilidad y pulido visual.",
       "objectives": [
         "Tokens de diseño fríos con temas claro/oscuro (contraste AA)",
@@ -244,12 +245,12 @@
       "dependencies": ["P8", "P10"],
       "definitionOfDoneRef": "UI.md §1-5; Testing.md §5-7",
       "tasks": [
-        { "id": "T11-01", "title": "Design system: tokens, temas, estados", "status": "pending" },
-        { "id": "T11-02", "title": "Módulo de atajos + paleta", "status": "pending" },
-        { "id": "T11-03", "title": "Panel lógico completo + banner D-TR-12", "status": "pending" },
-        { "id": "T11-04", "title": "Accesibilidad (foco, landmarks, contraste, reduced-motion)", "status": "pending" },
-        { "id": "T11-05", "title": "Pulido visual (estados, menú contextual canvas)", "status": "pending" },
-        { "id": "T11-06", "title": "Tests a11y (axe) + contraste tokens", "status": "pending" }
+        { "id": "T11-01", "title": "Design system: tokens, temas, estados", "status": "completed" },
+        { "id": "T11-02", "title": "Módulo de atajos + paleta", "status": "completed" },
+        { "id": "T11-03", "title": "Panel lógico completo + banner D-TR-12", "status": "completed" },
+        { "id": "T11-04", "title": "Accesibilidad (foco, landmarks, contraste, reduced-motion)", "status": "completed" },
+        { "id": "T11-05", "title": "Pulido visual (estados, menú contextual canvas)", "status": "completed" },
+        { "id": "T11-06", "title": "Tests a11y (axe) + contraste tokens", "status": "completed" }
       ]
     },
     {

@@ -1,6 +1,6 @@
 # Progress.md — Estado Real del Proyecto
 
-**Última actualización:** 2026-09-15 (cierre P10)
+**Última actualización:** 2026-09-16 (cierre P11)
 Este documento refleja el estado **real** (R-01): solo se marca lo que efectivamente se ha hecho y verificado.
 
 ---
@@ -17,7 +17,8 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 **P8 — Persistencia en cliente**: `completed` (T8-01…T8-05, cerrada el 2026-09-14, rama `phase/07-multidiagram`).
 **P9 — Clipboard de dominio**: `completed` (T9-01…T9-05, cerrada el 2026-09-14, rama `phase/08-clipboard`).
 **P10 — Transformación Conceptual → Lógico**: `completed` (T10-01…T10-06, cerrada el 2026-09-15, rama `phase/09-transform`).
-**Siguiente fase:** P11 — UI/UX completa.
+**P11 — UI/UX completa**: `completed` (T11-01…T11-06, cerrada el 2026-09-16, rama `phase/10-ui-ux`).
+**Siguiente fase:** P12 — Testing integral.
 
 ## 2. Documentos de planificación
 
@@ -136,6 +137,16 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 - **T10-06 — E2E 14-16 y 23:** `client/e2e/transform.spec.ts` — flujo 14-16 (transformar a lógico, completar tipos VARCHAR/INT, guardar, verificar en dashboard y recarga) y flujo 23 (tipos del modo Lógico persisten tras recargar; TEXT en nombre). **E2E 1–18 + 23 verde** (5 specs).
 - **Resultado verificado:** `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **204 + 240 + 35 = 479 tests verdes** (shared 12 suites + client 20 suites + server 4) · **8 E2E verdes** (5 specs). Cobertura transform: `engine.ts` 95.3 % stmts / 80.6 % branch / 95 % funcs; `recompute.ts` 96.96 % stmts / 94.44 % branch. 10 commits en `phase/09-transform` (`ed9ea`…`27517`).
 
+## 4j. Tareas completadas de P11 (UI/UX completa, rama `phase/10-ui-ux`)
+
+- **T11-01 — Design system:** `client/src/styles/tokens.css` (paleta fría slate/blue/cyan/indigo, tipografía, spacing, radios, sombras, estados, z-index `--z-menu:30`/`--z-dialog:100`), `themes.css` (dark por defecto en `:root, [data-theme='dark']`, light en `[data-theme='light']`), `base.css` (reset, `:focus-visible`, `.sr-only`, `.skip-link`, `prefers-reduced-motion`). Tema global en `app/theme/ThemeContext.tsx` + `ThemeToggle.tsx` (`app/theme/theme.css`), persistencia en `localStorage` y aplicación en `main.tsx` (`document.documentElement.dataset.theme = readStoredTheme()`). `vitest-axe@^0.1.0` añadido como devDep.
+- **T11-02 — Atajos + paleta:** `app/shortcuts/registry.ts` (registro centralizado con política de conflictos; `registry.test.ts`) + `useShortcuts.ts` + `ShortcutPalette.tsx/.css` (`Control+/` y `Control+Shift+?`, `role=dialog` «Atajos de teclado», `searchbox` «Filtrar atajos», Escape cierra; `ShortcutPalette.test.tsx`).
+- **T11-03 — Panel lógico completo:** `LogicalPanel.tsx` ampliado (empty state, tokens, estados visuales hover/focus/selected) + `LogicalPanel.test.tsx`; el banner D-TR-12 (`RecalculationBanner`) sigue en `EditorPage.tsx`.
+- **T11-04 — Accesibilidad:** `app/accessibility/useFocusTrap.ts` + `SkipLink.tsx` (ambos con tests) y traps+Escape en `ConfirmDialog`/`SaveBlock`/`ConflictDialog`; `App.tsx` con `main#main-content` y `<nav aria-label="Diagramas">`; `SceneView.tsx` con `role="img"` + `aria-label` (mapa `nodeNameById`, prefijos `label-`/`card-`/`isa-do-`, textos `aria-hidden`); `EditableTitle` pasa a `h1`.
+- **T11-05 — Pulido visual y menú contextual:** `app/editor/canvasMenu.ts` (modelo de menú + acciones) + `ContextMenu.tsx/.css` y `editorInteractions.ts` (`selectAll`/`duplicateSelected`/`alignSelected`/`distributeSelected` + guard de botón derecho); prop `onContextMenu` en `SceneView` cableada en `EditorPage.tsx`.
+- **T11-06 — Tests a11y + contraste + E2E:** `src/test/setup.ts` (matcher local `toHaveNoViolations` con `expect.extend` + stub de `HTMLCanvasElement.prototype.getContext`), `src/test/vitest-axe.d.ts` (augmentation de tipos de `vitest`), `src/test/a11y.test.tsx` (4 casos axe: dashboard, diálogo, editor, paleta) y `src/test/contrast.test.ts` (fórmula WCAG + 17 pares dark/light, AA 4.5 texto / 3 UI). E2E `client/e2e/ui-ux.spec.ts` (paleta, menú contextual, toggle de tema con persistencia, landmarks + reduced-motion). Fix real de hit-test (ver ajustes): `data-selectable` + `closestShapeId` sobre `[data-selectable]`.
+- **Resultado verificado:** `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **204 + 300 + 35 = 539 tests verdes** (shared 18 suites + client 28 suites + server 4) · `npm run build` client OK (329.52 kB js / gzip 100.41 kB; 20.61 kB CSS) · **12 E2E verdes** (6 specs: elementos, relaciones, persistencia, clipboard, transform, ui-ux). 11 commits de fase + 1 de cierre en `phase/10-ui-ux` (`2a9d5`…`15ddf`).
+
 ## 5. Riesgos abiertos
 
 - El repositorio git existe desde P2 (T3-04 adelantada a P2 por protocolo por fases con commits por unidad; regla de fases prevalece sobre el plan original que bloqueaba git a P3). En P3 se registra el ajuste (T3-04) en `Audit.md`.
@@ -220,3 +231,15 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 - **Ruteo de "Transformar a lógico":** `store.logical !== null ? store.recomputeLogical() : store.transformToLogical()`; `setMode('logical')` solo si `result.ok && !logicalRecalculationPending`.
 - **dataType UNDEFINED:** columnas sin tipo explícito se serializan como `{ dataType: null }` (no `"UNDEFINED"`) y la UI las muestra como "No definido"; el array de tipos del selector excluye `schemaVersion`/`logicalVersion` (tipos reservados internos).
 - **E2E setup:** 5 specs en `client/e2e` (elementos, relaciones, persistencia, clipboard, transform), workers 1, baseURL `http://localhost:5317`; suite completa 1–18 + 23 verde.
+
+## Ajustes documentales de P11 (UI/UX completa)
+
+- **12 commits (11 de fase + cierre)** en `phase/10-ui-ux`, pactados con el usuario: `2a9d5` (docs de fase: skill `ui-ux-pro-max` + skill propia `ui-ux-system` + regla `rules/ui/design-system.md` + re-alta de `PlanningFiles/` en git), `e4976` (T11-01 tokens), `4f1ec` (T11-01 tema global), `ef943` (T11-02 registry), `70e1e` (T11-02 paleta), `d67dc` (T11-03 panel lógico), `e9c54` (T11-05 menú contextual), `3b61c` (T11-04 landmarks/traps), `af217` (T11-04 canvas a11y + h1), `4801d` (T11-06 a11y tests + contraste), `15ddf` (T11-06 E2E ui-ux + fix hit-test) + cierre. Nada de código de proyecto fuera de `Project/`.
+- **`PlanningFiles/` y `opencode.json` re-versionados:** el `.gitignore` allowlist del repo se amplió con `!PlanningFiles/`, `!PlanningFiles/**` y `!opencode.json` (decisión del usuario), de modo que la documentación de planificación vuelve a estar bajo control de versiones a partir de P11.
+- **vitest-axe 0.1.0 está roto (hallazgo):** el paquete publicado trae `dist/extend-expect.js` de **0 bytes** y `dist/matchers.d.ts` reexporta el matcher como type-only (`TS1485`/`TS1362` al importarlo como valor). Solución adoptada: se usa `axe` de `vitest-axe` (su `index.d.ts` es correcto) pero el matcher `toHaveNoViolations` se registra **localmente** en `src/test/setup.ts` con `expect.extend`; la augmentación de tipos vive en `src/test/vitest-axe.d.ts` (module augmentation de `vitest`, con `export {}` final). No actualizar a ciegas el paquete esperando el matcher.
+- **jsdom + canvas:** jsdom no implementa `HTMLCanvasElement.prototype.getContext`; axe lo invoca y genera ruido en stderr. `setup.ts` lo anula a `null`. jsdom tampoco implementa `HTMLElement.isContentEditable` (`undefined`), por eso `isEditableTarget` compara `=== true`.
+- **Bug real de selección (fix de producto, `15ddf`):** todas las primitivas de la escena (incluidas las ~86 líneas del grid) llevaban `data-id`, y `closestShapeId` (`target.closest('[data-id]')`) seleccionaba líneas de grid como nodos fantasma. Repro determinista: clic en (320,240) cae justo en una intersección del grid (paso 20). Fix: `SceneView` marca solo los nodos con `data-selectable` (`SELECTABLE_ROLES` = entity/relationship/attribute/specialization) y `closestShapeId` hace hit-test sobre `[data-selectable]`; `data-id` se conserva en todas las primitivas para no romper aserciones existentes.
+- **Colisión de nombres en Windows:** `contextMenu.ts` se renombró a `canvasMenu.ts` para evitar el choque case-insensitive con `ContextMenu.tsx` (`TS1261`/`TS1149`).
+- **Reduced-motion:** el reset universal de `base.css` fija `transition-duration: 0.01ms` bajo `@media (prefers-reduced-motion: reduce)`; el E2E lo asserta con `emulateMedia({ reducedMotion: 'reduce' })` y `getComputedStyle(...).transitionDuration < 0.001`.
+- **Ajv/contraste:** `contrast.test.ts` parsea `themes.css` con regex de bloques `/([^{}]+)\{([^}]*)\}/g`; los nombres de token capturados **incluyen** el prefijo `color-` (usar `'color-text'`, no `'text'`). Tokens reservados de tema: dark por defecto, light por `data-theme`.
+- **Cierre P11 verificado:** `npm run typecheck` limpio · `npm run lint` 0 errores · `npm run test` **539 tests verdes** (204 shared + 300 client + 35 server) · `npm run build` client OK (gzip 100.41 kB js) · `npx playwright test` **12 E2E verdes** (6 specs). Criterio `ui-verify.md`: cualquier violation de axe o fallo de contraste bloquea la fase — cero violations.

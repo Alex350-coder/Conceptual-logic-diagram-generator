@@ -130,16 +130,18 @@ Rama `phase/06-relations`, commits `ef974` → `d6c52` (+ fixes de cierre). Suit
 
 Rama `phase/09-transform`, commits `ed9ea` → `27517` (10 commits pactados: types/naming, engine T1–T10, goldens, perf, readLogical, logical commands, recompute, store, UI, E2E). Suite completa **204 tests shared + 240 tests client**; **E2E 1–18 + 23 verde** (5 specs: elementos, relaciones, persistencia, clipboard, transform; puertos 5317/3121).
 
-## FASE P11 — UI/UX completa
+## FASE P11 — UI/UX completa *(cerrada 2026-09-16)*
 
-| ID | Tarea | Depende de |
-|---|---|---|
-| T11-01 | Design system: tokens (paleta fría, tipografía, spacing, estados, temas oscuro/claro) | P8 |
-| T11-02 | Módulo de atajos (paleta Ctrl+Shift+?) y política de conflictos | P8 |
-| T11-03 | Panel lógico completo + selector de tipos + banner D-TR-12 | P10 |
-| T11-04 | Accesibilidad: foco, landmark, diálogos, contrastes, reduced-motion | T11-01 |
-| T11-05 | Pulido visual: estados hover/focus/selected, menú contextual de canvas | T11-01 |
-| T11-06 | Tests a11y (axe) + contraste de tokens (snapshot) | T11-04 |
+| ID | Tarea | Depende de | Estado |
+|---|---|---|---|
+| T11-01 | Design system: tokens (paleta fría, tipografía, spacing, estados, temas oscuro/claro) | P8 | ✅ |
+| T11-02 | Módulo de atajos (paleta Ctrl+Shift+?) y política de conflictos | P8 | ✅ |
+| T11-03 | Panel lógico completo + selector de tipos + banner D-TR-12 | P10 | ✅ |
+| T11-04 | Accesibilidad: foco, landmark, diálogos, contrastes, reduced-motion | T11-01 | ✅ |
+| T11-05 | Pulido visual: estados hover/focus/selected, menú contextual de canvas | T11-01 | ✅ |
+| T11-06 | Tests a11y (axe) + contraste de tokens (snapshot) | T11-04 | ✅ |
+
+Rama `phase/10-ui-ux`, commits `2a9d5` → `15ddf` + cierre (12 commits pactados: docs/skills, tokens, tema global, atajos, paleta, panel lógico, menú contextual, landmarks/focus trap, canvas a11y, tests axe/contraste, E2E ui-ux + fix hit-test). Suite completa **204 tests shared + 300 tests client + 35 tests server = 539**; **E2E 1–18 + 23 + ui-ux verde** (6 specs: elementos, relaciones, persistencia, clipboard, transform, ui-ux; puertos 5317/3121).
 
 ## FASE P12 — Testing integral
 

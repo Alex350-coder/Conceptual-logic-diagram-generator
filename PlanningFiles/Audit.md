@@ -252,4 +252,35 @@ Rama `phase/09-transform`. 10 commits (`ed9ea`…`27517`) pactados "granulares p
 
 ---
 
+## 2026-09-16 — Fase P11 (UI/UX completa, rama `phase/10-ui-ux`) — cierre
+
+Rama `phase/10-ui-ux`. 11 commits de fase + 1 de cierre (`2a9d5`…`15ddf`): `2a9d5` (docs/skills), `e4976` (T11-01 tokens), `4f1ec` (T11-01 tema global), `ef943` (T11-02 registry), `70e1e` (T11-02 paleta), `d67dc` (T11-03 panel lógico), `e9c54` (T11-05 menú contextual), `3b61c` (T11-04 landmarks/traps), `af217` (T11-04 canvas a11y + h1), `4801d` (T11-06 a11y tests + contraste), `15ddf` (T11-06 E2E ui-ux + fix hit-test). Suite final: **204 shared + 300 client + 35 server = 539** · **12 E2E verdes** (6 specs).
+
+### Recursos de fase activados
+- Skill `ui-ux-pro-max` (instalada en `~/.claude/skills/`) + skill propia de la fase `ui-ux-system` (`PlanningFiles/skills/ui-ux-system/SKILL.md`) + regla `PlanningFiles/rules/ui/design-system.md`. Reuso de `react-patterns`, `react-testing`, `frontend-patterns`, `e2e-testing`, `coding-standards`. Registrado en `phase-resources.json` (P11 `completed` al cierre). `phase-plan.json`: T11-01…T11-06 `completed` con `completedAt 2026-09-16`.
+
+### Decisiones registradas
+- **Design system con tokens (T11-01):** una sola fuente de verdad en `styles/tokens.css` (paleta fría slate/blue/cyan/indigo, tipografía, spacing, radios, sombras, estados, z-index). Los temas viven en `themes.css` con **dark por defecto** (`:root, [data-theme='dark']`) y light en `[data-theme='light']`. El tema se aplica en `main.tsx` (`document.documentElement.dataset.theme`) y se persiste en `localStorage`; `ThemeContext`/`ThemeToggle` son la API de UI.
+- **Atajos centralizados (T11-02):** `registry.ts` es la única fuente de atajos y resuelve conflictos; `useShortcuts` cablea el listener y `ShortcutPalette` (`Control+/`, `Control+Shift+?`) ofrece la ayuda navegable. Verificado con `registry.test.ts` y `ShortcutPalette.test.tsx`.
+- **A11y como bloqueante de fase (T11-04/T11-06):** `useFocusTrap` + `SkipLink` (landmarks `main#main-content`, `<nav aria-label>`), traps+Escape en los tres diálogos, y el canvas con `role="img"` + `aria-label` derivado del modelo (`nodeNameById`), con los textos `label-*` en `aria-hidden`. `vitest-axe` bloquea el cierre si hay violations (regla `ui-verify.md`); cero violations al cierre.
+- **Bug real de hit-test de selección (`15ddf`):** todas las primitivas de la escena (incluidas las ~86 líneas del grid) llevaban `data-id`; `closestShapeId` (`target.closest('[data-id]')`) podía seleccionar una línea de grid como nodo fantasma (repro: clic en (320,240), intersección exacta del grid paso 20). Fix: `SceneView` marca solo los nodos con `data-selectable` (`SELECTABLE_ROLES`) y el hit-test usa `[data-selectable]`; `data-id` se conserva para no romper aserciones existentes. Corregido con test de regresión en `SceneView.test.tsx` y cobertura E2E.
+- **`vitest-axe@0.1.0` está roto (hallazgo):** `dist/extend-expect.js` de 0 bytes y `dist/matchers.d.ts` type-only (`TS1485`/`TS1362`). Se usa `axe` del paquete pero el matcher `toHaveNoViolations` se registra localmente en `setup.ts` (`expect.extend`), con augmentación de tipos en `src/test/vitest-axe.d.ts`. No esperar que el matcher del paquete funcione en una futura actualización sin revisar.
+- **`PlanningFiles/` y `opencode.json` re-versionados:** el `.gitignore` allowlist se amplió (`!PlanningFiles/`, `!PlanningFiles/**`, `!opencode.json`) por decisión del usuario; la documentación de planificación vuelve al control de versiones desde P11.
+- **Reduced-motion:** `base.css` fija `transition-duration: 0.01ms` bajo `prefers-reduced-motion: reduce`; el E2E lo asserta con `emulateMedia` + `getComputedStyle`.
+- **Colisión case-insensitive en Windows:** `contextMenu.ts` → `canvasMenu.ts` para no chocar con `ContextMenu.tsx` (`TS1261`/`TS1149`).
+
+### Hallazgos
+- **jsdom no implementa canvas ni `isContentEditable`:** `setup.ts` anula `HTMLCanvasElement.prototype.getContext` a `null` (ruido de axe, no fallo) y `isEditableTarget` compara contra `=== true` porque jsdom devuelve `undefined`.
+- **Warnings previos:** React Router future flags y `act()` en `EditorPage.test.tsx` (P9, no bloqueantes) siguen presentes; no introducidos en P11.
+- **`npm audit`:** mismas 5 vulnerabilidades de tooling ya reportadas (P4/P5); se difieren a T13-04.
+- **Sin código de proyecto fuera de `Project/`:** las skills/reglas/docs viven en `PlanningFiles/` (ahora versionadas).
+
+### Verificación de cierre
+- `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **539 tests verdes** (204 shared/18 ficheros + 300 client/28 ficheros + 35 server/4 ficheros) · `npm run build` client OK (329.52 kB js / gzip 100.41 kB; 20.61 kB CSS) · `npx playwright test` **12 E2E verdes** (6 specs: elementos 1-3, relaciones 4, persistencia 5-11+17-18, clipboard 12-13, transform 14-16+23, ui-ux). Cero violations de axe y contraste AA verificado.
+
+### Pendiente P11 → P12
+- P12 (Testing integral) cierra los umbrales de cobertura de `Testing.md` §2 (arrastrando el riesgo de branch de `engine.ts` al 80.6 %), los E2E restantes 19-22 (undo/redo, 409, inválido, atajos), el harness de rendimiento de `Architecture.md` §11 y el snapshot de tokens/regresión visual (T12-01..04) sobre la base de design system dejada por P11.
+
+---
+
 > **Norma de uso:** cualquier cambio relevante posterior (decisión, hallazgo de auditoría, corrección de contradicción documental, cambio de dependencias) se añade aquí con fecha y motivo. Las decisiones de aplazamiento (auth, rate limiting avanzado, purga física, colaboración) quedan registradas en `Security.md` §6.
