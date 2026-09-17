@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": ["PlanningFiles/skills"]
+  },
+  "instructions": [
+    "PlanningFiles/rules/typescript/coding-style.md",
+    "PlanningFiles/rules/typescript/security.md",
+    "PlanningFiles/rules/typescript/testing.md",
+    "PlanningFiles/rules/typescript/monorepo-config.md",
+    "PlanningFiles/rules/typescript/server.md",
+    "PlanningFiles/rules/typescript/client.md",
+    "PlanningFiles/rules/react/coding-style.md",
+    "PlanningFiles/rules/react/hooks.md",
+    "PlanningFiles/rules/react/patterns.md",
+    "PlanningFiles/rules/react/security.md",
+    "PlanningFiles/rules/react/testing.md",
+    "PlanningFiles/rules/ci/workflows.md",
+    "PlanningFiles/rules/typescript/relationships.md",
+    "PlanningFiles/rules/typescript/client-persistence.md",
+    "PlanningFiles/rules/typescript/transform.md",
+    "PlanningFiles/rules/ui/design-system.md"
+  ]
+}

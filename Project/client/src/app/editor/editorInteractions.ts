@@ -21,6 +21,9 @@ import { SNAP_STEP, snapPoint } from '../../editor/grid'
 import { applyDelta, resolveMoveSet } from '../../editor/drag'
 import { marqueeRect, marqueeSelect, selectOnly, toggleSelection } from '../../editor/selection'
 import { modelToBounds, SHAPE_SIZES } from '../../render/layout'
+import type { AlignEdge, DistributeAxis, SizeOf } from '../../editor/align'
+import { alignNodes, distributeNodes } from '../../editor/align'
+import { buildCopyPayload, pasteCommand } from '../../editor/clipboard'
 import type { Viewport, ViewportSize, WorldPoint } from '../../editor/viewport'
 import { screenToWorld } from '../../editor/viewport'
 import { sessionStore } from '../../store/sessionStore'
@@ -30,7 +33,7 @@ const DRAG_THRESHOLD_PX = 4
 /** id de la shape bajo el target (data-id del grupo de primitiva). */
 export function closestShapeId(target: EventTarget | null): NodeId | null {
   if (!(target instanceof Element)) return null
-  const id = target.closest('[data-id]')?.getAttribute('data-id')
+  const id = target.closest('[data-selectable]')?.getAttribute('data-id')
   return id === null || id === undefined ? null : canonicalNodeId(id)
 }
 
@@ -128,6 +131,10 @@ export interface EditorInteractions {
   setDisjointness(id: NodeId, disjointness: Disjointness): void
   setCompleteness(id: NodeId, completeness: Completeness): void
   deleteSelected(): void
+  selectAll(): void
+  duplicateSelected(): void
+  alignSelected(edge: AlignEdge): void
+  distributeSelected(axis: DistributeAxis): void
   handleCanvasPointerDown(event: ReactPointerEvent<SVGSVGElement>): void
   handleCanvasKeyDown(event: ReactKeyboardEvent<SVGSVGElement>): void
 }
@@ -277,6 +284,7 @@ export function useEditorInteractions(
   const handleCanvasPointerDown = useCallback(
     (event: ReactPointerEvent<SVGSVGElement>) => {
       cleanup()
+      if (event.button === 2) return
       if (event.button === 1) {
         startPan(event)
         return
@@ -540,6 +548,63 @@ export function useEditorInteractions(
     s.sendCommands([{ type: 'setIsKey', payload: { id, isKey: !attribute.isKey } }])
   }, [])
 
+  const selectAll = useCallback(() => {
+    const m = sessionStore.getState().session?.model
+    if (m === undefined) return
+    const s = sessionStore.getState()
+    s.setSelection([
+      ...m.entities.map((e) => e.id),
+      ...m.relationships.map((r) => r.id),
+      ...m.specializations.map((sp) => sp.id),
+      ...m.attributes.map((a) => a.id),
+    ])
+  }, [])
+
+  const duplicateSelected = useCallback(() => {
+    const s = sessionStore.getState()
+    const m = s.session?.model
+    if (m === undefined || s.selection.size === 0) return
+    const payload = buildCopyPayload(m, s.selection)
+    if (payload === null) return
+    const result = s.sendCommands([pasteCommand(payload)])
+    if (result.ok && result.createdIds !== undefined && result.createdIds.length > 0) {
+      s.setSelection(result.createdIds)
+    }
+  }, [])
+
+  const movableSelected = (): NodeId[] => {
+    const s = sessionStore.getState()
+    const m = s.session?.model
+    if (m === undefined) return []
+    return [...s.selection].filter((id) => m.layout[id] !== undefined)
+  }
+
+  const alignSelected = useCallback((edge: AlignEdge) => {
+    const s = sessionStore.getState()
+    const m = s.session?.model
+    if (m === undefined) return
+    const ids = movableSelected()
+    if (ids.length < 2) return
+    const bounds = modelToBounds(m)
+    const sizeOf: SizeOf = (id) => bounds.get(id) ?? null
+    const next = alignNodes(m.layout, ids, edge, sizeOf)
+    const commands = layoutToCommands(next, m.layout, ids)
+    if (commands.length > 0) s.sendCommands(commands)
+  }, [])
+
+  const distributeSelected = useCallback((axis: DistributeAxis) => {
+    const s = sessionStore.getState()
+    const m = s.session?.model
+    if (m === undefined) return
+    const ids = movableSelected()
+    if (ids.length < 3) return
+    const bounds = modelToBounds(m)
+    const sizeOf: SizeOf = (id) => bounds.get(id) ?? null
+    const next = distributeNodes(m.layout, ids, axis, sizeOf)
+    const commands = layoutToCommands(next, m.layout, ids)
+    if (commands.length > 0) s.sendCommands(commands)
+  }, [])
+
   const handleCanvasKeyDown = useCallback(
     (event: ReactKeyboardEvent<SVGSVGElement>) => {
       const actions = sessionStore.getState()
@@ -593,6 +658,10 @@ export function useEditorInteractions(
     setDisjointness,
     setCompleteness,
     deleteSelected,
+    selectAll,
+    duplicateSelected,
+    alignSelected,
+    distributeSelected,
     handleCanvasPointerDown,
     handleCanvasKeyDown,
   }
@@ -603,3 +672,5 @@ function rectSize(rect: { width: number; height: number }): ViewportSize {
 }
 
 export const canvasIdFromTarget = closestShapeId
+
+

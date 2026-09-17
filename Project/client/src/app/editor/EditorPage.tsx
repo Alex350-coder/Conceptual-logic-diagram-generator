@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Link, useBlocker, useParams } from 'react-router-dom'
@@ -10,19 +11,29 @@ import { SceneView } from '../../render/SceneView'
 import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, sceneBounds } from '../../render/layout'
 import type { Rect } from '../../editor/geometry'
-import type { Viewport, ViewportSize } from '../../editor/viewport'
+import type { Viewport, ViewportSize, WorldPoint } from '../../editor/viewport'
 import { clampZoom, createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
 import type { ConflictDecision } from '../../store/sessionStore'
 import { sessionAutosave, startAutosave } from '../../store/autosave'
 import {
   useEditorInteractions,
+  closestShapeId,
   type EditorInteractions,
 } from './editorInteractions'
 import { useClipboardActions } from './clipboardActions'
 import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
 import { LogicalPanel } from './LogicalPanel'
+import { ThemeToggle } from '../theme/ThemeToggle'
+import { useShortcutListener } from '../shortcuts/useShortcuts'
+import { ShortcutPalette } from '../shortcuts/ShortcutPalette'
+import type { ShortcutContext } from '../shortcuts/registry'
+import { ContextMenu } from './ContextMenu'
+import { buildCanvasMenu } from './canvasMenu'
+import type { ContextMenuAction } from './canvasMenu'
+import { useFocusTrap } from '../accessibility/useFocusTrap'
+import { SkipLink } from '../accessibility/SkipLink'
 import './editor.css'
 
 type EditorMode = 'conceptual' | 'logical'
@@ -39,6 +50,8 @@ export function EditorPage() {
   const logical = useSessionStore((s) => s.logical)
   const logicalPending = useSessionStore((s) => s.logicalRecalculationPending)
   const [mode, setMode] = useState<EditorMode>('conceptual')
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; world: WorldPoint } | null>(null)
 
   const size = useEditorSize()
   const fittedRef = useRef(false)
@@ -119,43 +132,72 @@ export function EditorPage() {
 
   const { copy, cut, paste } = useClipboardActions(interactions.deleteSelected)
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
+  const shortcutContext = useMemo<ShortcutContext>(
+    () => ({
+      undo: () => sessionStore.getState().undo(),
+      redo: () => sessionStore.getState().redo(),
+      save: () => void sessionAutosave.flush(),
+      copy: () => void copy(),
+      cut: () => void cut(),
+      paste: () => void paste(),
+      openShortcuts: () => setShortcutsOpen(true),
+    }),
+    [copy, cut, paste],
+  )
+  useShortcutListener(shortcutContext)
+
+  const handleCanvasContextMenu = useCallback(
+    (event: ReactMouseEvent<SVGSVGElement>) => {
+      if (status !== 'ready' || model === null || mode !== 'conceptual') {
+        event.preventDefault()
         return
       }
-      const mod = event.ctrlKey || event.metaKey
-      if (mod && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        if (event.shiftKey) sessionStore.getState().redo()
-        else sessionStore.getState().undo()
-      } else if (mod && event.key.toLowerCase() === 'y') {
-        event.preventDefault()
-        sessionStore.getState().redo()
-      } else if (mod && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        void sessionAutosave.flush()
-      } else if (mod && event.key.toLowerCase() === 'c') {
-        event.preventDefault()
-        void copy()
-      } else if (mod && event.key.toLowerCase() === 'x') {
-        event.preventDefault()
-        void cut()
-      } else if (mod && event.key.toLowerCase() === 'v') {
-        event.preventDefault()
-        void paste()
+      event.preventDefault()
+      const s = sessionStore.getState()
+      const id = closestShapeId(event.target)
+      if (id !== null) {
+        if (!s.selection.has(id)) s.setSelection([id])
+      } else {
+        s.setSelection([])
       }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [copy, cut, paste])
+      const rect = event.currentTarget.getBoundingClientRect()
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        world: screenToWorld(viewport, { width: rect.width, height: rect.height }, {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        }),
+      })
+    },
+    [status, model, mode, viewport],
+  )
+
+  const contextMenuActions = useMemo<ContextMenuAction[]>(() => {
+    if (contextMenu === null || model === null) return []
+    const canPaste = typeof navigator !== 'undefined' && navigator.clipboard !== undefined
+    return buildCanvasMenu({
+      model,
+      selection,
+      canPaste,
+      handlers: {
+        onCreateEntity: () => interactions.createEntity(contextMenu.world),
+        onCreateRelation: () => undefined,
+        onSelectAll: () => interactions.selectAll(),
+        onRename: () => {
+          const single = [...selection][0]
+          if (single !== undefined) interactions.startRename(single)
+        },
+        onDuplicate: () => interactions.duplicateSelected(),
+        onCopy: () => void copy(),
+        onCut: () => void cut(),
+        onPaste: () => void paste(),
+        onAlign: (edge) => interactions.alignSelected(edge),
+        onDistribute: (axis) => interactions.distributeSelected(axis),
+        onDelete: () => interactions.deleteSelected(),
+      },
+    })
+  }, [contextMenu, model, selection, interactions, copy, cut, paste])
 
   const selectedId = selection.size === 1 ? [...selection][0] : undefined
   const selectedEntity = selectedId !== undefined ? model?.entities.find((e) => e.id === selectedId) : undefined
@@ -169,6 +211,7 @@ export function EditorPage() {
 
   return (
     <div className="editor-page">
+      <SkipLink />
       <EditorHeader
         canUndo={canUndo}
         canRedo={canRedo}
@@ -185,7 +228,7 @@ export function EditorPage() {
           }
         }}
       />
-      <main className="editor-canvas">
+      <main id="main-content" className="editor-canvas">
         <EditorBody
           status={status}
           id={id}
@@ -196,6 +239,7 @@ export function EditorPage() {
           interactions={interactions}
           mode={mode}
           logical={logical}
+          onContextMenu={handleCanvasContextMenu}
           onSetColumnType={(payload) => {
             void sessionStore.getState().setColumnType(payload)
           }}
@@ -269,6 +313,19 @@ export function EditorPage() {
           }}
         />
       ) : null}
+      <ShortcutPalette
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+        ctx={shortcutContext}
+      />
+      {contextMenu !== null ? (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          actions={contextMenuActions}
+          onClose={() => setContextMenu(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -280,6 +337,8 @@ function SaveBlockDialog({
   onDiscard: () => void
   onStay: () => void
 }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, cardRef)
   return (
     <div className="save-block-overlay">
       <div
@@ -287,6 +346,10 @@ function SaveBlockDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="save-block-title"
+        ref={cardRef}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onStay()
+        }}
       >
         <h2 id="save-block-title">Cambios sin guardar</h2>
         <p>No se pudo guardar el diagrama. Si continúas, perderás los cambios locales.</p>
@@ -312,6 +375,8 @@ function ConflictDialog({
   serverVersion: number
   onResolve: (decision: ConflictDecision) => void
 }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, cardRef)
   return (
     <div className="conflict-overlay">
       <div
@@ -319,6 +384,7 @@ function ConflictDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="conflict-title"
+        ref={cardRef}
       >
         <h2 id="conflict-title">Conflicto de versión</h2>
         <p>El diagrama cambió en el servidor. Elige cómo resolver el conflicto.</p>
@@ -358,6 +424,7 @@ function EditorBody({
   interactions,
   mode,
   logical,
+  onContextMenu,
   onSetColumnType,
 }: {
   status: 'idle' | 'loading' | 'ready' | 'notFound' | 'invalid' | 'error'
@@ -369,6 +436,7 @@ function EditorBody({
   interactions: EditorInteractions
   mode: EditorMode
   logical: LogicalModel | null
+  onContextMenu: (event: ReactMouseEvent<SVGSVGElement>) => void
   onSetColumnType: (payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }) => void
 }) {
   if (status === 'notFound') {
@@ -424,6 +492,7 @@ function EditorBody({
       size={size}
       onWheel={handleWheel}
       onPointerDown={interactions.handleCanvasPointerDown}
+      onContextMenu={onContextMenu}
       onKeyDown={interactions.handleCanvasKeyDown}
       onShapeDoubleClick={interactions.startRename}
     />
@@ -584,7 +653,9 @@ function EditorHeader({
   return (
     <header className="editor-header">
       <span className="editor-menu-area">
-        <DiagramMenu />
+        <nav className="editor-nav" aria-label="Diagramas">
+          <DiagramMenu />
+        </nav>
         <EditableTitle />
         <SaveIndicator />
       </span>
@@ -640,6 +711,7 @@ function EditorHeader({
           −
         </button>
         <span className="zoom-level">{Math.round(viewport.zoom * 100)}%</span>
+        <ThemeToggle />
       </span>
     </header>
   )
@@ -696,14 +768,14 @@ function EditableTitle() {
 
   if (!editing) {
     return (
-      <span
+      <h1
         className="editor-title"
         title="Doble clic para renombrar"
         data-testid="diagram-title"
         onDoubleClick={startEdit}
       >
         {name}
-      </span>
+      </h1>
     )
   }
   return (

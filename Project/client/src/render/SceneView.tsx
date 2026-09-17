@@ -21,6 +21,7 @@ export interface SceneViewProps {
   size: ViewportSize
   className?: string
   onPointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
+  onContextMenu?: (event: ReactMouseEvent<SVGSVGElement>) => void
   onWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onKeyDown?: (event: ReactKeyboardEvent<SVGSVGElement>) => void
   onShapeDoubleClick?: (id: string) => void
@@ -41,6 +42,53 @@ const ROLE_STYLES: Record<PrimitiveRole, CSSProperties> = {
     fill: 'rgba(37, 99, 235, 0.08)',
     strokeDasharray: '4 4',
   },
+}
+
+/** Nombre accesible por tipo de nodo (regla ui-ux-system §Foco y teclado). */
+const SHAPE_TYPE_LABELS: Partial<Record<PrimitiveRole, string>> = {
+  entity: 'Entidad',
+  relationship: 'Relación',
+  attribute: 'Atributo',
+  specialization: 'Especialización',
+}
+
+/** Roles de primitiva que representan un nodo seleccionable del modelo. */
+const SELECTABLE_ROLES: ReadonlySet<PrimitiveRole> = new Set([
+  'entity',
+  'relationship',
+  'attribute',
+  'specialization',
+])
+
+/** Solo los nodos y sus etiquetas participan del hit-testing de selección. */
+function isSelectable(prim: Primitive): boolean {
+  return (
+    SELECTABLE_ROLES.has(prim.role) ||
+    (prim.kind === 'text' && prim.id.startsWith(NODE_LABEL_PREFIX))
+  )
+}
+
+const NODE_LABEL_PREFIX = 'label-'
+const CARDINALITY_PREFIX = 'card-'
+const ISA_MARK_PREFIX = 'isa-do-'
+
+/** Nombre accesible de una primitiva completa (o undefined si no aplica). */
+function accessibleNameFor(
+  prim: Primitive,
+  nodeNameById: ReadonlyMap<string, string>,
+): string | undefined {
+  const typeLabel = SHAPE_TYPE_LABELS[prim.role]
+  if (typeLabel !== undefined) {
+    const name = nodeNameById.get(prim.id)
+    return name !== undefined ? `${typeLabel} ${name}` : undefined
+  }
+  if (prim.kind === 'text' && prim.id.startsWith(CARDINALITY_PREFIX)) {
+    return `Cardinalidad ${prim.text}`
+  }
+  if (prim.kind === 'text' && prim.id.startsWith(ISA_MARK_PREFIX)) {
+    return `Marca ${prim.text}`
+  }
+  return undefined
 }
 
 const centerX = (b: Rect): number => b.x + b.width / 2
@@ -162,8 +210,16 @@ function PrimitiveView({ prim }: { prim: Primitive }) {
   return <ShapeGeometry prim={prim} />
 }
 
-export function SceneView({ scene, viewport, size, className, onPointerDown, onWheel, onKeyDown, onShapeDoubleClick }: SceneViewProps) {
+export function SceneView({ scene, viewport, size, className, onPointerDown, onContextMenu, onWheel, onKeyDown, onShapeDoubleClick }: SceneViewProps) {
   const transform = `translate(${size.width / 2} ${size.height / 2}) scale(${viewport.zoom}) translate(${-viewport.cx} ${-viewport.cy})`
+  const nodeNameById = new Map<string, string>()
+  for (const layer of scene.layers) {
+    for (const prim of layer.items) {
+      if (prim.kind === 'text' && prim.id.startsWith(NODE_LABEL_PREFIX)) {
+        nodeNameById.set(prim.id.slice(NODE_LABEL_PREFIX.length), prim.text)
+      }
+    }
+  }
   const handleDoubleClick = (event: ReactMouseEvent<SVGGElement>) => {
     event.stopPropagation()
     const id = (event.currentTarget as Element).getAttribute('data-id')
@@ -176,6 +232,7 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onW
       height={size.height}
       className={className}
       onPointerDown={onPointerDown}
+      onContextMenu={onContextMenu}
       onWheel={onWheel}
       onKeyDown={onKeyDown}
       style={{ touchAction: 'none', display: 'block' }}
@@ -183,11 +240,23 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onW
       <g transform={transform} data-world="true">
         {scene.layers.map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
-            {layer.items.map((prim) => (
-              <g key={prim.id} data-id={prim.id} onDoubleClick={handleDoubleClick}>
-                <PrimitiveView prim={prim} />
-              </g>
-            ))}
+            {layer.items.map((prim) => {
+              const accessibleName = accessibleNameFor(prim, nodeNameById)
+              const hideFromAt = prim.kind === 'text' && prim.id.startsWith(NODE_LABEL_PREFIX)
+              return (
+                <g
+                  key={prim.id}
+                  data-id={prim.id}
+                  data-selectable={isSelectable(prim) ? 'true' : undefined}
+                  role={accessibleName !== undefined ? 'img' : undefined}
+                  aria-label={accessibleName}
+                  aria-hidden={hideFromAt ? 'true' : undefined}
+                  onDoubleClick={handleDoubleClick}
+                >
+                  <PrimitiveView prim={prim} />
+                </g>
+              )
+            })}
           </g>
         ))}
       </g>

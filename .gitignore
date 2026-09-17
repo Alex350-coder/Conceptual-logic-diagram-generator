@@ -12,5 +12,12 @@
 # Playwright artifacts
 Project/client/test-results/
 
+# Allow planning docs (P11+: re-track, restores audit trail)
+!PlanningFiles/
+!PlanningFiles/**
+
+# Allow OpenAI config
+!opencode.json
+
 # Allow own gitignore + config
 !.gitignore

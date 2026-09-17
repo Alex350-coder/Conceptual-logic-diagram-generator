@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { CSSProperties } from 'react'
 import {
   createDiagram,
   deleteDiagram,
@@ -9,18 +8,11 @@ import {
 } from '../../api/diagrams'
 import type { DiagramSummary } from '../../api/diagrams'
 import { ConfirmDialog } from './ConfirmDialog'
+import { ThemeToggle } from '../theme/ThemeToggle'
+import { SkipLink } from '../accessibility/SkipLink'
+import './dashboard.css'
 
 type Status = 'loading' | 'ready' | 'error'
-
-const styles: Record<string, CSSProperties> = {
-  main: { padding: 24, fontFamily: 'system-ui, sans-serif' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  error: { color: '#b00020' },
-  table: { borderCollapse: 'collapse', marginTop: 16, width: '100%' },
-  th: { textAlign: 'left', borderBottom: '2px solid #ddd', padding: '8px 12px' },
-  td: { borderBottom: '1px solid #eee', padding: '8px 12px' },
-  actions: { display: 'flex', gap: 8 },
-}
 
 function formatUpdatedAt(iso: string): string {
   const date = new Date(iso)
@@ -112,30 +104,40 @@ export function DashboardPage(): JSX.Element {
   }
 
   return (
-    <main style={styles.main}>
-      <header style={styles.header}>
+    <>
+      <SkipLink />
+      <main id="main-content" className="dashboard-page">
+        <header className="dashboard-header">
         <h1>ERD Studio</h1>
-        <button
-          type="button"
-          disabled={busy || status === 'loading'}
-          onClick={() => void handleCreate()}
-        >
-          {busy ? 'Procesando…' : 'Nuevo diagrama'}
-        </button>
+        <span className="dashboard-header-actions">
+          <ThemeToggle />
+          <button
+            type="button"
+            className="dashboard-button dashboard-button-primary"
+            disabled={busy || status === 'loading'}
+            onClick={() => void handleCreate()}
+          >
+            {busy ? 'Procesando…' : 'Nuevo diagrama'}
+          </button>
+        </span>
       </header>
 
       {error !== null && (
-        <p role="alert" style={styles.error}>
+        <p role="alert" className="dashboard-error">
           {error}
         </p>
       )}
 
-      {status === 'loading' && <p aria-live="polite">Cargando diagramas…</p>}
+      {status === 'loading' && (
+        <p className="dashboard-message" aria-live="polite">
+          Cargando diagramas…
+        </p>
+      )}
 
       {status === 'error' && (
         <div>
-          <p>No se pudieron cargar los diagramas.</p>
-          <button type="button" onClick={() => void refresh()}>
+          <p className="dashboard-message">No se pudieron cargar los diagramas.</p>
+          <button type="button" className="dashboard-button" onClick={() => void refresh()}>
             Reintentar
           </button>
         </div>
@@ -143,25 +145,27 @@ export function DashboardPage(): JSX.Element {
 
       {status === 'ready' &&
         (diagrams.length === 0 ? (
-          <p>Crea tu primer diagrama con «Nuevo diagrama».</p>
+          <p className="dashboard-empty">Crea tu primer diagrama con «Nuevo diagrama».</p>
         ) : (
-          <table style={styles.table}>
+          <table className="dashboard-table">
+            <caption className="sr-only">Diagramas guardados</caption>
             <thead>
               <tr>
-                <th style={styles.th}>Nombre</th>
-                <th style={styles.th}>Modificado</th>
-                <th style={styles.th}>Acciones</th>
+                <th>Nombre</th>
+                <th>Modificado</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {diagrams.map((d) => (
                 <tr key={d.id}>
-                  <td style={styles.td}>{d.name}</td>
-                  <td style={styles.td}>{formatUpdatedAt(d.updatedAt)}</td>
-                  <td style={styles.td}>
-                    <span style={styles.actions}>
+                  <td>{d.name}</td>
+                  <td>{formatUpdatedAt(d.updatedAt)}</td>
+                  <td>
+                    <span className="dashboard-actions">
                       <button
                         type="button"
+                        className="dashboard-button"
                         disabled={busy}
                         onClick={() => navigate(`/diagrams/${d.id}`)}
                       >
@@ -169,12 +173,18 @@ export function DashboardPage(): JSX.Element {
                       </button>
                       <button
                         type="button"
+                        className="dashboard-button"
                         disabled={busy}
                         onClick={() => void handleDuplicate(d.id)}
                       >
                         Duplicar
                       </button>
-                      <button type="button" disabled={busy} onClick={() => setPendingDelete(d)}>
+                      <button
+                        type="button"
+                        className="dashboard-button dashboard-button-danger-text"
+                        disabled={busy}
+                        onClick={() => setPendingDelete(d)}
+                      >
                         Eliminar
                       </button>
                     </span>
@@ -192,6 +202,7 @@ export function DashboardPage(): JSX.Element {
           onConfirm={() => void handleDelete()}
         />
       )}
-    </main>
+      </main>
+    </>
   )
 }

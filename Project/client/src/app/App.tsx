@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { DashboardPage } from './dashboard/DashboardPage'
 import { EditorPage } from './editor/EditorPage'
+import { ThemeProvider } from './theme/ThemeContext'
 
 const router = createBrowserRouter([
   { path: '/', element: <DashboardPage /> },
@@ -9,5 +10,9 @@ const router = createBrowserRouter([
 ])
 
 export function App(): JSX.Element {
-  return <RouterProvider router={router} />
+  return (
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  )
 }

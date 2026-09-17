@@ -6,7 +6,7 @@ import {
   toNodeId,
   transformConceptualToLogical,
 } from '@erd-studio/shared'
-import type { ConceptualModel, DomainCommand } from '@erd-studio/shared'
+import type { ConceptualModel, DomainCommand, LogicalModel } from '@erd-studio/shared'
 import { LogicalPanel, typeLabel } from './LogicalPanel'
 
 function buildModel(commands: DomainCommand[]): ConceptualModel {
@@ -28,6 +28,16 @@ describe('LogicalPanel', () => {
   it('typeLabel traduce UNDEFINED a No definido', () => {
     expect(typeLabel('UNDEFINED')).toBe('No definido')
     expect(typeLabel('INT')).toBe('INT')
+  })
+
+  it('muestra un estado vacío cuando no hay tablas', () => {
+    const logical: LogicalModel = {
+      schemaVersion: 1,
+      logicalVersion: 0,
+      tables: [],
+    }
+    render(<LogicalPanel logical={logical} onSetType={vi.fn()} />)
+    expect(screen.getByRole('status')).toHaveTextContent(/aún no hay tablas/i)
   })
 
   it('renderiza tablas, columnas y trazas de derivedFrom', () => {

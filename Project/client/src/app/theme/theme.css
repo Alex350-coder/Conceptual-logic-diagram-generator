@@ -1,0 +1,22 @@
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  padding: 0.35rem 0.6rem;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-border-strong);
+}
+
+.theme-toggle-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}

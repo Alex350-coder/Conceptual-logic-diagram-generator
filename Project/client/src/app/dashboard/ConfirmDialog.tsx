@@ -1,5 +1,6 @@
-import { useId, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useId, useRef, useState } from 'react'
+import { useFocusTrap } from '../accessibility/useFocusTrap'
+import './dashboard.css'
 
 type Props = {
   diagramName: string
@@ -7,55 +8,44 @@ type Props = {
   onConfirm: () => void
 }
 
-const styles: Record<string, CSSProperties> = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0, 0, 0, 0.45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
-  },
-  dialog: {
-    background: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: 8,
-    padding: 20,
-    maxWidth: 420,
-    width: '100%',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-  },
-  row: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 },
-}
-
 export function ConfirmDialog({ diagramName, onCancel, onConfirm }: Props): JSX.Element {
   const titleId = useId()
   const inputId = useId()
+  const cardRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(true, cardRef)
   const [typed, setTyped] = useState('')
   const confirmed = typed === diagramName
 
   return (
-    <div style={styles.overlay}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} style={styles.dialog}>
+    <div className="confirm-overlay">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="confirm-card" ref={cardRef}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onCancel()
+        }}>
         <h2 id={titleId}>Eliminar diagrama</h2>
         <p>
           Esta acción eliminará <strong>{diagramName}</strong> de forma permanente.
           Escribe el nombre del diagrama para confirmar.
         </p>
-        <label htmlFor={inputId}>Nombre del diagrama</label>
-        <input
-          id={inputId}
-          value={typed}
-          autoFocus
-          onChange={(event) => setTyped(event.target.value)}
-          style={{ display: 'block', width: '100%', marginTop: 4, padding: 6 }}
-        />
-        <div style={styles.row}>
-          <button type="button" onClick={onCancel}>
+        <label className="confirm-field" htmlFor={inputId}>
+          Nombre del diagrama
+          <input
+            id={inputId}
+            value={typed}
+            autoFocus
+            onChange={(event) => setTyped(event.target.value)}
+          />
+        </label>
+        <div className="confirm-actions">
+          <button type="button" className="dashboard-button" onClick={onCancel}>
             Cancelar
           </button>
-          <button type="button" disabled={!confirmed} onClick={onConfirm}>
+          <button
+            type="button"
+            className="dashboard-button dashboard-button-danger-text"
+            disabled={!confirmed}
+            onClick={onConfirm}
+          >
             Eliminar
           </button>
         </div>
