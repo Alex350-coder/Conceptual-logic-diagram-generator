@@ -332,6 +332,8 @@ Spec `Project/client/e2e/perf.spec.ts` + generador `Project/client/src/test/perf
 - **Job `e2e`**: env `RENDER_BUDGET_MS=800` impone la cota nominal estricta de render (Architecture §11; el default local tolera OneDrive/antivirus) y `VISUAL_MAX_DIFF_PIXELS=250` admite el antialiasing de texto cross-platform de los baselines visuales (generados en el SO del desarrollador; un cambio de layout rompe decenas de miles de píxeles, no ~200; local estricto 0). La tolerancia del `toHaveScreenshot` es configurable por env (`MAX_DIFF_PIXELS`).
 
 ### Pendiente en la fase — cierre documental (T12-01..04)
-Audit unit/E2E final, phase-plan/DefinitionOfDone, close-out de la fase.
+Audit unit/E2E final (574 unit / 24 E2E), phase-plan/DefinitionOfDone, close-out de la fase.
+
+**Cierre documental (commit 11):** `Progress.md` §4k y ajustes documentales P12; `phase-plan.json` marca T12-01/T12-02 `completed`; reparado byte SUB `0x1a` preexistente del nombre P10 en `phase-plan.json` (flecha Unicode `→`). Queda el close-out (commit 12): fase P12 `completed`, revisión cruzada y cierre de la entrada.
 
 ---

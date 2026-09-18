@@ -210,7 +210,7 @@
     },
 {
       "id": "P10",
-      "name": "Transformaci�n Conceptual  L�gico",
+      "name": "Transformaci�n Conceptual → L�gico",
       "status": "completed",
       "summary": "Motor T1-T10 determinista con goldens, tipos 'No definido' y edici�n del l�gico.",
       "objectives": [
@@ -267,8 +267,8 @@
       "dependencies": ["P10", "P11"],
       "definitionOfDoneRef": "Testing.md §2-6; Architecture.md §11",
       "tasks": [
-        { "id": "T12-01", "title": "Cobertura umbrales dominio/validate/transform", "status": "pending" },
-        { "id": "T12-02", "title": "E2E restantes (19-22)", "status": "pending" },
+        { "id": "T12-01", "title": "Cobertura umbrales dominio/validate/transform", "status": "completed" },
+        { "id": "T12-02", "title": "E2E restantes (19-22)", "status": "completed" },
         { "id": "T12-03", "title": "Harness de rendimiento + objetivos", "status": "completed" },
         { "id": "T12-04", "title": "Snapshot de tokens y regresión visual", "status": "completed" }
       ]

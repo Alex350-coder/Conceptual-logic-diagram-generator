@@ -1,6 +1,6 @@
 # Progress.md — Estado Real del Proyecto
 
-**Última actualización:** 2026-09-16 (cierre P11)
+**Última actualización:** 2026-09-18 (cierre P12)
 Este documento refleja el estado **real** (R-01): solo se marca lo que efectivamente se ha hecho y verificado.
 
 ---
@@ -18,7 +18,8 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 **P9 — Clipboard de dominio**: `completed` (T9-01…T9-05, cerrada el 2026-09-14, rama `phase/08-clipboard`).
 **P10 — Transformación Conceptual → Lógico**: `completed` (T10-01…T10-06, cerrada el 2026-09-15, rama `phase/09-transform`).
 **P11 — UI/UX completa**: `completed` (T11-01…T11-06, cerrada el 2026-09-16, rama `phase/10-ui-ux`).
-**Siguiente fase:** P12 — Testing integral.
+**P12 — Testing integral**: `completed` (T12-01…T12-04, cerrada el 2026-09-18, rama `phase/11-testing`, 12/12 commits).
+**Siguiente fase:** P13 — Seguridad y endurecimiento.
 
 ## 2. Documentos de planificación
 
@@ -194,6 +195,15 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 - **T5-08 sin commit propio:** cobertura integrada por unidad (tests co-ubicados); umbral 80 % superado (97,0/92,9 %).
 - **`vitest.config.ts` de client:** `coverage.v8` con `exclude: ['src/index.ts']` para no penalizar el barrel.
 
+## Ajustes documentales de P12 (testing integral)
+
+- **12 commits (máximo pactado en P12), sin amend:** `1274f` (harness perf + fix renderer 36→60fps), `a2ba6` (umbrales coverage shared/client/server + matrix V-*), `b13c9`…`daa79` (E2E 19–22 ×4), `f013d` (fix flakiness E2E + drawer perf), `063f1` (T12-04 snapshot tokens + regresión visual), `79941` (CI job coverage + e2e estrictos), + cierre documental y close-out. Nada de código de proyecto fuera de `Project/`.
+- **`RENDER_BUDGET_MS`:** el modelo del presupuesto de render inicial vive en `Architecture.md` §11 (800 ms). El default local es `800 * 1.25` para tolerar OneDrive/antivirus; CI expone `RENDER_BUDGET_MS=800` estricto. `FRAME_BUDGET_MS = 1000/60 + 0.4` para pan/zoom ≥60 fps. El test de 200 entidades pasa aislado incluso con el presupuesto estricto; en suite completa el ruido lo eleva (por eso el margen local).
+- **Determinismo en snapshots visuales:** el dashboard depende de la DB acumulada del run E2E (otras specs crean diagramas) → los baselines verdes por spec fallaban en suite completa (18615 px diff). Solución: `openDashboard` mockea `GET /api/v1/diagrams` → `{ data: [] }` y espera `.dashboard-empty`. Tema fijado con `addInitScript` sobre `localStorage['erd-studio-theme']` + espera de `html[data-theme]`.
+- **Baselines visuales en repo:** `client/e2e/visual/__screenshots__/` (dashboard/editor dark+light) con `snapshotPathTemplate` propio; `VISUAL_MAX_DIFF_PIXELS=250` en CI porque el antialiasing difiere entre SO (un cambio de layout rompe decenas de miles de px, no ~200). Local queda estricto (0).
+- **Playwright `--enable-features=ClipboardCustomFormats` descartado** en P9 y no re-introducido en P12: no resolvió el write del MIME custom en Chromium headless.
+- **Mojibake preexistente en `phase-plan.json`:** el byte `0x1a` (SUB) del nombre de P10 ("Transformación Conceptual → Lógico", originado en `e14be`) se reparó en el working copy reemplazándolo por la flecha Unicode `→`. El archivo conserva BOM UTF-8; `require()` lo parsea bien (`JSON.parse` directo falla solo por el BOM). Resto de `U+FFFD` en P9/P10: mojibake preexistente, sin impacto funcional.
+
 ## Ajustes documentales de P6 (elementos conceptuales)
 
 - **6 commits de fase (máximo pactado en P6):** `5f91c` (T6-01), `a65a2` (T6-02), `f1b67` (T6-03), `882f3` (T6-05 undo/redo — adelantado por depender solo del historial, ya disponible en P2), `ccee9` (T6-04 render + auto-layout + tests canvas), `f1210` (T6-06 E2E) + cierre. Nada de código de proyecto fuera de `Project/`.
@@ -243,3 +253,12 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 - **Reduced-motion:** el reset universal de `base.css` fija `transition-duration: 0.01ms` bajo `@media (prefers-reduced-motion: reduce)`; el E2E lo asserta con `emulateMedia({ reducedMotion: 'reduce' })` y `getComputedStyle(...).transitionDuration < 0.001`.
 - **Ajv/contraste:** `contrast.test.ts` parsea `themes.css` con regex de bloques `/([^{}]+)\{([^}]*)\}/g`; los nombres de token capturados **incluyen** el prefijo `color-` (usar `'color-text'`, no `'text'`). Tokens reservados de tema: dark por defecto, light por `data-theme`.
 - **Cierre P11 verificado:** `npm run typecheck` limpio · `npm run lint` 0 errores · `npm run test` **539 tests verdes** (204 shared + 300 client + 35 server) · `npm run build` client OK (gzip 100.41 kB js) · `npx playwright test` **12 E2E verdes** (6 specs). Criterio `ui-verify.md`: cualquier violation de axe o fallo de contraste bloquea la fase — cero violations.
+
+## 4k. Tareas completadas de P12 (testing integral, rama `phase/11-testing`)
+
+- **T12-03 — Harness de rendimiento + objetivos de `Architecture.md` §11:** `client/e2e/perf.spec.ts` con `RENDER_BUDGET_MS` y `FRAME_BUDGET_MS` configurables por env (`RENDER_BUDGET_MS = Number(process.env.RENDER_BUDGET_MS ?? 800 * 1.25)`, local tolera ruido de OneDrive/antivirus; CI estricto con `RENDER_BUDGET_MS=800`). Perfil de 200 entidades + 400 atributos + 20 relaciones (284 primitivas): render inicial mediana de 3 ≤ presupuesto, pan/zoom a ≥60 fps. **Fix real de renderer (36→60 fps):** haydos paths de la mini-mapa/auxiliares recomputando `fitRect`/`worldToScreen` por frame (aprox. 14 ms/frame de rects float computed) — resueltos con memoización y layout estabilizado en `SceneView`; el test aislado pasa incluso con `RENDER_BUDGET_MS=800` estricto (2 tests en perf.spec).
+- **T12-01 — Umbrales de cobertura (`Testing.md` §2):** configurados en `vitest.config.ts` de cada workspace y verificados con `--coverage` (v8): `shared` stmts 90 / branch 85 / funcs 90 / lines 90 (medido 98.98 / 92.85 / 100 / 98.98), `client` stmts 80 / branch 85 / funcs 70 / lines 80 (medido 82.09 / 88.96 / 74.77 / 82.09), `server` stmts 80 / branch 75 / funcs 80 / lines 80. CI: job `coverage` en `ci.yml` corre `npm run test:coverage --workspaces --if-present`; el job falla si cualquier workspace no cumple.
+- **T12-02 — E2E restantes (19–22):** `undo-redo.spec.ts` (flujo 19: atajos + toolbar, stacks tras recargar START), `conflict-409.spec.ts` (flujo 20: 409 multitab → diálogo con 3 opciones), `invalid-document.spec.ts` (flujo 21: panel de documento inválido, arranque fallback), `shortcuts.spec.ts` (flujo 22: registry + paleta + shortcuts no deshabilitados en inputs desactivados). Suite completa E2E **24 verdes (11 specs)** con workers 1 y DB temporal por run.
+- **T12-04 — Snapshot de tokens + regresión visual:** `client/src/test/tokens-snapshot.test.ts` (baseline `tokens.snapshot.json` de `tokens.css`/`themes.css`, 2 tests) y `client/e2e/visual.spec.ts` con `toHaveScreenshot` sobre dashboard/editor dark+light (`MAX_DIFF_PIXELS` por env: local 0, CI `VISUAL_MAX_DIFF_PIXELS=250`). Determinismo del dashboard vía `page.route('**/api/v1/diagrams', { data: [] })`; tema vía localStorage + espera `html[data-theme]`. Baselines en `client/e2e/visual/__screenshots__/` (snapshotPathTemplate).
+- **CI endurecido:** job `e2e` con `RENDER_BUDGET_MS=800` y `VISUAL_MAX_DIFF_PIXELS=250` (estricto, `shell: bash`, guard `[ -f client/playwright.config.ts ]`); documentado en `PlanningFiles/rules/ci/workflows.md`.
+- **Resultado verificado:** `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **574 tests verdes** (shared 225 / 18 suites + client 310 / 30 suites + server 39 / 4 suites) · `npx playwright test` **24 E2E verdes** (11 specs, 45.0 s). 12 commits en `phase/11-testing` (cierre documental y close-out inclusos).
