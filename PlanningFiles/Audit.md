@@ -283,4 +283,32 @@ Rama `phase/10-ui-ux`. 11 commits de fase + 1 de cierre (`2a9d5`…`15ddf`): `2a
 
 ---
 
-> **Norma de uso:** cualquier cambio relevante posterior (decisión, hallazgo de auditoría, corrección de contradicción documental, cambio de dependencias) se añade aquí con fecha y motivo. Las decisiones de aplazamiento (auth, rate limiting avanzado, purga física, colaboración) quedan registradas en `Security.md` §6.
+## 2026-09-17 — Fase P12 (Testing integral, rama `phase/11-testing`) — avance parcial
+
+### Cobertura shared: umbrales y excepciones por fichero (decisión D-T12-01)
+Rama `phase/11-testing`, commits `1274f` (docs/skills) y `a2ba6` (coverage shared domain/validate). Se configura `Project/shared/vitest.config.ts` con coverage v8 scoped a `src/{domain,transform,validate}` y umbrales `{ statements: 90, branches: 85, functions: 90, lines: 90 }`.
+
+Resultados tras añadir tests de gaps en `domain`, `validate` y `transform`:
+- **All files (scope): stmts 98.79 / branch 92.55 / funcs 100 / lines 98.79** — cumple `Testing.md` §2 (domain/transform ≥90/85) de forma holgada.
+- `validate`: 99.57 stmts / 99.32 branch (matriz V-* ampliada: V-002 subtipo huérfano y padre inexistente, V-010 completeness, V-014 tablas/columnas/PK/unique/FK, L-008 vacío y snake_case, `validateRelationshipEndpointCount`, `validateResult`, non-string names, `logicalVersion < 0`).
+- `domain`: 100/100 (incluye `toDiagramId`, `makeEnvelope` con y sin `viewportHint`).
+- `transform`: 97.97 stmts / **86.77 branch** (objetivo ≥85 cumplido; antes 84.23). Añadidos tests de atributos de relación anidados en T6/T7/T8/T9 y del export `hasStructuralViolations`.
+
+**Excepciones por fichero (guardias defensivas inalcanzables por construcción, `Testing.md` §2 pide documentar):**
+- `transform/engine.ts` — `applyEntityTable` guard `owner === undefined` (292-293) para extremos de relaciones identificadoras, `applyOneToMany` guard `receiver === undefined` (361-363), `applyOneToOne` guard `receiver === undefined` (406-407) y `throw` de `tableId` sin builder (516-517): inalcanzables porque `buildPassState` crea un builder por cada entidad/relación antes de pasar 2 y los modelos válidos pasan `hasStructuralViolations`. Sin `istanbul ignore`: se documenta, no se falsea cobertura.
+- `transform/naming.ts` — línea 45 medida como hueco por v8 (cierre de `uniqueLogicalName` con bucle infinito garantizado); 96.77 stmts / 91.66 branch, cumple.
+- `transform/recompute.ts` — `preserveType` rama `freshCol.dataType !== UNDEFINED` (líneas 90-91): inalcanzable porque el motor siempre emite `UNDEFINED`; 96.96 stmts / 94.44 branch, cumple.
+- Se descarta subir `engine.ts` branch a 85 % per-file con tests fabricados de modelos inválidos; la carpeta `transform` completa cumple el umbral.
+
+### E2E 19 undo/redo: alcance conceptual puro (decisión con el usuario)
+El E2E 19 (`Testing.md` §4) pide undo/redo de "mover, crear, eliminar y transformar". La investigación del flujo "transformar" encontró que la transformación al plano lógico **no participa del historial**: `transformToLogical`/`setColumnType` (sessionStore) solo actualizan `logical` y `revision`; `applyLogicalCommand` no toca `past/future` de la `EditorSession` (el historial de `shared/src/history` guarda solo transformadores/reversos del modelo conceptual, no del logical). Deshacer tras transformar revertiría la última operación **conceptual**, sin volver las tablas.
+
+**Decisión (registrada con el usuario):** el E2E 19 cubre undo/redo del plano **conceptual** (mover → posición original, crear → vuelve a existir, eliminar con Delete → vuelve, relación rombo → delete/redo), con POM reutilizable (`Project/client/e2e/editor.pom.ts`). La parte de "transformar" queda como **deuda de producto T10-03** (ya anunciada en la fase P10: hay que convertir los comandos lógicos en operaciones del historial para participar de `Ctrl+Z`/`Ctrl+Shift+Z`), fuera del alcance de testing de P12. La entrada de P10 que reclamaba "`setColumnType` undoable" sobreestima el estado real: el lógico es plano derivado, no undoable vía sesión.
+
+### E2E 20 conflicto 409 multitab (Testing.md §4)
+Spec `Project/client/e2e/conflict-409.spec.ts` (2 pestañas del mismo `context` sobre el mismo diagrama en la misma DB temporal): A guarda el documento base, B edita y guarda (`Ctrl+S`) → el servidor avanza `version`; A edita con su versión obsoleta y guarda → PUT `409 CONFLICT_VERSION` → `persist()` setea `conflict { localVersion, serverVersion }` (sessionStore.ts:393-401) → la UI muestra el diálogo "Conflicto de versión" con las 3 opciones. Elegir **"Recargar remoto"** (`resolveConflict('reload')` → `loadFromServer`, se descarta la edición local) reemplaza el canvas con el contenido remoto de B; **lost-update verificado**: A no sobrescribe en silencio, el documento de B persiste y tras recargar guardar en A ya no produce 409.
+
+### Pendiente en la fase
+E2E 22 (atajos), harness de rendimiento, snapshot de tokens/regresión visual, CI coverage+perf, cierre documental (T12-01..04).
+
+---

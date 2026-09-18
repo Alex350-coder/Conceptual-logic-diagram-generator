@@ -219,6 +219,50 @@ it('exposes the raw session for engine consumers', () => {
     expect(api.getState().status).toBe('invalid')
   })
 
+  it('load maps a corrupt server document (422 MODEL_INVALID) to invalid and recovers the raw copy (P12/21)', async () => {
+    const corrupt = '{"broken":'
+    const fetchMock = vi.fn()
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: { code: 'MODEL_INVALID', message: 'El documento no supera la validación estructural del modelo.' },
+        }),
+        { status: 422 },
+      ),
+    )
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: { id: diagramId, name: 'Dañado', schemaVersion: 1, version: 1, document: corrupt },
+        }),
+        { status: 200 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.getState().load(diagramId)
+
+    const s = api.getState()
+    expect(s.status).toBe('invalid')
+    expect(s.name).toBe('Dañado')
+    expect(s.rawDocument).toBe(corrupt)
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/v1/diagrams/${diagramId}/raw`)
+  })
+
+  it('load stays invalid (without raw) when the raw fetch itself fails (P12/21)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 'INVALID_REQUEST' } }), { status: 400 }),
+      ),
+    )
+    await api.getState().load(diagramId)
+    const s = api.getState()
+    expect(s.status).toBe('invalid')
+    expect(s.rawDocument).toBeNull()
+    expect(s.name).toBe('')
+  })
+
   it('load maps a network failure to error', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network down')))
     await api.getState().load(diagramId)

@@ -4,7 +4,7 @@ import type { ConceptualModel } from '../domain/conceptual'
 import { createEmptyConceptualModel } from '../domain/conceptual'
 import { toNodeId } from '../domain/ids'
 import { entityTableId, tableColumnId, toColumnId, toTableId } from './types'
-import { transformConceptualToLogical } from './engine'
+import { hasStructuralViolations, transformConceptualToLogical } from './engine'
 
 type Cmd = Parameters<typeof applyCommand>[1]
 
@@ -303,6 +303,49 @@ describe('transform engine T6: entidad débil', () => {
     expect(habitacion.columns.map((c) => c.name)).toEqual(['id', 'hotel_id', 'desde'])
     expect(habitacion.columns[2]?.derivedFrom).toBe('T6:relationship contiene.desde')
   })
+
+  it('atributo anidado de la relación identificadora se salta en el bucle raíz y aplanar en la tabla débil', () => {
+    let model = build()
+    model = apply(model, { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Hotel' } })
+    model = apply(model, {
+      type: 'createEntity',
+      payload: { id: toNodeId('e2'), name: 'Habitacion' },
+    })
+    model = apply(model, {
+      type: 'setEntityKind',
+      payload: { id: toNodeId('e2'), kind: 'WEAK' },
+    })
+    model = apply(model, {
+      type: 'createRelationship',
+      payload: {
+        id: toNodeId('r1'),
+        name: 'contiene',
+        endpoints: [
+          { entityId: toNodeId('e1'), cardinality: '1', participation: 'TOTAL' },
+          { entityId: toNodeId('e2'), cardinality: 'N', participation: 'TOTAL' },
+        ],
+      },
+    })
+    model = apply(model, { type: 'setIsIdentifying', payload: { id: toNodeId('r1'), isIdentifying: true } })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a1'), name: 'rango', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'setAttributeKind',
+      payload: { id: toNodeId('a1'), kind: 'COMPOSITE' },
+    })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a2'), name: 'desde', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'nestAttribute',
+      payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') },
+    })
+    const habitacion = transformConceptualToLogical(model).tables[1]!
+    expect(habitacion.columns.map((c) => c.name)).toEqual(['id', 'hotel_id', 'rango_desde'])
+  })
 })
 
 describe('transform engine T7: relación 1:N', () => {
@@ -357,6 +400,42 @@ describe('transform engine T7: relación 1:N', () => {
     const empleado = transformConceptualToLogical(model).tables[1]!
     expect(empleado.columns.map((c) => c.name)).toEqual(['id', 'depto_id', 'fecha_desde'])
     expect(empleado.columns[2]?.derivedFrom).toBe('T7:relationship asigna.fecha_desde')
+  })
+
+  it('atributo anidado de relación en 1:N se aplanan en la tabla del lado N', () => {
+    let model = build()
+    model = apply(model, { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Depto' } })
+    model = apply(model, { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Emple' } })
+    model = apply(model, {
+      type: 'createRelationship',
+      payload: {
+        id: toNodeId('r1'),
+        name: 'asigna',
+        endpoints: [
+          { entityId: toNodeId('e1'), cardinality: '1', participation: 'PARTIAL' },
+          { entityId: toNodeId('e2'), cardinality: 'N', participation: 'PARTIAL' },
+        ],
+      },
+    })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a1'), name: 'rango', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'setAttributeKind',
+      payload: { id: toNodeId('a1'), kind: 'COMPOSITE' },
+    })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a2'), name: 'desde', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'nestAttribute',
+      payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') },
+    })
+    const empleado = transformConceptualToLogical(model).tables[1]!
+    expect(empleado.columns.map((c) => c.name)).toEqual(['id', 'depto_id', 'rango_desde'])
+    expect(empleado.columns[2]?.derivedFrom).toBe('T2:composite asigna.rango.desde')
   })
 
   it('rol explícito en el extremo "1" manda en el nombre del FK (recursiva)', () => {
@@ -442,6 +521,41 @@ describe('transform engine T8: relación 1:1', () => {
         to: { tableId: t('t:e:e1'), columns: [colId('t:e:e1', 0)] },
       },
     ])
+  })
+
+  it('atributo anidado de relación en 1:1 se aplana en la tabla del lado receptor', () => {
+    let model = build()
+    model = apply(model, { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'Pais' } })
+    model = apply(model, { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'Capital' } })
+    model = apply(model, {
+      type: 'createRelationship',
+      payload: {
+        id: toNodeId('r1'),
+        name: 'tiene',
+        endpoints: [
+          { entityId: toNodeId('e1'), cardinality: '1', participation: 'PARTIAL' },
+          { entityId: toNodeId('e2'), cardinality: '1', participation: 'TOTAL' },
+        ],
+      },
+    })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a1'), name: 'rango', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'setAttributeKind',
+      payload: { id: toNodeId('a1'), kind: 'COMPOSITE' },
+    })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a2'), name: 'desde', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'nestAttribute',
+      payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') },
+    })
+    const capital = transformConceptualToLogical(model).tables[1]!
+    expect(capital.columns.map((c) => c.name)).toEqual(['id', 'pais_id', 'rango_desde'])
   })
 })
 
@@ -533,6 +647,60 @@ describe('transform engine T9: relación N:M y n-aria', () => {
     const junction = transformConceptualToLogical(model).tables[2]!
     expect(junction.columns.map((c) => c.name)).toEqual(['a_id', 'b_id', 'nota'])
     expect(junction.columns[2]?.derivedFrom).toBe('T9:relationship rel.nota')
+  })
+
+  it('atributo anidado de relación N:M se aplana en la tabla intermedia', () => {
+    let model = build()
+    model = apply(model, { type: 'createEntity', payload: { id: toNodeId('e1'), name: 'A' } })
+    model = apply(model, { type: 'createEntity', payload: { id: toNodeId('e2'), name: 'B' } })
+    model = apply(model, {
+      type: 'createRelationship',
+      payload: {
+        id: toNodeId('r1'),
+        name: 'rel',
+        endpoints: [
+          { entityId: toNodeId('e1'), cardinality: 'N', participation: 'PARTIAL' },
+          { entityId: toNodeId('e2'), cardinality: 'N', participation: 'PARTIAL' },
+        ],
+      },
+    })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a1'), name: 'rango', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'setAttributeKind',
+      payload: { id: toNodeId('a1'), kind: 'COMPOSITE' },
+    })
+    model = apply(model, {
+      type: 'createAttribute',
+      payload: { id: toNodeId('a2'), name: 'desde', ownerId: toNodeId('r1') },
+    })
+    model = apply(model, {
+      type: 'nestAttribute',
+      payload: { attributeId: toNodeId('a2'), parentId: toNodeId('a1') },
+    })
+    const junction = transformConceptualToLogical(model).tables[2]!
+    expect(junction.columns.map((c) => c.name)).toEqual(['a_id', 'b_id', 'rango_desde'])
+  })
+})
+
+describe('hasStructuralViolations', () => {
+  it('bloquea V-001, V-002, V-003 y V-008', () => {
+    for (const code of ['V-001', 'V-002', 'V-003', 'V-008'] as const) {
+      expect(hasStructuralViolations([{ code, message: 'x' }])).toBe(true)
+      expect(
+        hasStructuralViolations([
+          { code: 'L-002', message: 'x' },
+          { code, message: 'x' },
+        ]),
+      ).toBe(true)
+    }
+  })
+
+  it('no bloquea códigos no estructurales', () => {
+    expect(hasStructuralViolations([{ code: 'V-004', message: 'x' }])).toBe(false)
+    expect(hasStructuralViolations([])).toBe(false)
   })
 })
 

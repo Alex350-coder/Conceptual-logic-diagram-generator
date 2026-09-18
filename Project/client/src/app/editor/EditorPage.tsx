@@ -4,7 +4,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   WheelEvent as ReactWheelEvent,
 } from 'react'
-import { Link, useBlocker, useParams } from 'react-router-dom'
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import type { ColumnId, ColumnType, ConceptualModel, LogicalModel, NodeId, TableId } from '@erd-studio/shared'
 import { sceneRenderer } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
@@ -15,6 +15,7 @@ import type { Viewport, ViewportSize, WorldPoint } from '../../editor/viewport'
 import { clampZoom, createViewport, fitRect, screenToWorld, worldToScreen, zoomAt } from '../../editor/viewport'
 import { sessionStore, useSessionStore } from '../../store/sessionStore'
 import type { ConflictDecision } from '../../store/sessionStore'
+import { deleteDiagram } from '../../api/diagrams'
 import { sessionAutosave, startAutosave } from '../../store/autosave'
 import {
   useEditorInteractions,
@@ -330,6 +331,103 @@ export function EditorPage() {
   )
 }
 
+function RecoveryPanel({ id }: { id: string | undefined }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const name = useSessionStore((s) => s.name)
+  const rawDocument = useSessionStore((s) => s.rawDocument)
+  const [confirming, setConfirming] = useState(false)
+  const [typed, setTyped] = useState('')
+  useFocusTrap(true, cardRef)
+
+  const retry = () => {
+    if (id !== undefined) {
+      void sessionStore.getState().load(id)
+    }
+  }
+
+  const exportRawCopy = () => {
+    if (rawDocument === null || id === undefined) {
+      return
+    }
+    const blob = new Blob([rawDocument], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${name || 'diagrama'}.raw.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const discard = async () => {
+    if (typed !== name || id === undefined) {
+      return
+    }
+    try {
+      await deleteDiagram(id)
+      sessionStore.getState().reset()
+      navigate('/')
+    } catch {
+      setConfirming(false)
+      setTyped('')
+    }
+  }
+
+  return (
+    <div className="conflict-overlay">
+      <div
+        className="conflict-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recovery-title"
+        ref={cardRef}
+      >
+        <h2 id="recovery-title">El documento no es válido</h2>
+        <p>El diagrama no se puede leer. Reintenta la carga, exporta una copia de respaldo o descarta el diagrama.</p>
+        <div className="conflict-actions">
+          <button type="button" onClick={retry}>
+            Reintentar
+          </button>
+          <button type="button" onClick={exportRawCopy} disabled={rawDocument === null}>
+            Exportar copia bruta
+          </button>
+          <button type="button" className="danger" onClick={() => setConfirming((v) => !v)}>
+            Descartar
+          </button>
+        </div>
+        {confirming && (
+          <form
+            className="recovery-confirm"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void discard()
+            }}
+          >
+            <label htmlFor="recovery-name">
+              Escribe <strong>{name}</strong> para confirmar la eliminación:
+            </label>
+            <input
+              id="recovery-name"
+              type="text"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              autoFocus
+            />
+            <div className="save-block-actions">
+              <button type="button" onClick={() => setConfirming(false)}>
+                Cancelar
+              </button>
+              <button type="submit" className="danger" disabled={typed !== name}>
+                Eliminar diagrama
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SaveBlockDialog({
   onDiscard,
   onStay,
@@ -447,7 +545,7 @@ function EditorBody({
     )
   }
   if (status === 'invalid') {
-    return <p className="status">El documento no es válido o no está soportado.</p>
+    return <RecoveryPanel id={id} />
   }
   if (status === 'error') {
     return (

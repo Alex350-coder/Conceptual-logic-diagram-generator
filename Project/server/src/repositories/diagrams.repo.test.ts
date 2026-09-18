@@ -129,6 +129,29 @@ describe('diagrams repository (T4-03)', () => {
     )
   })
 
+  it('getRawDocument returns the stored string verbatim even when the document is corrupt (P12/21)', () => {
+    const { db, repo } = setup()
+    const created = repo.create('A')
+    const corrupt = '{"broken":'
+    db.prepare('UPDATE diagrams SET document = ? WHERE id = ?').run(corrupt, created.id)
+    const raw = repo.getRawDocument(created.id)
+    expect(raw.document).toBe(corrupt)
+    expect(raw.name).toBe('A')
+    expect(raw.version).toBe(1)
+  })
+
+  it('getRawDocument throws NOT_FOUND for missing or soft-deleted diagrams', () => {
+    const { repo } = setup()
+    const a = repo.create('A')
+    repo.softDelete(a.id)
+    expect(() => repo.getRawDocument(a.id)).toThrowError(
+      expect.objectContaining({ code: 'NOT_FOUND' }),
+    )
+    expect(() => repo.getRawDocument('missing' as never)).toThrowError(
+      expect.objectContaining({ code: 'NOT_FOUND' }),
+    )
+  })
+
   it('update changes name/document, increments version and refreshes updatedAt', () => {
     const { repo } = setup()
     const created = repo.create('A')

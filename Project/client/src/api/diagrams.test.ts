@@ -6,6 +6,7 @@ import {
   deleteDiagram,
   duplicateDiagram,
   getDiagram,
+  getRawDiagram,
   listDiagrams,
   updateDiagram,
 } from './diagrams'
@@ -69,6 +70,14 @@ describe('diagrams api client', () => {
     const result = await getDiagram('d1')
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/diagrams/d1', expect.any(Object))
     expect(result).toEqual(FULL)
+  })
+
+  it('getRawDiagram returns the stored JSON verbatim without parsing (P12/21)', async () => {
+    const corrupt = '{"broken":'
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ data: { ...SUMMARY, document: corrupt } })))
+    const result = await getRawDiagram('d1')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/diagrams/d1/raw', expect.any(Object))
+    expect(result).toMatchObject({ id: 'd1', name: 'Personas', document: corrupt })
   })
 
   it('updateDiagram PUTs name/document/version', async () => {

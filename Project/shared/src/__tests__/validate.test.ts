@@ -13,6 +13,8 @@ import {
   modelNameViolations,
   validateConceptualModel,
   validateLogicalModel,
+  validateRelationshipEndpointCount,
+  validateResult,
   type Violation,
 } from '../validate/index'
 import { LIMITS } from '../validate/limits'
@@ -87,6 +89,19 @@ describe('validador de modelo conceptual', () => {
       completeness: 'PARTIAL',
     })
     expect(codes(validateConceptualModel(model3))).toContain('V-002')
+  })
+
+  it('V-002: subtipo huérfano y padre de atributo inexistente', () => {
+    const model = validModel()
+    model.specializations.push({
+      id: id(70),
+      supertypeId: id(1),
+      subtypeIds: [id(99)],
+      disjointness: 'DISJOINT',
+      completeness: 'PARTIAL',
+    })
+    model.attributes[0]!.parentId = id(99)
+    expect(codes(validateConceptualModel(model))).toContain('V-002')
   })
 
   it('V-003: nombres vacíos, largos o con control', () => {
@@ -332,6 +347,18 @@ describe('validador de modelo conceptual', () => {
     expect(codes(validateConceptualModel(model))).toContain('V-010')
   })
 
+  it('V-010: completeness fuera de las uniones también es violación de forma', () => {
+    const model = validModel()
+    model.specializations.push({
+      id: id(70),
+      supertypeId: id(1),
+      subtypeIds: [id(2)],
+      disjointness: 'DISJOINT',
+      completeness: 'OTHER' as 'TOTAL',
+    })
+    expect(codes(validateConceptualModel(model))).toContain('V-010')
+  })
+
   it('V-011: supertipo débil invalida la especialización incluso con subtipos fuertes', () => {
     const model = validModel()
     model.entities[0]!.kind = 'WEAK'
@@ -409,6 +436,113 @@ describe('validación de modelo lógico', () => {
     })
     expect(codes(validateLogicalModel(logical))).toContain('V-014')
   })
+
+  it('L-008: nombre de tabla vacío o fuera de snake_case', () => {
+    const logical = logicalModel()
+    logical.tables[0]!.name = ''
+    expect(codes(validateLogicalModel(logical))).toContain('L-008')
+
+    const logical2 = logicalModel()
+    logical2.tables[0]!.name = 'User Table'
+    expect(codes(validateLogicalModel(logical2))).toContain('L-008')
+  })
+
+  it('L-008: nombre de columna vacío', () => {
+    const logical = logicalModel()
+    logical.tables[0]!.columns[0]!.name = ''
+    expect(codes(validateLogicalModel(logical))).toContain('L-008')
+  })
+
+  it('V-014: logicalVersion no puede ser negativa', () => {
+    const logical = logicalModel()
+    logical.logicalVersion = -1
+    const result = validateLogicalModel(logical)
+    expect(result[0]!.code).toBe('V-014')
+    expect(result[0]!.message).toMatch(/logicalVersion/)
+  })
+
+  it('V-014: primaryKey y unique referencian columnas inexistentes', () => {
+    const logical = logicalModel()
+    const missing = toNodeId('00000000-0000-4000-8000-0000000000aa') as unknown as ColumnId
+    logical.tables[0]!.primaryKey = [missing]
+    expect(codes(validateLogicalModel(logical))).toContain('V-014')
+
+    const logical2 = logicalModel()
+    logical2.tables[0]!.unique = [[missing]]
+    expect(codes(validateLogicalModel(logical2))).toContain('V-014')
+  })
+
+  it('V-014: foreignKey.from apunta a columna inexistente', () => {
+    const logical = logicalModel()
+    const missing = toNodeId('00000000-0000-4000-8000-0000000000aa') as unknown as ColumnId
+    logical.tables[0]!.foreignKeys.push({
+      from: [missing],
+      to: { tableId: logical.tables[0]!.id, columns: [] },
+    })
+    expect(codes(validateLogicalModel(logical))).toContain('V-014')
+  })
+
+  it('V-014: foreignKey.to referencia columna inexistente en la tabla destino', () => {
+    const logical = logicalModel()
+    const missing = toNodeId('00000000-0000-4000-8000-0000000000aa') as unknown as ColumnId
+    logical.tables[0]!.foreignKeys.push({
+      from: [logical.tables[0]!.columns[0]!.id],
+      to: { tableId: logical.tables[0]!.id, columns: [missing] },
+    })
+    expect(codes(validateLogicalModel(logical))).toContain('V-014')
+  })
+})
+
+describe('validateRelationshipEndpointCount', () => {
+  it('acepta relación con 2 extremos', () => {
+    const rel: Relationship = {
+      id: id(90),
+      name: 'R',
+      isIdentifying: false,
+      endpoints: [
+        { entityId: id(1), roleName: null, cardinality: '1', participation: 'PARTIAL' },
+        { entityId: id(2), roleName: null, cardinality: 'N', participation: 'TOTAL' },
+      ],
+    }
+    expect(validateRelationshipEndpointCount(rel)).toEqual([])
+  })
+
+  it('V-004: rechaza menos de 2 extremos', () => {
+    const rel: Relationship = {
+      id: id(90),
+      name: 'R',
+      isIdentifying: false,
+      endpoints: [{ entityId: id(1), roleName: null, cardinality: '1', participation: 'PARTIAL' }],
+    }
+    expect(codes(validateRelationshipEndpointCount(rel))).toContain('V-004')
+  })
+
+  it('L-004: rechaza exceso de extremos', () => {
+    const rel: Relationship = {
+      id: id(90),
+      name: 'R',
+      isIdentifying: false,
+      endpoints: Array.from(
+        { length: LIMITS.maxEndpointsPerRelationship + 1 },
+        (_, i) => ({
+          entityId: id(i + 1),
+          roleName: null,
+          cardinality: '1' as const,
+          participation: 'PARTIAL' as const,
+        }),
+      ),
+    }
+    expect(codes(validateRelationshipEndpointCount(rel))).toContain('L-004')
+  })
+})
+
+describe('validateResult', () => {
+  it('ok true sin violaciones y ok false con violaciones', () => {
+    expect(validateResult([]).ok).toBe(true)
+    const invalid = validateResult([{ code: 'V-003', message: 'No puede estar vacío.' }])
+    expect(invalid.ok).toBe(false)
+    expect(invalid.violations).toHaveLength(1)
+  })
 })
 
 describe('nombres de modelo', () => {
@@ -417,6 +551,10 @@ describe('nombres de modelo', () => {
     expect(isValidModelName('  ')).toBe(false)
     expect(isValidModelName('a'.repeat(121))).toBe(false)
     expect(modelNameViolations('a\nb').length).toBeGreaterThan(0)
+  })
+
+  it('V-003: rechaza nombres que no son string', () => {
+    expect(codes(modelNameViolations(42))).toContain('V-003')
   })
 })
 

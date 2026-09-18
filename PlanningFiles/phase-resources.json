@@ -2,8 +2,8 @@
   "planVersion": 2,
   "product": "erd-studio",
   "docType": "phase-resources",
-  "updatedAt": "2026-09-15",
-  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits). Siguiente fase: P11 (UI/UX completa).",
+  "updatedAt": "2026-09-17",
+  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits); fase P11 cerrada (UI/UX completa). Fase actual: P12 (Testing integral, 12 commits).",
 
   "phases": {
     "P2": {
@@ -356,7 +356,8 @@
     "P11": {
       "label": "Fase 10 de ejecucion — UI/UX completa",
       "branch": "phase/10-ui-ux",
-      "status": "in_progress",
+      "status": "completed",
+      "completedAt": "2026-09-16",
       "purpose": "Design system de tokens frios (slate/blue/cyan/indigo) con temas oscuro/claro AA, shortcuts centralizados con paleta Ctrl+Shift+?, panel logico completo, accesibilidad (foco, landmarks, dialogos, reduced-motion), pulido visual con menu contextual de canvas y tests de a11y/contraste.",
       "resources": {
         "skills": [
@@ -394,6 +395,44 @@
           { "name": "typescript/testing", "target": "PlanningFiles/rules/typescript/testing.md", "reuse_from": "P2" },
           { "name": "typescript/client", "target": "PlanningFiles/rules/typescript/client.md", "reuse_from": "P5" },
           { "name": "ci/workflows", "target": "PlanningFiles/rules/ci/workflows.md", "reuse_from": "P3" }
+        ]
+      }
+    },
+
+    "P12": {
+      "label": "Fase 11 de ejecucion — Testing integral",
+      "branch": "phase/11-testing",
+      "status": "in_progress",
+      "purpose": "Umbrales de cobertura (Testing.md §2: stmts>=90 / branch>=85 en domain y transform), E2E 19-22 (undo/redo, 409 multitab, documento invalido con panel de recuperacion, atajos), harness de rendimiento (Architecture.md §11) con rAF sampling y micro-bench de serializacion, y snapshot de tokens + regresion visual. Cierra la calidad global de erd-studio.",
+      "resources": {
+        "skills": [
+          { "name": "testing-integral", "target": "PlanningFiles/skills/testing-integral/SKILL.md", "source": "proyecto (skill propria de la fase)" },
+          { "name": "e2e-testing", "target": "PlanningFiles/skills/e2e-testing/SKILL.md", "reuse_from": "P6" },
+          { "name": "react-testing", "target": "PlanningFiles/skills/react-testing/SKILL.md", "reuse_from": "P6" },
+          { "name": "tdd-workflow", "target": "PlanningFiles/skills/tdd-workflow/SKILL.md", "reuse_from": "P2" },
+          { "name": "error-handling", "target": "PlanningFiles/skills/error-handling/SKILL.md", "reuse_from": "P2" },
+          { "name": "coding-standards", "target": "PlanningFiles/skills/coding-standards/SKILL.md", "reuse_from": "P2" },
+          { "name": "frontend-patterns", "target": "PlanningFiles/skills/frontend-patterns/SKILL.md", "reuse_from": "P5" }
+        ],
+        "agents": [
+          { "name": "performance-optimizer", "target": "PlanningFiles/agents/performance-optimizer.md", "reuse_from": "P5" },
+          { "name": "typescript-reviewer", "target": "PlanningFiles/agents/typescript-reviewer.md", "reuse_from": "P2" },
+          { "name": "react-reviewer", "target": "PlanningFiles/agents/react-reviewer.md", "reuse_from": "P6" }
+        ],
+        "commands": [
+          { "name": "test-integral-verify", "target": "PlanningFiles/commands/test-integral-verify.md", "source": "proyecto (adaptado de ECC verification-loop + test-coverage)" },
+          { "name": "test-coverage", "target": "PlanningFiles/commands/test-coverage.md", "reuse_from": "P2" },
+          { "name": "build-fix", "target": "PlanningFiles/commands/build-fix.md", "reuse_from": "P2" },
+          { "name": "checkpoint", "target": "PlanningFiles/commands/checkpoint.md", "reuse_from": "P2" }
+        ],
+        "rules": [
+          { "name": "typescript/testing", "target": "PlanningFiles/rules/typescript/testing.md", "reuse_from": "P2" },
+          { "name": "typescript/transform", "target": "PlanningFiles/rules/typescript/transform.md", "reuse_from": "P10" },
+          { "name": "react/testing", "target": "PlanningFiles/rules/react/testing.md", "reuse_from": "P6" },
+          { "name": "ui/design-system", "target": "PlanningFiles/rules/ui/design-system.md", "reuse_from": "P11" },
+          { "name": "ci/workflows", "target": "PlanningFiles/rules/ci/workflows.md", "reuse_from": "P3" },
+          { "name": "typescript/coding-style", "target": "PlanningFiles/rules/typescript/coding-style.md", "reuse_from": "P2" },
+          { "name": "typescript/security", "target": "PlanningFiles/rules/typescript/security.md", "reuse_from": "P2" }
         ]
       }
     }

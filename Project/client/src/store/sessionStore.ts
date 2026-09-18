@@ -29,7 +29,7 @@ import {
   type LogicalCommandResult,
 } from '@erd-studio/shared'
 import { parseDiagramDocument } from '@erd-studio/shared'
-import { ApiError, getDiagram, updateDiagram } from '../api/diagrams'
+import { ApiError, getDiagram, getRawDiagram, updateDiagram } from '../api/diagrams'
 import { createViewport, type Viewport } from '../editor/viewport'
 
 /** Estados del editor (Routes.md §2.2, gestionados por sessionStore). */
@@ -49,6 +49,8 @@ export interface SessionState {
   error: string | null
   id: DiagramId | null
   name: string
+  /** Documento tal cual está persistido en el servidor (JSON crudo, P12/21). null salvo en status invalid. */
+  rawDocument: string | null
   /** Sesión de dominio (modelo + historial). null hasta el primer load. */
   session: EditorSession | null
   /** Plano lógico derivado (null hasta transformar; se persiste en el documento). */
@@ -97,6 +99,22 @@ export interface SessionActions {
 /** Resolución del conflicto 409 (IPC.md §5): el usuario decide qué conservar. */
 export type ConflictDecision = 'reload' | 'keep' | 'overwrite'
 
+/** Errores de carga que significan «documento corrupto/inválido» (P12, E2E 21):
+ * DomainError del parse local o ApiError con código de documento inválido del servidor. */
+function isInvalidDocumentError(error: unknown): boolean {
+  if (isDomainError(error)) {
+    return true
+  }
+  if (!(error instanceof ApiError)) {
+    return false
+  }
+  return (
+    error.code === 'MODEL_INVALID' ||
+    error.code === 'DOCUMENT_VERSION_UNSUPPORTED' ||
+    error.code === 'INVALID_REQUEST'
+  )
+}
+
 export type SessionStoreApi = StoreApi<SessionState & SessionActions>
 
 function toDocumentEnvelope(
@@ -120,6 +138,7 @@ function initial(): SessionState {
     error: null,
     id: null,
     name: '',
+    rawDocument: null,
     session: null,
     logical: null,
     logicalRecalculationPending: false,
@@ -139,47 +158,57 @@ function initial(): SessionState {
 
 /** Crea un store Zustand nuevo (SSR/testing) sin estado compartido. */
 export function createSessionStore(): SessionStoreApi {
-  return createStore<SessionState & SessionActions>()((set, get) => ({
-    ...initial(),
-
-    load: async (id: string) => {
-      set({ status: 'loading', error: null })
+  return createStore<SessionState & SessionActions>()((set, get) => {
+    const loadFromServer = async (
+      id: DiagramId,
+      fallbackMessage: string,
+    ): Promise<void> => {
       try {
-        const diagram = await getDiagram(toDiagramId(id))
+        const diagram = await getDiagram(id)
         const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
         get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope, diagram.version)
       } catch (error) {
-        const status: EditorStatus = isDomainError(error)
+        const status: EditorStatus = isInvalidDocumentError(error)
           ? 'invalid'
           : error instanceof ApiError && error.status === 404
             ? 'notFound'
             : 'error'
-        set({ status, error: error instanceof Error ? error.message : 'Error al cargar' })
+        const message = error instanceof Error ? error.message : fallbackMessage
+        if (status === 'invalid') {
+          set({ status, error: message, id })
+          try {
+            const raw = await getRawDiagram(id)
+            set({ name: raw.name, rawDocument: raw.document })
+          } catch {
+            set({ name: '', rawDocument: null })
+          }
+        } else {
+          set({ status, error: message })
+        }
       }
-    },
+    }
 
-    switchDiagram: async (id) => {
-      await get().persist()
-      if (get().conflict !== null) {
-        set({
-          status: 'error',
-          error: 'Conflicto de versión: resuelve el diálogo antes de cambiar de diagrama.',
-        })
-        return
-      }
-      set({ status: 'loading', error: null })
-      try {
-        const diagram = await getDiagram(toDiagramId(id))
-        const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
-        get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope, diagram.version)
-      } catch (error) {
-        const status: EditorStatus =
-          error instanceof ApiError && error.status === 404 ? 'notFound' : 'error'
-        set({ status, error: error instanceof Error ? error.message : 'Error al cambiar de diagrama' })
-      }
-    },
+    return {
+      ...initial(),
 
-    loadFromEnvelope: (id, name, document, version = 1) => {
+      load: async (id: string) => {
+        set({ status: 'loading', error: null })
+        await loadFromServer(toDiagramId(id), 'Error al cargar')
+      },
+
+      switchDiagram: async (id) => {
+        await get().persist()
+        if (get().conflict !== null) {
+          set({
+            status: 'error',
+            error: 'Conflicto de versión: resuelve el diálogo antes de cambiar de diagrama.',
+          })
+          return
+        }
+        set({ status: 'loading', error: null })
+        await loadFromServer(id, 'Error al cambiar de diagrama')
+      },
+      loadFromEnvelope: (id, name, document, version = 1) => {
       const envelope = parseDiagramDocument(JSON.stringify(document))
       const session = createEditorSession(envelope.data.model)
       set({
@@ -187,7 +216,8 @@ export function createSessionStore(): SessionStoreApi {
         error: null,
         id,
         name,
-session,
+        rawDocument: null,
+        session,
         logical: envelope.data.logical ?? null,
         logicalRecalculationPending: false,
         revision: 0,
@@ -416,16 +446,7 @@ session,
       }
       if (decision === 'reload') {
         set({ status: 'loading', error: null })
-        try {
-          const diagram = await getDiagram(toDiagramId(id))
-          const envelope = parseDiagramDocument(JSON.stringify(diagram.document))
-          get().loadFromEnvelope(diagram.id as DiagramId, diagram.name, envelope, diagram.version)
-        } catch (error) {
-          set({
-            status: error instanceof ApiError && error.status === 404 ? 'notFound' : 'error',
-            error: error instanceof Error ? error.message : 'Error al recargar el diagrama',
-          })
-        }
+        await loadFromServer(id, 'Error al recargar el diagrama')
         return
       }
       if (session === null) {
@@ -463,7 +484,8 @@ session,
     reset: () => {
       set(initial())
     },
-  }))
+    }
+  })
 }
 
 export const sessionStore: SessionStoreApi = createSessionStore()

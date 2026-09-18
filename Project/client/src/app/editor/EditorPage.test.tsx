@@ -36,6 +36,35 @@ function stubFetchStatus(status: number) {
   return vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: {} }), { status }))
 }
 
+/**
+ * El data router de react-router crea `new Request(...)` con un AbortSignal de
+ * jsdom que undici rechaza por realms distintos en tests. Este stub mantiene la
+ * forma del Request del router (url, signal, headers, redirect) sin el chequeo
+ * de instancia de undici.
+ */
+function stubRouterRequest() {
+  vi.stubGlobal(
+    'Request',
+    class RouterRequest {
+      url: string
+      method: string
+      headers: Headers
+      redirect: RequestRedirect = 'follow'
+      signal: AbortSignal | null
+      constructor(
+        input: string | RouterRequest,
+        init?: { method?: string; headers?: Headers; redirect?: RequestRedirect; signal?: AbortSignal },
+      ) {
+        this.url = typeof input === 'string' ? input : input.url
+        this.method = init?.method ?? 'GET'
+        this.headers = init?.headers ?? new Headers()
+        this.redirect = init?.redirect ?? 'follow'
+        this.signal = init?.signal ?? null
+      }
+    },
+  )
+}
+
 function setup(route = '/diagrams/test-id') {
   const router = createMemoryRouter(
     [
@@ -84,6 +113,139 @@ describe('EditorPage', () => {
     })
     const retry = screen.getByRole('button', { name: 'Reintentar' })
     expect(retry).toBeDefined()
+  })
+
+  it('muestra el panel de recuperación y exporta una copia bruta cuando el documento es inválido (P12/21)', async () => {
+    const corrupt = '{"broken":'
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ error: { code: 'MODEL_INVALID', message: 'Documento inválido' } }),
+            { status: 422 },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: 'test-id',
+                name: 'Dañado',
+                schemaVersion: 1,
+                version: 1,
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                document: corrupt,
+              },
+            }),
+            { status: 200 },
+          ),
+        ),
+    )
+    const createObjectURL = vi.fn(() => 'blob:raw')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL })
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText(/El documento no es válido/)).toBeDefined()
+    })
+
+    const exportBtn = screen.getByRole('button', { name: 'Exportar copia bruta' })
+    expect(exportBtn).toBeEnabled()
+    await userEvent.click(exportBtn)
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
+    expect(revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('requiere escribir el nombre exacto para descartar un documento inválido (R-04, P12/21)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ error: { code: 'MODEL_INVALID', message: 'Documento inválido' } }),
+            { status: 422 },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: 'test-id',
+                name: 'Dañado',
+                schemaVersion: 1,
+                version: 1,
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                document: '{"broken":',
+              },
+            }),
+            { status: 200 },
+          ),
+        )
+        .mockResolvedValueOnce(new Response(null, { status: 204 })),
+    )
+    stubRouterRequest()
+
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText(/El documento no es válido/)).toBeDefined()
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Descartar' }))
+    const input = screen.getByLabelText(/Escribe/)
+    await userEvent.type(input, 'Nombre equivocado')
+    expect(screen.getByRole('button', { name: 'Eliminar diagrama' })).toBeDisabled()
+
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Dañado')
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar diagrama' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Página de inicio')).toBeDefined()
+    })
+  })
+
+  it('Reintentar vuelve a cargar tras un documento inválido (P12/21)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ error: { code: 'INVALID_REQUEST' } }), { status: 400 }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: 'test-id',
+                name: 'Dañado',
+                schemaVersion: 1,
+                version: 1,
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                document: '{"broken":',
+              },
+            }),
+            { status: 200 },
+          ),
+        )
+        .mockResolvedValue(new Response(JSON.stringify({ data: diagramResponse() }))),
+    )
+
+    setup()
+    await waitFor(() => {
+      expect(screen.getByText(/El documento no es válido/)).toBeDefined()
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await waitFor(() => {
+      expect(screen.getByText('Personas')).toBeDefined()
+    })
   })
 
   it('muestra undo/redo en el header cuando esta listo', async () => {

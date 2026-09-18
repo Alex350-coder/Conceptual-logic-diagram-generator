@@ -22,6 +22,11 @@ export interface DiagramFull extends DiagramSummary {
   document: DocumentEnvelope
 }
 
+/** Documento tal cual está persistido (string JSON crudo), sin parsear (P12, E2E 21). */
+export interface DiagramRaw extends DiagramSummary {
+  document: string
+}
+
 export interface UpdateDiagramInput {
   name?: string
   document: DocumentEnvelope
@@ -87,6 +92,7 @@ function audit(db: Database.Database, eventType: string, diagramId: DiagramId | 
 export interface DiagramsRepository {
   list(): DiagramSummary[]
   getById(id: DiagramId): DiagramFull
+  getRawDocument(id: DiagramId): DiagramRaw
   create(name: string, document?: DocumentEnvelope): DiagramFull
   update(id: DiagramId, expectedVersion: number, input: UpdateDiagramInput): DiagramFull
   softDelete(id: DiagramId): void
@@ -165,6 +171,14 @@ export function createDiagramsRepository(db: Database.Database): DiagramsReposit
 
     getById(id: DiagramId): DiagramFull {
       return toFull(requireRow(id))
+    },
+
+    getRawDocument(id: DiagramId): DiagramRaw {
+      const row = requireRow(id)
+      const raw = db.prepare('SELECT document FROM diagrams WHERE id = ?').get(id) as {
+        document: string
+      }
+      return { ...toSummary(row), document: raw.document }
     },
 
     create(name: string, document?: DocumentEnvelope): DiagramFull {
