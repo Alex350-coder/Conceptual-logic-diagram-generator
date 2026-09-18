@@ -2,7 +2,7 @@
   "planVersion": 1,
   "product": "erd-studio",
   "docType": "phase-plan",
-  "updatedAt": "2026-09-16",
+  "updatedAt": "2026-09-18",
   "notes": "Representación estructurada de Plan.md §7 y Tasks.md. Estados posibles: pending | in_progress | completed | blocked. La fuente humana es Progress.md; este fichero es la vista de máquina (DevelopmentWorkflow.md).",
   "phases": [
     {
@@ -256,7 +256,8 @@
     {
       "id": "P12",
       "name": "Testing integral",
-      "status": "pending",
+      "status": "completed",
+      "completedAt": "2026-09-18",
       "summary": "Cierre de cobertura, E2E restantes, rendimiento y regresión visual.",
       "objectives": [
         "Umbrales de cobertura de Testing.md §2 cumplidos",

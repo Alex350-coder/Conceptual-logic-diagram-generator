@@ -283,7 +283,7 @@ Rama `phase/10-ui-ux`. 11 commits de fase + 1 de cierre (`2a9d5`…`15ddf`): `2a
 
 ---
 
-## 2026-09-17 — Fase P12 (Testing integral, rama `phase/11-testing`) — avance parcial
+## 2026-09-17 — Fase P12 (Testing integral, rama `phase/11-testing`) — avance
 
 ### Cobertura shared: umbrales y excepciones por fichero (decisión D-T12-01)
 Rama `phase/11-testing`, commits `1274f` (docs/skills) y `a2ba6` (coverage shared domain/validate). Se configura `Project/shared/vitest.config.ts` con coverage v8 scoped a `src/{domain,transform,validate}` y umbrales `{ statements: 90, branches: 85, functions: 90, lines: 90 }`.
@@ -334,6 +334,30 @@ Spec `Project/client/e2e/perf.spec.ts` + generador `Project/client/src/test/perf
 ### Pendiente en la fase — cierre documental (T12-01..04)
 Audit unit/E2E final (574 unit / 24 E2E), phase-plan/DefinitionOfDone, close-out de la fase.
 
-**Cierre documental (commit 11):** `Progress.md` §4k y ajustes documentales P12; `phase-plan.json` marca T12-01/T12-02 `completed`; reparado byte SUB `0x1a` preexistente del nombre P10 en `phase-plan.json` (flecha Unicode `→`). Queda el close-out (commit 12): fase P12 `completed`, revisión cruzada y cierre de la entrada.
+**Cierre documental (commit `619fc`):** `Progress.md` §4k y ajustes documentales P12; `phase-plan.json` marca T12-01/T12-02 `completed`; reparado byte SUB `0x1a` preexistente del nombre P10 en `phase-plan.json` (flecha Unicode `→`). Close-out de la fase en el commit final de `phase/11-testing`.
+
+## 2026-09-18 — Fase P12 (Testing integral, rama `phase/11-testing`) — cierre
+
+Rama `phase/11-testing`. 12 commits (`1274f`… cierre documental y close-out): `1274f` (docs/skills), `a2ba6` (T12-01 coverage shared), `b13c9` (T12-01 branch transform 85 % + excepciones por fichero), `10e77` (T12-02 E2E 21 documento inválido), `08b8e` (T12-02 E2E 19 undo/redo), `ecf6f` (T12-02 E2E 20 409 multitab), `daa79` (T12-02 E2E 22 atajos), `f013d` (T12-03 harness rendimiento), `063f1` (T12-04 snapshot tokens + regresión visual), `79941` (CI coverage + perf), cierre documental y close-out. Suite final: **225 shared + 310 client + 39 server = 574 unit** · **24 E2E verdes** (11 specs).
+
+### Decisiones registradas
+- **T12-01 umbrales por workspace:** `shared` 90/85/90/90 (medido 98.98/92.85/100), `client` 80/85/70/80 (medido 82.09/88.96/74.77), `server` 80/75/80/80, configurados con coverage v8 y bloqueantes en `npm run test:coverage`. Excepciones por fichero documentadas (guardias defensivas inalcanzables en `engine.ts`, `naming.ts`, `recompute.ts`); se desecha subir branch de `engine.ts` a 85 % con tests fabricados — la carpeta `transform` cumple el umbral agregado.
+- **E2E 19 = plano conceptual puro (registrado con el usuario):** el lógico no participa del historial (`transformToLogical`/`setColumnType` no tocan `past/future`); la parte "transformar" queda como deuda T10-03 (convertir comandos lógicos en operaciones undoable), fuera del alcance de testing P12.
+- **E2E 21 sin spec Playwright propio:** se cubre con tests de integración server+client (endpoint `GET /raw`, `parseDiagramDocument` en lectura, `sessionStore.experiment.invalid` + panel de recuperación); no hace falta I/O de navegador.
+- **Determinismo visual:** mockeo de `GET /api/v1/diagrams` (`{ data: [] }`) + tema vía `localStorage['erd-studio-theme']` + espera de `html[data-theme]`/`.dashboard-empty` — los baselines por spec fallaban en suite completa por la DB acumulada (18615 px diff); con el mock, estables.
+- **`RENDER_BUDGET_MS` configurable por env:** default local `800*1.25` (suite E2E local convive con OneDrive/antivirus → 920-930 ms); CI impone `800` estricto. `FRAME_BUDGET_MS = 1000/60+0.4` (0.4 ms de jitter rAF, no enmascara vsync perdido real). `VISUAL_MAX_DIFF_PIXELS=250` en CI por antialiasing cross-SO.
+
+### Hallazgos
+- **Fix real de rendimiento (`f013d`):** pan/zoom daba 36 fps — cada frame recomputaba toda la escena (`autoAttributeBounds` + ~3.600 primitivas + edges). Separado `buildContentScene` (memoizado en `ConceptualCanvas`) de `applyViewport` (grid+culling); 36 → **60 fps**.
+- **Fix de alcance E2E 22 (`daa79`):** `Ctrl+A` estaba solo en el keydown del `<svg>`; se movió al registry de atajos (scope editor, respeta `shouldInterceptForTarget`) delegando a `interactions.selectAll()`.
+- **`vitest-axe@0.1.0` (de P11) se reutiliza roto** pero solucionado con matcher local; no re-introducido `--enable-features=ClipboardCustomFormats` (P9 no resolvió).
+- **Mojibake preexistente en `phase-plan.json`** (byte `0x1a` en P10, desde `e14be`): reparado en `619fc` con la flecha Unicode `→`; BOM UTF-8 conservado (`require()` lo tolera; `JSON.parse` directo falla solo por el BOM).
+
+### Verificación de cierre
+- `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **574 tests verdes** (225 shared/18 ficheros + 310 client/30 ficheros + 39 server/4 ficheros) · `npm run test:coverage` sin fallos (shared/client medidos por encima de umbrales) · `npx playwright test` **24 E2E verdes** (11 specs, 45.0 s) · baselines visuales estables en suite completa.
+- Criterio `DefinitionOfDone.md` §2 cumplido: tareas T12-01..04 todas `completed`; objetivos de fase demostrados; dependencias (P10/P11) cerradas; `Progress.md`/`Audit.md`/`New_files.md` actualizados; hito observable verificado (suite unit+E2E+coverage verdes en `phase/11-testing`).
+
+### Pendiente P12 → P13
+- P13 (Seguridad y endurecimiento) sobre la base cerrada por P12: tests de inputs hostiles refinados, CSP + cabeceras en prod, rate limiting, auditoría de dependencias (`npm audit`: 5 vulnerabilidades de tooling diferidas desde P4/P5 → T13-04), y pinning.
 
 ---

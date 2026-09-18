@@ -2,8 +2,8 @@
   "planVersion": 2,
   "product": "erd-studio",
   "docType": "phase-resources",
-  "updatedAt": "2026-09-17",
-  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits); fase P11 cerrada (UI/UX completa). Fase actual: P12 (Testing integral, 12 commits).",
+  "updatedAt": "2026-09-18",
+  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits); fase P11 cerrada (UI/UX completa); fase P12 cerrada (Testing integral, 12 commits).",
 
   "phases": {
     "P2": {
@@ -402,7 +402,8 @@
     "P12": {
       "label": "Fase 11 de ejecucion — Testing integral",
       "branch": "phase/11-testing",
-      "status": "in_progress",
+      "status": "completed",
+      "completedAt": "2026-09-18",
       "purpose": "Umbrales de cobertura (Testing.md §2: stmts>=90 / branch>=85 en domain y transform), E2E 19-22 (undo/redo, 409 multitab, documento invalido con panel de recuperacion, atajos), harness de rendimiento (Architecture.md §11) con rAF sampling y micro-bench de serializacion, y snapshot de tokens + regresion visual. Cierra la calidad global de erd-studio.",
       "resources": {
         "skills": [
