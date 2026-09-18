@@ -6,7 +6,7 @@ import type {
 } from 'react'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import type { ColumnId, ColumnType, ConceptualModel, LogicalModel, NodeId, TableId } from '@erd-studio/shared'
-import { sceneRenderer } from '../../render/SceneRenderer'
+import { applyViewport, buildContentScene } from '../../render/SceneRenderer'
 import { SceneView } from '../../render/SceneView'
 import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, sceneBounds } from '../../render/layout'
@@ -141,9 +141,10 @@ export function EditorPage() {
       copy: () => void copy(),
       cut: () => void cut(),
       paste: () => void paste(),
+      selectAll: () => interactions.selectAll(),
       openShortcuts: () => setShortcutsOpen(true),
     }),
-    [copy, cut, paste],
+    [copy, cut, paste, interactions],
   )
   useShortcutListener(shortcutContext)
 
@@ -512,6 +513,58 @@ function ConflictDialog({
   )
 }
 
+/**
+ * Canvas conceptual memoizado (Architecture.md §8.6): el contenido estático
+ * (modelo -> primitivas) se memoiza por [model, selection, marquee] y solo se
+ * re-aplica el viewport (grid + culling) en cada frame de pan/zoom. Hooks
+ * incondicionales: este componente solo se monta con model no-null.
+ */
+function ConceptualCanvas({
+  model,
+  size,
+  viewport,
+  selection,
+  interactions,
+  onContextMenu,
+}: {
+  model: ConceptualModel
+  size: ViewportSize
+  viewport: Viewport
+  selection: ReadonlySet<NodeId>
+  interactions: EditorInteractions
+  onContextMenu: (event: ReactMouseEvent<SVGSVGElement>) => void
+}) {
+  const content = useMemo(
+    () => {
+      const renderModel =
+        interactions.dragLayout !== null
+          ? ({ ...model, layout: interactions.dragLayout } as ConceptualModel)
+          : model
+      return buildContentScene(renderModel, {
+        selected: selection,
+        marquee: interactions.marquee,
+      })
+    },
+    [model, selection, interactions.marquee, interactions.dragLayout],
+  )
+  const scene = useMemo(
+    () => applyViewport(content, viewport, size),
+    [content, viewport, size],
+  )
+  return (
+    <SceneView
+      scene={scene}
+      viewport={viewport}
+      size={size}
+      onWheel={handleWheel}
+      onPointerDown={interactions.handleCanvasPointerDown}
+      onContextMenu={onContextMenu}
+      onKeyDown={interactions.handleCanvasKeyDown}
+      onShapeDoubleClick={interactions.startRename}
+    />
+  )
+}
+
 function EditorBody({
   status,
   id,
@@ -577,22 +630,14 @@ function EditorBody({
       />
     )
   }
-  const renderModel =
-    interactions.dragLayout !== null ? { ...model, layout: interactions.dragLayout } : model
-  const scene = sceneRenderer(renderModel, viewport, size, {
-    selected: selection,
-    marquee: interactions.marquee,
-  })
   return (
-    <SceneView
-      scene={scene}
-      viewport={viewport}
+    <ConceptualCanvas
+      model={model}
       size={size}
-      onWheel={handleWheel}
-      onPointerDown={interactions.handleCanvasPointerDown}
+      viewport={viewport}
+      selection={selection}
+      interactions={interactions}
       onContextMenu={onContextMenu}
-      onKeyDown={interactions.handleCanvasKeyDown}
-      onShapeDoubleClick={interactions.startRename}
     />
   )
 }

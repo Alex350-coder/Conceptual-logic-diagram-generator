@@ -62,15 +62,16 @@ cd Project && npx vitest run shared/src/transform/__tests__/perf.test.ts   # 200
 
 ```bash
 cd Project && npx vitest run client/src/test/tokens-snapshot.test.ts
-cd Project && npx playwright test e2e/visual/
+cd Project && npx playwright test e2e/visual.spec.ts
 ```
 
-Baselines commiteados; actualizar solo con intención explícita (`--update-snapshots`).
+Baselines commiteados (`client/e2e/visual/__screenshots__/`); actualizar solo con
+intención explícita (`--update-snapshots`) tras revisar el diff visual.
 
 ## Si falla
 
 1. `/build-fix` para errores de tipado/lint.
 2. Cobertura: identificar fichero con branch bajo y añadir casos (matriz V-* o golden). Excepción por fichero solo con justificación en `Audit.md`.
 3. E2E: revisar selectores/eventos; esperar condiciones concretas, no sleeps.
-4. Perf: si > umbral, usar `performance-optimizer` para profilear y optimizar.
+4. Perf: si > umbral, usar `performance-optimizer` para profilear y optimizar. En CI el render corre estricto (`RENDER_BUDGET_MS=800`); localmente se tolera el ruido de OneDrive/antivirus.
 5. Visual: revisar el diff del screenshot; actualizar solo si el cambio es intencional.

@@ -7,6 +7,7 @@ export type ShortcutContext = {
   copy: () => void
   cut: () => void
   paste: () => void
+  selectAll: () => void
   openShortcuts: () => void
 }
 
@@ -99,6 +100,15 @@ export const APP_SHORTCUTS: readonly ShortcutDef[] = [
     category: 'Edición',
     scope: 'editor',
     run: (ctx) => ctx.paste(),
+  },
+  {
+    id: 'select-all',
+    label: 'Seleccionar todo',
+    combo: 'Ctrl+A',
+    keys: ['mod+a'],
+    category: 'Edición',
+    scope: 'editor',
+    run: (ctx) => ctx.selectAll(),
   },
 ]
 

@@ -60,6 +60,29 @@ test:
       working-directory: Project
 ```
 
+### Job: coverage (umbrales por workspace)
+
+```yaml
+coverage:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
+        cache-dependency-path: Project/package-lock.json
+    - run: npm ci
+      working-directory: Project
+    - run: npm run test:coverage --workspaces --if-present
+      working-directory: Project
+```
+
+Los thresholds viven en cada `vitest.config.ts`: `shared` (domain/validate/transform:
+stmts 90 / branch 85), `client` (stmts 80 / branch 85 / funcs 70 / lines 80),
+`server` (stmts 80 / branch 75 / funcs 80 / lines 80). El job falla si cualquier
+workspace no los cumple (`Testing.md` §2).
+
 ### Job: e2e (cuando exista client)
 
 ```yaml
@@ -79,7 +102,18 @@ e2e:
       working-directory: Project
     - run: npm run e2e
       working-directory: Project
+      env:
+        RENDER_BUDGET_MS: 800
+        VISUAL_MAX_DIFF_PIXELS: 250
 ```
+
+- `RENDER_BUDGET_MS=800`: el harness de rendimiento en CI impone la cota nominal
+  estricta de render inicial (Architecture §11); el run local tolera el ruido de
+  OneDrive/antivirus con un default más laxo (ver `client/e2e/perf.spec.ts`).
+- `VISUAL_MAX_DIFF_PIXELS=250`: los baselines visuales se generan en el SO del
+  desarrollador; el antialiasing de texto difiere ligeramente entre plataformas,
+  por lo que CI admite un margen de píxeles (un cambio de layout rompe decenas
+  de miles, no ~200). Local queda estricto (0).
 
 ## Reglas
 

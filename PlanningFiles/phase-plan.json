@@ -2,7 +2,7 @@
   "planVersion": 1,
   "product": "erd-studio",
   "docType": "phase-plan",
-  "updatedAt": "2026-09-16",
+  "updatedAt": "2026-09-18",
   "notes": "Representación estructurada de Plan.md §7 y Tasks.md. Estados posibles: pending | in_progress | completed | blocked. La fuente humana es Progress.md; este fichero es la vista de máquina (DevelopmentWorkflow.md).",
   "phases": [
     {
@@ -210,7 +210,7 @@
     },
 {
       "id": "P10",
-      "name": "Transformaci�n Conceptual  L�gico",
+      "name": "Transformaci�n Conceptual → L�gico",
       "status": "completed",
       "summary": "Motor T1-T10 determinista con goldens, tipos 'No definido' y edici�n del l�gico.",
       "objectives": [
@@ -256,7 +256,8 @@
     {
       "id": "P12",
       "name": "Testing integral",
-      "status": "pending",
+      "status": "completed",
+      "completedAt": "2026-09-18",
       "summary": "Cierre de cobertura, E2E restantes, rendimiento y regresión visual.",
       "objectives": [
         "Umbrales de cobertura de Testing.md §2 cumplidos",
@@ -267,10 +268,10 @@
       "dependencies": ["P10", "P11"],
       "definitionOfDoneRef": "Testing.md §2-6; Architecture.md §11",
       "tasks": [
-        { "id": "T12-01", "title": "Cobertura umbrales dominio/validate/transform", "status": "pending" },
-        { "id": "T12-02", "title": "E2E restantes (19-22)", "status": "pending" },
-        { "id": "T12-03", "title": "Harness de rendimiento + objetivos", "status": "pending" },
-        { "id": "T12-04", "title": "Snapshot de tokens y regresión visual", "status": "pending" }
+        { "id": "T12-01", "title": "Cobertura umbrales dominio/validate/transform", "status": "completed" },
+        { "id": "T12-02", "title": "E2E restantes (19-22)", "status": "completed" },
+        { "id": "T12-03", "title": "Harness de rendimiento + objetivos", "status": "completed" },
+        { "id": "T12-04", "title": "Snapshot de tokens y regresión visual", "status": "completed" }
       ]
     },
     {

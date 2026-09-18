@@ -229,6 +229,32 @@ Modificaciones clave en la fase (sin archivos 100 % nuevos):
 
 > Los recursos de fase (skills `ui-ux-pro-max`/`ui-ux-system`, regla `rules/ui/design-system.md`) se documentan en `phase-resources.json` y `Audit.md`.
 
+## Fase P12 (2026-09-18) — Testing integral (`Project/client`, `Project/server`)
+
+```text
+Project/client/src/test/perf/profile.ts              (T12-03: generador de perfil por dominio, no mock)
+Project/client/src/test/perf/serialize.perf.test.ts  (T12-03: micro-bench serializacion mediana 5 <= 50ms)
+Project/client/e2e/perf.spec.ts                      (T12-03: render inicial <=budget (median 3) + pan/zoom >=60fps)
+Project/client/e2e/undo-redo.spec.ts                 (T12-02: E2E 19 undo/redo conceptual)
+Project/client/e2e/editor.pom.ts                     (T12-02: POM reutilizable del editor para E2E 19)
+Project/client/e2e/conflict-409.spec.ts              (T12-02: E2E 20 conflicto 409 multitab)
+Project/client/e2e/shortcuts.spec.ts                 (T12-02: E2E 22 atajos Ctrl+A/Esc/Delete/Ctrl+Z)
+Project/client/e2e/visual.spec.ts                    (T12-04: regresion visual toHaveScreenshot dashboard/editor dark+light)
+Project/client/e2e/visual/__screenshots__/*.png      (T12-04: 4 baselines visuales commiteados)
+Project/client/src/test/tokens-snapshot.test.ts      (T12-04: snapshot de tokens de tokens.css/themes.css)
+Project/client/src/test/tokens.snapshot.json         (T12-04: baseline de tokens)
+```
+
+Modificaciones clave en la fase (sin archivos 100 % nuevos):
+- `Project/client/playwright.config.ts`: `snapshotPathTemplate` → `{testDir}/visual/__screenshots__/{arg}{ext}` (T12-04).
+- `Project/client/e2e/perf.spec.ts` + `Project/client/src/render/SceneView.tsx`/`editor/EditorPage.tsx` + `ConceptualCanvas.tsx`: fix de rendimiento pan/zoom 36 → 60 fps (memoización de `buildContentScene`; `applyViewport` solo re-genera grid+culling).
+- `Project/client/src/app/shortcuts/registry.ts` + `SceneView.tsx`: `Ctrl+A` select-all como shortcut del registry (fix de alcance E2E 22).
+- `Project/client/vitest.config.ts` + `Project/shared/vitest.config.ts`: umbrales de cobertura v8 (shared 90/85/90/90, client 80/85/70/80).
+- `Project/client/e2e/perf.spec.ts` + `visual.spec.ts`: `RENDER_BUDGET_MS`/`MAX_DIFF_PIXELS` configurables por env (CI estricto).
+- `.github/workflows/ci.yml`: job `coverage` (`--workspaces --if-present`) + envs e2e `RENDER_BUDGET_MS=800`/`VISUAL_MAX_DIFF_PIXELS=250`.
+- `Project/client/src/store/sessionStore.ts` + `EditorPage.tsx` + `api/diagrams.ts` + `Project/server/src/routes/diagrams.routes.ts` + `repositories/diagrams.repo.ts` + tests: flujo 21 documento inválido (endpoint `GET /raw` + `sessionStore.invalid` + panel de recuperación; sin spec Playwright propio).
+- `PlanningFiles/rules/ci/workflows.md`: documentación del job coverage y envs e2e.
+
 ## Normas de uso
 - Añadir una entrada por archivo nuevo de **implementación** (no por cada cambio), con fecha y fase.
 - Los archivos de scaffolding masivo se anotan como grupo (p. ej. "migración de BD 002").

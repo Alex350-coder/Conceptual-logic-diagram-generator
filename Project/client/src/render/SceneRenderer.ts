@@ -22,29 +22,48 @@ export type SceneRenderer = (
   options: RenderOptions,
 ) => Scene
 
-/** Renderer base puro (Architecture.md §8.6): modelo + viewport -> scene en mundo. */
-export const sceneRenderer: SceneRenderer = (model, viewport, size, options) => {
+/**
+ * Contenido estatico de la escena (Architecture.md §8.6): modelo -> primitivas en
+ * mundo. Depende solo del modelo y las opciones; el viewport NO participa, asi el
+ * llamador puede memoizarlo por [model, options] y solo re-aplicar el viewport
+ * (grid + culling) en cada frame de pan/zoom.
+ */
+export function buildContentScene(
+  model: ConceptualModel,
+  options: RenderOptions,
+): Scene {
   const boundsById = autoAttributeBounds(model, modelToBounds(model))
-  const view = visibleWorldRect(viewport, size)
-
-  const grid = buildGridLayer(view)
   const edges = buildEdgeLayer(model, boundsById)
   const shapes = buildShapeLayer(model, boundsById)
   const labels = buildLabelLayer(model, boundsById)
   const selection = buildSelectionLayer(options.selected, boundsById)
   const marquee = options.marquee ? [makeRect('marquee', 'marquee', options.marquee)] : []
 
-  const scene = createScene({
-    grid,
+  return createScene({
     edges,
     shapes,
     labels,
     selection,
     marquee,
   })
+}
+
+/** Aplica el viewport a un contenido estatico: grid visible + culling por capa. */
+export function applyViewport(content: Scene, viewport: Viewport, size: ViewportSize): Scene {
+  const view = visibleWorldRect(viewport, size)
+
+  const grid = buildGridLayer(view)
+  const scene = createScene({
+    ...Object.fromEntries(content.layers.map((l) => [l.id, l.items])),
+    grid,
+  })
 
   return cullScene(scene, viewport, size)
 }
+
+/** Renderer base puro (Architecture.md §8.6): modelo + viewport -> scene en mundo. */
+export const sceneRenderer: SceneRenderer = (model, viewport, size, options) =>
+  applyViewport(buildContentScene(model, options), viewport, size)
 
 export function buildGridLayer(view: Rect): Primitive[] {
   const lines = visibleGridLines(view, GRID_STEP)

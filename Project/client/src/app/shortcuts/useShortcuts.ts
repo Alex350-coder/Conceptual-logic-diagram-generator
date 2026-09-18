@@ -37,6 +37,7 @@ export function createNoopContext(): ShortcutContext {
     copy: () => undefined,
     cut: () => undefined,
     paste: () => undefined,
+    selectAll: () => undefined,
     openShortcuts: () => undefined,
   }
 }

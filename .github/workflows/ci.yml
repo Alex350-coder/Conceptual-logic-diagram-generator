@@ -48,6 +48,20 @@ jobs:
       - run: npm run test
         working-directory: Project
 
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Project/package-lock.json
+      - run: npm ci
+        working-directory: Project
+      - run: npm run test:coverage --workspaces --if-present
+        working-directory: Project
+
   e2e:
     runs-on: ubuntu-latest
     needs: [lint, typecheck, test]
@@ -63,6 +77,9 @@ jobs:
       - name: Run E2E (client workspace)
         working-directory: Project
         shell: bash
+        env:
+          RENDER_BUDGET_MS: '800'
+          VISUAL_MAX_DIFF_PIXELS: '250'
         run: |
           if [ -f client/playwright.config.ts ]; then
             npx playwright install --with-deps chromium

@@ -113,6 +113,11 @@ export class EditorPom {
     await this.page.keyboard.press('Delete')
   }
 
+  /** Da foco al canvas (necesario para atajos del svg como Esc/Delete). */
+  async focusCanvas(): Promise<void> {
+    await this.scene.focus()
+  }
+
   async undo(): Promise<void> {
     await this.page.keyboard.press('Control+z')
   }
