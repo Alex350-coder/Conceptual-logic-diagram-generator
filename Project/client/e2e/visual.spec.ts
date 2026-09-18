@@ -10,6 +10,14 @@ import { expect, test, type Page } from '@playwright/test'
 
 const THEME_STORAGE_KEY = 'erd-studio-theme'
 
+/**
+ * Tolerancia de diff por píxel. Local = 0 (estricto). CI (Linux/ubuntu) admite
+ * un margen pequeño porque los baselines se generan en el SO del desarrollador
+ * y el antialiasing de texto difiere ligeramente entre plataformas; un cambio
+ * real de layout/ui rompe decenas de miles de píxeles, no ~200.
+ */
+const MAX_DIFF_PIXELS = Number(process.env.VISUAL_MAX_DIFF_PIXELS ?? 0)
+
 async function openDashboard(page: Page, theme: 'dark' | 'light'): Promise<void> {
   await page.addInitScript(
     ([key, value]) => window.localStorage.setItem(key, value),
@@ -38,12 +46,12 @@ async function openEditor(page: Page, theme: 'dark' | 'light'): Promise<void> {
 
 test('regresión visual: dashboard dark', async ({ page }) => {
   await openDashboard(page, 'dark')
-  await expect(page).toHaveScreenshot('dashboard-dark.png')
+  await expect(page).toHaveScreenshot('dashboard-dark.png', { maxDiffPixels: MAX_DIFF_PIXELS })
 })
 
 test('regresión visual: dashboard light', async ({ page }) => {
   await openDashboard(page, 'light')
-  await expect(page).toHaveScreenshot('dashboard-light.png')
+  await expect(page).toHaveScreenshot('dashboard-light.png', { maxDiffPixels: MAX_DIFF_PIXELS })
 })
 
 test('regresión visual: editor dark (canvas con entidad)', async ({ page }) => {
@@ -58,7 +66,7 @@ test('regresión visual: editor dark (canvas con entidad)', async ({ page }) => 
   await input.press('Enter')
   await expect(scene.locator('[data-layer="shapes"] [data-id] rect')).toHaveCount(1)
 
-  await expect(page).toHaveScreenshot('editor-dark.png')
+  await expect(page).toHaveScreenshot('editor-dark.png', { maxDiffPixels: MAX_DIFF_PIXELS })
 })
 
 test('regresión visual: editor light (canvas con entidad)', async ({ page }) => {
@@ -73,5 +81,5 @@ test('regresión visual: editor light (canvas con entidad)', async ({ page }) =>
   await input.press('Enter')
   await expect(scene.locator('[data-layer="shapes"] [data-id] rect')).toHaveCount(1)
 
-  await expect(page).toHaveScreenshot('editor-light.png')
+  await expect(page).toHaveScreenshot('editor-light.png', { maxDiffPixels: MAX_DIFF_PIXELS })
 })

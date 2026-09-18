@@ -326,7 +326,12 @@ Spec `Project/client/e2e/perf.spec.ts` + generador `Project/client/src/test/perf
 
 **Regresión visual** `Project/client/e2e/visual.spec.ts` (baselines en `e2e/visual/__screenshots__/`): `toHaveScreenshot` sobre **dashboard y editor (canvas con entidad) en temas dark y light**. El dashboard se hace **determinista e independiente del estado acumulado de la DB** (otras specs crean diagramas) mockeando `page.route('**/api/v1/diagrams' → { data: [] })`; el tema se fija vía `localStorage` (`erd-studio-theme`) con `addInitScript`, y cada screenshot espera `html[data-theme]` + estado listo (`.dashboard-empty` / capa de shapes). Baselines se actualizan solo con `--update-snapshots` (regla: tras revisar el diff). `playwright.config.ts` apunta los baselines a `{testDir}/visual/__screenshots__/{arg}{ext}`.
 
-### Pendiente en la fase
-CI coverage+perf (partial coverage job + `RENDER_BUDGET_MS=800` en e2e), cierre documental (T12-01..04).
+## CI coverage + perf (T12-01/§2, `.github/workflows/ci.yml`)
+
+- **Job `coverage`**: `npm run test:coverage --workspaces --if-present`. Los umbrales viven en cada `vitest.config.ts` y el job falla si cualquier workspace no los cumple: `shared` (domain/validate/transform stmts 90/branch 85), `client` (stmts 80/branch 85/funcs 70/lines 80 — este commit añade los thresholds), `server` (stmts 80/branch 75/funcs 80/lines 80). Medido localmente: shared 98.98/92.85, client 82.09/88.96/74.77, ambos por encima del umbral.
+- **Job `e2e`**: env `RENDER_BUDGET_MS=800` impone la cota nominal estricta de render (Architecture §11; el default local tolera OneDrive/antivirus) y `VISUAL_MAX_DIFF_PIXELS=250` admite el antialiasing de texto cross-platform de los baselines visuales (generados en el SO del desarrollador; un cambio de layout rompe decenas de miles de píxeles, no ~200; local estricto 0). La tolerancia del `toHaveScreenshot` es configurable por env (`MAX_DIFF_PIXELS`).
+
+### Pendiente en la fase — cierre documental (T12-01..04)
+Audit unit/E2E final, phase-plan/DefinitionOfDone, close-out de la fase.
 
 ---
