@@ -269,8 +269,8 @@
       "tasks": [
         { "id": "T12-01", "title": "Cobertura umbrales dominio/validate/transform", "status": "pending" },
         { "id": "T12-02", "title": "E2E restantes (19-22)", "status": "pending" },
-        { "id": "T12-03", "title": "Harness de rendimiento + objetivos", "status": "pending" },
-        { "id": "T12-04", "title": "Snapshot de tokens y regresión visual", "status": "pending" }
+        { "id": "T12-03", "title": "Harness de rendimiento + objetivos", "status": "completed" },
+        { "id": "T12-04", "title": "Snapshot de tokens y regresión visual", "status": "completed" }
       ]
     },
     {

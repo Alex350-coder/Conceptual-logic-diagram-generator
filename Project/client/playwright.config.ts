@@ -17,6 +17,7 @@ export default defineConfig({
   retries: 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
+  snapshotPathTemplate: '{testDir}/visual/__screenshots__/{arg}{ext}',
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:5317',
