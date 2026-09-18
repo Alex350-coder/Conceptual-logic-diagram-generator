@@ -141,9 +141,10 @@ export function EditorPage() {
       copy: () => void copy(),
       cut: () => void cut(),
       paste: () => void paste(),
+      selectAll: () => interactions.selectAll(),
       openShortcuts: () => setShortcutsOpen(true),
     }),
-    [copy, cut, paste],
+    [copy, cut, paste, interactions],
   )
   useShortcutListener(shortcutContext)
 

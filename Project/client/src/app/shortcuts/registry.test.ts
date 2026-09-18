@@ -53,6 +53,10 @@ describe('resolveShortcut', () => {
     expect(resolveShortcut(keyEvent({ key: 's', ctrlKey: true }))?.id).toBe('save')
   })
 
+  it('resuelve Ctrl+A a select-all', () => {
+    expect(resolveShortcut(keyEvent({ key: 'a', ctrlKey: true }))?.id).toBe('select-all')
+  })
+
   it('resuelve Ctrl+Shift+? a la paleta', () => {
     expect(resolveShortcut(keyEvent({ key: '/', ctrlKey: true, shiftKey: true }))?.id).toBe(
       'shortcuts',
@@ -76,10 +80,13 @@ describe('conflict policy sobre campos', () => {
     expect(isEditableTarget(div)).toBe(false)
   })
 
-  it('bloquea undo/copy/paste dentro de un input (nativo del campo)', () => {
+  it('bloquea undo/copy/paste/select-all dentro de un input (nativo del campo)', () => {
     expect(shouldInterceptForTarget(resolveShortcut(keyEvent({ key: 'z', ctrlKey: true }))!, input)).toBe(false)
     expect(shouldInterceptForTarget(resolveShortcut(keyEvent({ key: 'c', ctrlKey: true }))!, input)).toBe(false)
     expect(shouldInterceptForTarget(resolveShortcut(keyEvent({ key: 'v', ctrlKey: true }))!, input)).toBe(false)
+    expect(
+      shouldInterceptForTarget(resolveShortcut(keyEvent({ key: 'a', ctrlKey: true }))!, input),
+    ).toBe(false)
   })
 
   it('permite save y la paleta dentro de un input', () => {
