@@ -8,6 +8,10 @@ const serverRoot = path.resolve(__dirname, '../server')
 // DB temporal unica por run: evita colisiones con WAL/SHM huerfanos de runs cortados
 // (Windows no permite borrar un archivo abierto por un proceso zombie).
 const dbPath = path.join(os.tmpdir(), `erd-studio-e2e-${Date.now()}.db`)
+// T13-05: segundo server en NODE_ENV=production que sirve el build de `client/dist`
+// (CSP + cabeceras + SPA fallback + rate limit activos). Las specs security/csp
+// navegan a este origin con URLs absolutas. Requiere `npm run build` previo.
+const dbPathProd = path.join(os.tmpdir(), `erd-studio-e2e-prod-${Date.now()}.db`)
 
 export default defineConfig({
   testDir: 'e2e',
@@ -28,7 +32,9 @@ export default defineConfig({
     {
       command: 'npm run start',
       cwd: serverRoot,
-      env: { DB_PATH: dbPath, PORT: '3121' },
+      // Rate limit alto: el E2E completo hace >100 peticiones /api por minuto;
+      // el 429 se cubre en unit de rate-limit, no debe tumbar la suite.
+      env: { DB_PATH: dbPath, PORT: '3121', RATE_LIMIT_MAX: '100000' },
       url: 'http://localhost:3121/api/v1/health',
       reuseExistingServer: false,
       timeout: 60_000,
@@ -38,6 +44,20 @@ export default defineConfig({
       cwd: __dirname,
       env: { VITE_API_PROXY: 'http://localhost:3121' },
       url: 'http://localhost:5317',
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      command: 'npm run start',
+      cwd: serverRoot,
+      env: {
+        DB_PATH: dbPathProd,
+        PORT: '5320',
+        NODE_ENV: 'production',
+        CLIENT_DIST_PATH: path.join(__dirname, 'dist'),
+        RATE_LIMIT_MAX: '100000',
+      },
+      url: 'http://localhost:5320/api/v1/health',
       reuseExistingServer: false,
       timeout: 60_000,
     },
