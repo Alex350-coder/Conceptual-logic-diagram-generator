@@ -240,7 +240,7 @@ Rama `phase/09-transform`. 10 commits (`ed9ea`…`27517`) pactados "granulares p
 - **Recursos de la fase:** reuso de `tdd-workflow`, `error-handling`, `coding-standards`, `editor-engine`, `react-patterns`/`react-testing`/`e2e-testing`; sin skill nueva propia de P10. `phase-resources.json` P10 → `completed` (2026-09-15). `phase-plan.json`: T10-01…T10-06 `completed` con `completedAt 2026-09-15`.
 
 ### Hallazgos
-- **Mojibake en consola PowerShell:** `Get-Content` de los `.md` de `PlanningFiles/` (UTF-8) muestra `�?"`/`��` por el code page de la consola — cosmético; los archivos están bien. Las ediciones de docs se hicieron con los strings exactos del Read tool.
+- **Mojibake en consola PowerShell:** `Get-Content` de los `.md` de `PlanningFiles/` (UTF-8) muestra `??"`/`??` por el code page de la consola — cosmético; los archivos están bien. Las ediciones de docs se hicieron con los strings exactos del Read tool.
 - **`tsc -b` no soportado en la raíz:** `error TS5023: Unknown compiler option '-b'` (config raíz no usa `composite`); el typecheck oficial es `npm run typecheck` (un `tsc --noEmit` por workspace). No reintentar `-b`.
 - **Perf:** `perf.test.ts` (200 entidades/1000 atributos) corre muy por debajo del presupuesto; el motor es O(n) en atributos con índices de mapa.
 
@@ -397,6 +397,36 @@ Follow-ups aceptados (INFO): `asEnum` eco del valor en mensaje 400 (sin XSS por 
 - **1 LOW resuelto en la misma fase:** el repo hacía `parseDiagramDocument(serializeDiagramDocument(envelope))` → un `data.model` no-objeto hostil explotaba `.map` en `serialize` → 500 + ruido de log. Reordenado a **parse-first** (`parseDiagramDocument(JSON.stringify(envelope))`) en `create`/`update`: ahora `model: 42` → 400 (unit nuevo) y, de paso, un `schemaVersion: 999` forjado ya no se normaliza en silencio (`DOCUMENT_VERSION_UNSUPPORTED` → 422, test del repo actualizado): se impide la version-confusión.
 
 ### Pendiente P13 → P14
-- P14 (Revisión final): revisión cruzada §26 completa, auditoría final de rendimiento/accesibilidad y cierre del proyecto sobre esta base (596 unit + 33 E2E verdes).
+- P14 (Revisión final): revisión cruzada §26 completa, auditoría final de rendimiento/accesibilidad y cierre del proyecto sobre esta base (597 unit + 33 E2E verdes).
+
+---
+
+## 2026-09-19 — Fase P14 (Revisión final, rama `phase/13-final-review`) — cierre
+
+Rama `phase/13-final-review`. 12 commits pactados (registro de recursos → T14-01 verify-docs → T14-02 accesibilidad/seguridad → T14-03 cierre). Suite final: **230 shared + 315 client + 58 server = 603 unit** + **33 E2E verdes** (13 specs).
+
+### T14-01 — Revisión cruzada (§26)
+- Herramienta nueva `PlanningFiles/tools/verify-docs.mjs` (Node ESM, 0 deps): paridad `phase-plan.json`↔`Tasks.md`, referencias internas `.md`, codificación U+FFFD en PlanningFiles, endpoints `IPC.md`↔rutas del server, coherencia de fase activa (`README_Project.md`/`Progress.md`) y specs E2E citados. Resultado final: **0 FAIL**.
+- **Hallazgo real corregido — endpoint sin documentar:** `GET /api/v1/diagrams/:id/raw` (implementado en P12, E2E 21) no figuraba en `IPC.md` → añadido como **§2.9** (uso exclusivo: exportar copia bruta de un documento inválido).
+- **Hallazgo real corregido — README obsoleto:** `README_Project.md` declaraba "Fase actual: P1" y "la implementación NO ha comenzado" → actualizado a **P14 / implementación MVP completa**; "Siguiente paso" reescrito al cierre de P14.
+- **Mojibake documental eliminado:** 19 U+FFFD repartidos en `Audit.md` (3), `Progress.md` (4), `Tasks.md` (4) y `skills/clipboard-patterns/SKILL.md` (8, símbolo `§`) → **0 U+FFFD** en todo el repo (`*.md/json/ts/tsx/css/sql/yml`).
+- **WARN aceptados:** cross-refs relativas heredadas de ECC (`rules/react/*` → `../common/*` y `../typescript/patterns.md`; `skills/react-patterns|react-testing` → skills no incluidas) — cada rule es autocontenida y no afecta a la carga; `POST /api/v1/diagrams/:id/restore` documentado y reservado (fuera de MVP). Además, `npm run format:check` (Prettier) falla en **112 ficheros preexistentes** de todo el repo: Prettier no forma parte del gate (CI ejecuta lint/typecheck/test/coverage/e2e/audit) y normalizarlo tocaría código fuera del alcance de P14 → observación no bloqueante.
+- **Inconsistencia menor corregida:** el cierre de P13 citaba "596 unit" en un punto y "597 unit" en otro; unificado a 597.
+- **Estado inválido corregido:** P5 (y sus T5-01..08) usaban `"status": "done"`, fuera del conjunto permitido por `phase-plan.json` (`pending | in_progress | completed | blocked`) → normalizado a `completed`; `verify-docs.mjs` ahora valida el vocabulario de estados.
+
+### T14-02 — Auditoría final (rendimiento/accesibilidad)
+- **Accesibilidad:** `client/src/test/a11y.test.tsx` ampliado a los **3 estados exigidos por `Testing.md` §7** (ready/error/invalid): se añaden `error de carga` (500) y `documento inválido` (422 → panel de recuperación, `role="dialog"`), siguiendo el patrón de `EditorPage.test.tsx`. Total **6 tests axe, cero violations**.
+- **Rendimiento:** harness `client/e2e/perf.spec.ts` re-ejecutado en el gate final — render inicial dentro del presupuesto (mediana de 3) y pan/zoom ≥60 fps (mediana de gaps), verde en la suite completa.
+- **Follow-up INFO de P13 cerrado:** `asEnum` en `shared/src/serialize/decode.ts` ya no hace eco del valor crudo en el mensaje 400 (`valor '${text}' no permitido` → `valor no permitido`), coherente con la cabecera del módulo ("sin exponer el raw de entrada en el mensaje"). Verificado sin regresiones (28 tests de `serialize`).
+
+### T14-03 — Cierre documental
+`Progress.md` (§1 fase activa + §4l), `Tasks.md` (P14 cerrada), este `Audit.md`, `README_Project.md`, `New_files.md` (Fase P14), `phase-plan.json` (P14 y T14-01..03 `completed`, `completedAt 2026-09-19`) y `phase-resources.json` (P14 `completed`).
+
+### Verificación de cierre
+- `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **603 tests verdes** (230 shared + 315 client + 58 server) · `npm run build -w @erd-studio/client` OK (JS 363.80 kB / gzip 111.84 kB) · `npm audit` **0 vulns** · `npx playwright test` **33 E2E verdes** (13 specs, 54.0 s) · `node PlanningFiles/tools/verify-docs.mjs` **0 FAIL**.
+- Criterio `DefinitionOfDone.md` §2 cumplido: T14-01..03 `completed`; objetivos de fase demostrados; dependencia P13 cerrada; revisión cruzada sin contradicciones abiertas; `Progress.md`/`Audit.md`/`New_files.md`/`README_Project.md` actualizados; hito observable verificado (suite unit+E2E+coverage+build+docs verdes en `phase/13-final-review`).
+
+### Pendiente P14 → futuro
+- Evolución a *Database Modeling Studio* (`Plan.md`): `POST /api/v1/diagrams/:id/restore` (reservado en `IPC.md` §2.8), historial lógico undoable (deuda T10-03), `keyGenerator = ip` sin `trustProxy` (revisar al desplegar tras proxy) y HSTS/COOP al servir con TLS.
 
 ---
