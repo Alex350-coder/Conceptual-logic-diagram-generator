@@ -75,6 +75,7 @@ DocumentEnvelope = {
 | `MODEL_INVALID` | 422 | documento no valida el modelo |
 | `DOCUMENT_VERSION_UNSUPPORTED` | 422 | `schemaVersion` no soportada por el servidor |
 | `PAYLOAD_TOO_LARGE` | 413 | documento excede límite (10 MB) |
+| `RATE_LIMITED` | 429 | sobre-frecuencia de peticiones (rate limiting, `Security.md` §3.5) |
 | `INTERNAL` | 500 | error no clasificado (no expone detalles internos) |
 
 `message` es estable y en español corto; `details` es opcional y nunca contiene stack traces ni datos sensibles (`ErrorHandling.md`).
@@ -86,6 +87,7 @@ DocumentEnvelope = {
 ## 6. Configuración y entorno
 
 - `PORT` (por defecto `3001`), `DB_PATH`, `CORS_ORIGIN` (por defecto `http://localhost:5173` para dev) → `server/src/config.ts`.
+- `NODE_ENV=production`: sirve el build del cliente desde `CLIENT_DIST_PATH` (por defecto `../client/dist`) como mismo origen, emite CSP/cabeceras de seguridad, y activa el rate limiting (`RATE_LIMIT_MAX`, por defecto `100` por minuto e IP).
 - CORS restringido a orígenes permitidos; nada de `*` en producción (`Security.md`).
 - En dev, `vite` proxi `/api` al servidor (sin CORS en navegador); en prod, un único host sirve el built del cliente y la API (mismo origen) para reducir superficie.
 
