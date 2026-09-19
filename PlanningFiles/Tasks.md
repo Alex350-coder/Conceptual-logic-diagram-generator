@@ -152,15 +152,17 @@ Rama `phase/10-ui-ux`, commits `2a9d5` → `15ddf` + cierre (12 commits pactados
 | T12-03 | Harness de rendimiento + objetivos `Architecture.md` §11 | P11 |
 | T12-04 | Snapshot de tokens y regresiones visuales | T12-03 |
 
-## FASE P13 — Seguridad y endurecimiento
+## FASE P13 — Seguridad y endurecimiento *(cerrada 2026-09-18)*
 
-| ID | Tarea | Depende de |
-|---|---|---|
-| T13-01 | Tests de inputs hostiles (parse, clipboard, API) refinados (`Security.md` §5) | P12 |
-| T13-02 | CSP + cabeceras de seguridad en servido de producción | P12 |
-| T13-03 | Rate limiting básico + revisión de límites | T13-02 |
-| T13-04 | Auditoría de dependencias (npm audit) y pinning | P12 |
-| T13-05 | E2E de seguridad (XSS texto plano, CSP build) | T13-02, T13-04 |
+| ID | Tarea | Depende de | Estado |
+|---|---|---|---|
+| T13-01 | Tests de inputs hostiles (parse, clipboard, API) refinados (`Security.md` §5) | P12 | ✓ |
+| T13-02 | CSP + cabeceras de seguridad en servido de producción | P12 | ✓ |
+| T13-03 | Rate limiting básico + revisión de límites | T13-02 | ✓ |
+| T13-04 | Auditoría de dependencias (npm audit) y pinning | P12 | ✓ |
+| T13-05 | E2E de seguridad (XSS texto plano, CSP build) | T13-02, T13-04 | ✓ |
+
+Rama `phase/12-security`, 12 commits pactados. Suite final: **226 shared + 313 client + 58 server = 597 unit**; **33 E2E verdes** (13 specs, servidor dev + vite + build prod). Detalles en `Audit.md` (P13) y `New_files.md` (Fase P13).
 
 ## FASE P14 — Revisión final
 

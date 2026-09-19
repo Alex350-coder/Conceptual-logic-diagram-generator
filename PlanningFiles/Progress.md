@@ -1,6 +1,6 @@
 # Progress.md — Estado Real del Proyecto
 
-**Última actualización:** 2026-09-18 (cierre P12)
+**Última actualización:** 2026-09-18 (cierre P13)
 Este documento refleja el estado **real** (R-01): solo se marca lo que efectivamente se ha hecho y verificado.
 
 ---
@@ -19,7 +19,8 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 **P10 — Transformación Conceptual → Lógico**: `completed` (T10-01…T10-06, cerrada el 2026-09-15, rama `phase/09-transform`).
 **P11 — UI/UX completa**: `completed` (T11-01…T11-06, cerrada el 2026-09-16, rama `phase/10-ui-ux`).
 **P12 — Testing integral**: `completed` (T12-01…T12-04, cerrada el 2026-09-18, rama `phase/11-testing`, 12/12 commits).
-**Siguiente fase:** P13 — Seguridad y endurecimiento.
+**P13 — Seguridad y endurecimiento**: `completed` (T13-01…T13-05, cerrada el 2026-09-18, rama `phase/12-security`, 12/12 commits).
+**Siguiente fase:** P14 — Revisión final.
 
 ## 2. Documentos de planificación
 
