@@ -54,6 +54,12 @@ Duplicar (nombre auto-sufijado por el servidor: `"<nombre> (copia)"`, colisión 
 ### 2.8 `POST /api/v1/diagrams/:id/restore` *(fuera de MVP, reservado en esquema)*
 Restaurar un diagrama soft-deleted. No se implementa en fases iniciales; el endpoint queda **documentado y reservado** para evitar redesign. Cuando se implemente: `200` → `DiagramSummary`.
 
+### 2.9 `GET /api/v1/diagrams/:id/raw`
+Documento JSON **crudo persistido**, sin parsear ni validar (P12; panel de recuperación de documento inválido, E2E 21).
+- `200` → `{ "data": <DocumentEnvelope crudo tal como está en la BD> }` (puede ser inválido).
+- `404` si no existe o está soft-deleted.
+- Uso exclusivo: exportar una copia de un documento corrupto antes de descartarlo. El cliente no lo usa para editar (`StateManagement.md` §6).
+
 ## 3. DiagramFull y DocumentEnvelope
 
 ```text
