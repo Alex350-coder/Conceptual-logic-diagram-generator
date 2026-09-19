@@ -1,6 +1,6 @@
 # Progress.md — Estado Real del Proyecto
 
-**Última actualización:** 2026-09-18 (cierre P13)
+**Última actualización:** 2026-09-19 (cierre P14)
 Este documento refleja el estado **real** (R-01): solo se marca lo que efectivamente se ha hecho y verificado.
 
 ---
@@ -20,7 +20,7 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 **P11 — UI/UX completa**: `completed` (T11-01…T11-06, cerrada el 2026-09-16, rama `phase/10-ui-ux`).
 **P12 — Testing integral**: `completed` (T12-01…T12-04, cerrada el 2026-09-18, rama `phase/11-testing`, 12/12 commits).
 **P13 — Seguridad y endurecimiento**: `completed` (T13-01…T13-05, cerrada el 2026-09-18, rama `phase/12-security`, 12/12 commits).
-**Siguiente fase:** P14 — Revisión final.
+**P14 — Revisión final**: `completed` (T14-01…T14-03, cerrada el 2026-09-19, rama `phase/13-final-review`, 12/12 commits). Proyecto MVP cerrado.
 
 ## 2. Documentos de planificación
 
@@ -235,7 +235,7 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 ## Ajustes documentales de P10 (transformación conceptual → lógico)
 
 - **10 commits de fase** en `phase/09-transform` (granularidad por tarea, pactada con el usuario): `ed9ea` (T10-01 IDs deterministas + naming snake_case), `73a19` (T10-01 engine T1–T10), `67d33` (T10-02 goldens persona + determinismo), `e9646` (T10-02 perf 200 entidades), `aeb1d` (T10-03 readLogical), `66990` (T10-03 setColumnType logical), `ab3c7` (T10-04 recompute + barrel exports), `d6524` (T10-04 sessionStore plano lógico), `29b11` (T10-03/T10-05 LogicalPanel + EditorPage + banner), `27517` (T10-06 E2E 14-16 y 23). Nada de código de proyecto fuera de `Project/`.
-- **Mojibake en consola de PowerShell:** `Get-Content` sobre `PlanningFiles/*.md` (UTF-8) muestra `�?"/��`/`�o.` por el código de página de la consola — estético; los archivos están bien y el editor (Read/Edit) los lee correctamente. Cualquier edición de documentos debe hacerse con strings exactos del Read tool, nunca de la salida de consola.
+- **Mojibake en consola de PowerShell:** `Get-Content` sobre `PlanningFiles/*.md` (UTF-8) muestra `??"/??`/`?o.` por el código de página de la consola — estético; los archivos están bien y el editor (Read/Edit) los lee correctamente. Cualquier edición de documentos debe hacerse con strings exactos del Read tool, nunca de la salida de consola.
 - **Cobertura transform aceptada (80.6 % branch en `engine.ts`):** el gap son guards inalcanzables por diseño — `attributesByOwner.get(rel.id)` solo devuelve atributos raíz (el `attribute.parentId !== null` del bucle de relación nunca dispara), throws de builder indefinido y `hasStructuralViolations` (pre-check protector que no se activa con doc válido). Umbrales de `Testing.md` §2 no configurados; T1–T10 funcionales completamente ejercitados. `recompute.ts` cumple 96.96/94.44. Sin umbral hardcoded para no romper CI.
 - **Branded IDs en goldens:** `golden.test.ts` y `fixtures/persona.ts` usan los helpers del propio dominio (`toTableId`/`toColumnId`/`toNodeId`) en el DSL `col`/`fk`/`table` — la primera versión con strings planos pasaba vitest (sin typecheck) pero rompía el `npm run typecheck` de shared (marcas nominales exigidas por `strict`); corregido, TSC_EXIT=0. La DSL `fk` renombra su parámetro `toTableId` → `targetTableId` para no sombrear el helper importado.
 - **sendCommands permanece puro (decisión):** no se auto-llama `recomputeLogical` tras aplicar comandos — el banner D-TR-12 (acciones "Recalcular"/"Conservar actual") es el único camino a recompute, evitando mutaciones sorpresa del plano lógico y manteniendo la UI determinista y testeable.
@@ -263,3 +263,10 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 - **T12-04 — Snapshot de tokens + regresión visual:** `client/src/test/tokens-snapshot.test.ts` (baseline `tokens.snapshot.json` de `tokens.css`/`themes.css`, 2 tests) y `client/e2e/visual.spec.ts` con `toHaveScreenshot` sobre dashboard/editor dark+light (`MAX_DIFF_PIXELS` por env: local 0, CI `VISUAL_MAX_DIFF_PIXELS=250`). Determinismo del dashboard vía `page.route('**/api/v1/diagrams', { data: [] })`; tema vía localStorage + espera `html[data-theme]`. Baselines en `client/e2e/visual/__screenshots__/` (snapshotPathTemplate).
 - **CI endurecido:** job `e2e` con `RENDER_BUDGET_MS=800` y `VISUAL_MAX_DIFF_PIXELS=250` (estricto, `shell: bash`, guard `[ -f client/playwright.config.ts ]`); documentado en `PlanningFiles/rules/ci/workflows.md`.
 - **Resultado verificado:** `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **574 tests verdes** (shared 225 / 18 suites + client 310 / 30 suites + server 39 / 4 suites) · `npx playwright test` **24 E2E verdes** (11 specs, 45.0 s). 12 commits en `phase/11-testing` (cierre documental y close-out inclusos).
+
+## 4l. Tareas completadas de P14 (revisión final, rama `phase/13-final-review`)
+
+- **T14-01 — Revisión cruzada (§26):** creada la herramienta `PlanningFiles/tools/verify-docs.mjs` (Node ESM, 0 deps) que comprueba paridad `phase-plan.json`↔`Tasks.md`, referencias internas `.md`, codificación U+FFFD, endpoints `IPC.md`↔rutas, coherencia de fase activa y specs E2E citados. Resultado **0 FAIL**. Hallazgos reales corregidos: `GET /api/v1/diagrams/:id/raw` documentado en `IPC.md` §2.9; `README_Project.md` dejó de declarar "Fase actual: P1"; 19 U+FFFD eliminados (`Audit.md`, `Progress.md`, `Tasks.md`, `skills/clipboard-patterns/SKILL.md`). WARN aceptados: cross-refs ECC heredadas y `restore` reservado.
+- **T14-02 — Auditoría final:** `client/src/test/a11y.test.tsx` cubre los 3 estados de `Testing.md` §7 (ready/error/invalid) con axe y cero violations; harness `client/e2e/perf.spec.ts` verde en el gate (render dentro de presupuesto, pan/zoom ≥60 fps). Cerrado el follow-up INFO de P13: `asEnum` (`shared/src/serialize/decode.ts`) ya no hace eco del valor crudo en el mensaje 400.
+- **T14-03 — Cierre documental:** `Progress.md`/`Tasks.md`/`Audit.md`/`README_Project.md`/`New_files.md`/`phase-plan.json`/`phase-resources.json` al estado final (`completedAt 2026-09-19`).
+- **Resultado verificado:** `npm run typecheck` limpio · `npm run lint` 0 errores · `npm run test` **603 tests verdes** (230 shared + 315 client + 58 server) · `npm run build -w @erd-studio/client` OK · `npm audit` **0 vulns** · `npx playwright test` **33 E2E verdes** (13 specs) · `node PlanningFiles/tools/verify-docs.mjs` **0 FAIL**. Criterio `DefinitionOfDone.md` §2 cumplido.
