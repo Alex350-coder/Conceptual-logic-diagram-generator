@@ -2,8 +2,8 @@
   "planVersion": 2,
   "product": "erd-studio",
   "docType": "phase-resources",
-  "updatedAt": "2026-09-18",
-  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits); fase P11 cerrada (UI/UX completa); fase P12 cerrada (Testing integral, 12 commits); fase P13 en curso (Seguridad y endurecimiento, rama phase/12-security).",
+  "updatedAt": "2026-09-19",
+  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits); fase P11 cerrada (UI/UX completa); fase P12 cerrada (Testing integral, 12 commits); fase P13 cerrada (Seguridad y endurecimiento); fase P14 en curso (Revision final, rama phase/13-final-review).",
 
   "phases": {
     "P2": {
@@ -441,7 +441,8 @@
     "P13": {
       "label": "Fase 12 de ejecucion — Seguridad y endurecimiento",
       "branch": "phase/12-security",
-      "status": "in_progress",
+      "status": "completed",
+      "completedAt": "2026-09-18",
       "purpose": "Tests de inputs hostiles refinados (shared+server+client), CSP y cabeceras de seguridad en el servido de produccion (mismo origen, IPC.md §6), rate limiting basico con envelope RATE_LIMITED (429), auditoria de dependencias y pinning (npm audit a 0, react-router 7 / vite 6.4 / vitest 4.1.11) y E2E de seguridad (XSS texto plano + CSP build).",
       "resources": {
         "skills": [
@@ -473,6 +474,50 @@
           { "name": "typescript/coding-style", "target": "PlanningFiles/rules/typescript/coding-style.md", "reuse_from": "P2" }
         ]
       }
+    },
+
+    "P14": {
+      "label": "Fase 13 de ejecucion — Revision final",
+      "branch": "phase/13-final-review",
+      "status": "completed",
+      "completedAt": "2026-09-19",
+      "purpose": "Clausura del proyecto: revision cruzada completa (Architecture.md §26: paridad phase-plan/Tasks, links internos, docs↔codigo, estado de fase), auditoria final de rendimiento (render/pan-zoom/serializacion) y accesibilidad (axe en dashboard + editor ready/error/invalid), cierre de follow-ups INFO de P13 (eco de valor en 400) y cierre documental (README/Progress/Tasks/Audit/New_files/phase-plan). Deja erd-studio listo para evolucionar a Database Modeling Studio.",
+      "resources": {
+        "skills": [
+          { "name": "final-review", "target": "PlanningFiles/skills/final-review/SKILL.md", "source": "proyecto (skill propria de la fase)" },
+          { "name": "production-audit", "target": "PlanningFiles/skills/production-audit/SKILL.md", "source": "ecc-library/skills/ecc/production-audit/SKILL.md (adaptada)" },
+          { "name": "verification-loop", "target": "PlanningFiles/skills/verification-loop/SKILL.md", "source": "ecc-library/skills/ecc/verification-loop/SKILL.md (adaptada)" },
+          { "name": "security-review", "target": "PlanningFiles/skills/security-review/SKILL.md", "reuse_from": "P13" },
+          { "name": "testing-integral", "target": "PlanningFiles/skills/testing-integral/SKILL.md", "reuse_from": "P12" },
+          { "name": "e2e-testing", "target": "PlanningFiles/skills/e2e-testing/SKILL.md", "reuse_from": "P6" },
+          { "name": "coding-standards", "target": "PlanningFiles/skills/coding-standards/SKILL.md", "reuse_from": "P2" }
+        ],
+        "agents": [
+          { "name": "architect", "target": "PlanningFiles/agents/architect.md", "source": "ecc-library/agents/architect.md (adaptado)" },
+          { "name": "a11y-architect", "target": "PlanningFiles/agents/a11y-architect.md", "source": "ecc-library/agents/a11y-architect.md (adaptado)" },
+          { "name": "doc-updater", "target": "PlanningFiles/agents/doc-updater.md", "source": "ecc-library/agents/doc-updater.md (adaptado)" },
+          { "name": "security-reviewer", "target": "PlanningFiles/agents/security-reviewer.md", "reuse_from": "P13" },
+          { "name": "performance-optimizer", "target": "PlanningFiles/agents/performance-optimizer.md", "reuse_from": "P5" },
+          { "name": "react-reviewer", "target": "PlanningFiles/agents/react-reviewer.md", "reuse_from": "P6" },
+          { "name": "database-reviewer", "target": "PlanningFiles/agents/database-reviewer.md", "reuse_from": "P4" }
+        ],
+        "commands": [
+          { "name": "final-review-verify", "target": "PlanningFiles/commands/final-review-verify.md", "source": "proyecto (adaptado de ECC verification-loop + production-audit)" },
+          { "name": "security-verify", "target": "PlanningFiles/commands/security-verify.md", "reuse_from": "P13" },
+          { "name": "test-integral-verify", "target": "PlanningFiles/commands/test-integral-verify.md", "reuse_from": "P12" },
+          { "name": "build-fix", "target": "PlanningFiles/commands/build-fix.md", "reuse_from": "P2" },
+          { "name": "checkpoint", "target": "PlanningFiles/commands/checkpoint.md", "reuse_from": "P2" }
+        ],
+        "rules": [
+          { "name": "project/final-review", "target": "PlanningFiles/rules/project/final-review.md", "source": "proyecto (derivada de Architecture.md §26, DefinitionOfDone.md §2 y DevelopmentWorkflow.md)" },
+          { "name": "security/hardening", "target": "PlanningFiles/rules/security/hardening.md", "reuse_from": "P13" },
+          { "name": "ui/design-system", "target": "PlanningFiles/rules/ui/design-system.md", "reuse_from": "P11" },
+          { "name": "typescript/testing", "target": "PlanningFiles/rules/typescript/testing.md", "reuse_from": "P2" },
+          { "name": "react/testing", "target": "PlanningFiles/rules/react/testing.md", "reuse_from": "P6" },
+          { "name": "ci/workflows", "target": "PlanningFiles/rules/ci/workflows.md", "reuse_from": "P3" },
+          { "name": "typescript/coding-style", "target": "PlanningFiles/rules/typescript/coding-style.md", "reuse_from": "P2" }
+        ]
+      }
     }
   },
 
@@ -484,7 +529,8 @@
       "PlanningFiles/rules/typescript",
       "PlanningFiles/rules/ci",
       "PlanningFiles/rules/ui",
-      "PlanningFiles/rules/security"
+      "PlanningFiles/rules/security",
+      "PlanningFiles/rules/project"
     ],
     "instructions": [
       "PlanningFiles/rules/typescript/coding-style.md",
@@ -502,7 +548,9 @@
       "PlanningFiles/rules/react/security.md",
       "PlanningFiles/rules/react/testing.md",
       "PlanningFiles/rules/ci/workflows.md",
-      "PlanningFiles/rules/ui/design-system.md"
+      "PlanningFiles/rules/ui/design-system.md",
+      "PlanningFiles/rules/security/hardening.md",
+      "PlanningFiles/rules/project/final-review.md"
     ],
     "config_file": "opencode.json"
   }
