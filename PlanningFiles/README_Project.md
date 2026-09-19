@@ -21,8 +21,8 @@ Referencia funcional: **ERDPlus** (estudio de funcionalidad del editor conceptua
 
 ## Estado del proyecto
 
-- **Fase actual:** P1 — Planificación y documentación (ver `Progress.md`).
-- La implementación NO ha comenzado (por diseño: la documentación es la fuente de verdad, `Rules.md` R-01).
+- **Fase actual:** P14 — Revisión final (ver `Progress.md`).
+- La implementación del MVP está completa (P1–P13 cerradas, 12/12 commits cada una); P14 ejecuta la revisión cruzada, la auditoría final (rendimiento/accesibilidad) y el cierre documental.
 
 ## Guía rápida de la documentación (por dónde empezar)
 
@@ -44,4 +44,4 @@ Monorepo npm workspaces · Dominio `shared` en TypeScript puro · Cliente React 
 
 ## Siguiente paso
 
-Cerrar P1 (revisión cruzada, T1-11), inicializar el monorepo (P3, incl. git) y comenzar P2 (dominio).
+Cerrar P14 (revisión final): reparar los hallazgos de la revisión cruzada (§26 de `Architecture.md`), completar la auditoría de rendimiento y accesibilidad, y actualizar este README, `Progress.md`, `Tasks.md` y `Audit.md` al estado final del MVP.
