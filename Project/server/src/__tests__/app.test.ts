@@ -9,6 +9,8 @@ const config: ServerConfig = {
   corsOrigin: ['http://localhost:5173'],
   nodeEnv: 'development',
   bodyLimitBytes: 10 * 1024 * 1024,
+  clientDistPath: './client/dist',
+  rateLimitMax: 100,
 }
 
 describe('app skeleton (T4-01)', () => {
