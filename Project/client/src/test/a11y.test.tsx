@@ -115,6 +115,29 @@ describe('a11y (axe): sin violaciones', () => {
     expect(await axe.run(container)).toHaveNoViolations()
   })
 
+  it('EditorPage en estado de error de carga', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { code: 'INTERNAL', message: 'boom' } }), {
+        status: 500,
+      }),
+    )
+    const { container } = renderEditor()
+    await screen.findByText(/No se pudo cargar el diagrama/)
+    expect(await axe.run(container)).toHaveNoViolations()
+  })
+
+  it('EditorPage con documento inválido (panel de recuperación)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: { code: 'MODEL_INVALID', message: 'Documento inválido' } }),
+        { status: 422 },
+      ),
+    )
+    const { container } = renderEditor()
+    expect(await screen.findByRole('dialog')).toBeDefined()
+    expect(await axe.run(container)).toHaveNoViolations()
+  })
+
   it('ShortcutPalette abierta', async () => {
     const { container } = render(
       <ShortcutPalette open onClose={() => undefined} ctx={ctx} />,
