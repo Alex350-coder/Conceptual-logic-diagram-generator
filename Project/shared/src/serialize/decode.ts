@@ -91,7 +91,7 @@ function asNullableString(value: unknown, where: string): string | null {
 function asEnum<T extends readonly string[]>(value: unknown, values: T, where: string): T[number] {
   const text = asString(value, where)
   if (!(values as readonly string[]).includes(text)) {
-    fail(`Forma inválida en ${where}: valor '${text}' no permitido.`)
+    fail(`Forma inválida en ${where}: valor no permitido.`)
   }
   return text as T[number]
 }
