@@ -79,9 +79,12 @@ coverage:
 ```
 
 Los thresholds viven en cada `vitest.config.ts`: `shared` (domain/validate/transform:
-stmts 90 / branch 85), `client` (stmts 80 / branch 85 / funcs 70 / lines 80),
+stmts 90 / branch 85), `client` (stmts 80 / branch 75 / funcs 70 / lines 80),
 `server` (stmts 80 / branch 75 / funcs 80 / lines 80). El job falla si cualquier
-workspace no los cumple (`Testing.md` §2).
+workspace no los cumple (`Testing.md` §2). El branch `client` se recalibró de 85 a 75
+en T13-04 al migrar vitest 2.1.9 → 4.1.11 (parches de seguridad de @vitest/mocker/esbuild):
+v8 cuenta más puntos de rama (optional chaining, `??`, JSX) y la rama medida pasó de
+88.96 % a 75.96 % con el mismo código (ver `Audit.md` P13).
 
 ### Job: e2e (cuando exista client)
 

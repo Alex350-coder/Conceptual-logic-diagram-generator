@@ -275,24 +275,25 @@
       ]
     },
     {
-      "id": "P13",
+"id": "P13",
       "name": "Seguridad y endurecimiento",
-      "status": "pending",
-      "summary": "Refinado de validación hostil, CSP/cabeceras, rate limiting, auditoría de dependencias.",
+      "status": "completed",
+      "summary": "Refinado de validaci�n hostil, CSP/cabeceras, rate limiting, auditor�a de dependencias.",
+      "completedAt": "2026-09-18",
       "objectives": [
         "Tests de inputs hostiles (parse, clipboard, API) verdes",
         "CSP y cabeceras activas en servido prod",
-        "Rate limiting básico",
+        "Rate limiting b�sico",
         "npm audit sin vulnerabilidades relevantes"
       ],
       "dependencies": ["P12"],
-      "definitionOfDoneRef": "Security.md §3-5",
+      "definitionOfDoneRef": "Security.md �3-5",
       "tasks": [
-        { "id": "T13-01", "title": "Tests inputs hostiles refinados", "status": "pending" },
-        { "id": "T13-02", "title": "CSP + cabeceras de seguridad en prod", "status": "pending" },
-        { "id": "T13-03", "title": "Rate limiting + revisión de límites", "status": "pending" },
-        { "id": "T13-04", "title": "Auditoría de dependencias + pinning", "status": "pending" },
-        { "id": "T13-05", "title": "E2E de seguridad (XSS, CSP build)", "status": "pending" }
+        { "id": "T13-01", "title": "Tests inputs hostiles refinados", "status": "completed" },
+        { "id": "T13-02", "title": "CSP + cabeceras de seguridad en prod", "status": "completed" },
+        { "id": "T13-03", "title": "Rate limiting + revisi�n de l�mites", "status": "completed" },
+        { "id": "T13-04", "title": "Auditor�a de dependencias + pinning", "status": "completed" },
+        { "id": "T13-05", "title": "E2E de seguridad (XSS, CSP build)", "status": "completed" }
       ]
     },
     {

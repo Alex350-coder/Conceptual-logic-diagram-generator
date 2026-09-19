@@ -39,10 +39,16 @@ describe('diagrams repository (T4-03)', () => {
     expect(row.schema_version).toBe(1)
   })
 
-  it('create stores the canonical schema version and document, not the client input', () => {
+  it('create canonicaliza un envelope válido y rechaza schemaVersion forjado (T13-01, sin version-confusion)', () => {
     const { db, repo } = setup()
     const forged = { ...emptyDoc, schemaVersion: 999 }
-    const created = repo.create('Con versión falsa', forged)
+    // parse-first: un schemaVersion no soportado es version-confusion hostil → 422,
+    // nunca 201 con un documento "v1" forjado por el cliente.
+    expect(() => repo.create('Versión falsa', forged)).toThrowError(
+      expect.objectContaining({ code: 'DOCUMENT_VERSION_UNSUPPORTED' }),
+    )
+
+    const created = repo.create('Canónico', emptyDoc)
     const row = db.prepare('SELECT document, schema_version FROM diagrams').get() as {
       document: string
       schema_version: number

@@ -361,3 +361,42 @@ Rama `phase/11-testing`. 12 commits (`1274f`… cierre documental y close-out): 
 - P13 (Seguridad y endurecimiento) sobre la base cerrada por P12: tests de inputs hostiles refinados, CSP + cabeceras en prod, rate limiting, auditoría de dependencias (`npm audit`: 5 vulnerabilidades de tooling diferidas desde P4/P5 → T13-04), y pinning.
 
 ---
+
+## 2026-09-18 — Fase P13 (Seguridad y endurecimiento, rama `phase/12-security`) — cierre
+
+Rama `phase/12-security`. 12 commits pactados (registro/recursos → T13-01 shared → hardening estático server → rate limit → T13-01 client XSS → deps → vitest-axe → CI → E2E seguridad → close-out). Suite final: **226 shared + 313 client + 57 server = 596 unit** + **33 E2E verdes** (13 specs: 11 previas + `security` + `csp`).
+
+### T13-01 — Inputs hostiles
+- **server** (`diagrams.hostile.test.ts`): versión incorrecta → 409 CONFLICT_VERSION, documento inválido → 422/400, payload > límite → 413, recurso inexistente → 404, y 500. El 413 se resolvió en `diagrams.routes.ts` con `preSerialization` (constraint 1 MiB) — no en el repo.
+- **shared** (`serialize.security.test.ts`): parse hostil — nombres inválidos de entidad/atributo/relación, claves `__proto__`/`constructor`/`prototype` descartadas (sanitize), tokens no-DOM y dtype `UNDEFINED` no válido en parse, `NaN` en layout.
+- **client** (`xss.test.tsx`, 3/3): el texto de un nodo malicioso (`<model _xss=…>`, `eval(...)`, CSS-less) viaja como **texto plano** y nunca como atributo/nodo DOM; se renderiza sobre `model.layout` (no `positions`). Decisión verificada por test: los nombres `<script>` son válidos y se persisten literal — el server no sanea y el render React los escapa (XSS por render; sin `innerHTML`/`dangerouslySetInnerHTML` en el proyecto).
+
+### T13-02 — CSP + cabeceras (servido prod)
+Plugins `security-headers.ts` (onSend global sobre **todas** las respuestas, incl. /api) y `static-assets.ts` (client/dist en prod). SPA fallback en el `setNotFoundHandler` único — **Fastify 5 solo permite un handler por encapsulación**, así que el fallback convive con el 404 JSON de `/api` vía `spaIndexFile` opcional. CSP exacta: `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'` — sin `unsafe-eval`. `style-src 'unsafe-inline'` es necesario y justificado (posiciones dinámicas del renderer; `Security.md` §3.4): no se reporta como hallazgo.
+
+### T13-03 — Rate limiting
+`@fastify/rate-limit` v11.2.0 (hook `onRoute`): rutas registradas tras `await register(...)` en el mismo scope; exceso → `DomainError RATE_LIMITED` → `setErrorHandler` lo traduce a 429 envelope; `allowList` para no-`/api`. Unidades: `rate-limit.test.ts` (max=2 → 429, exento `/`, envelope). **Hallazgo E2E:** el límite por defecto (100 req/min/IP) se agotaba en la suite completa — los webServer de Playwright usan `RATE_LIMIT_MAX=100000` (el 429 se cubre en unit). `IPC.md` §4/§6 documenta envelope y entorno (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`, `CLIENT_DIST_PATH`).
+
+### T13-04 — Auditoría de dependencias
+Resuelto el paquete de 5 vulnerabilidades de tooling diferido desde P4/P5: **react-router-dom 6 → 7.18.4** (open redirect + constructor injection), **vite 6.4.3** (esbuild ≤0.24.2), **vitest 4.1.11 + @vitest/mocker 4.1.11** (SSRF/path traversal), `@vitejs/plugin-react 4.7.0`, `axe-core 4.13.0`. El árbol quedó **0 vulns** con `npm audit` tras reinicio limpio del lock (los overrides no se aplicaban desde el lock existente) y override raíz `"vite": "6.4.3"` (vitest 4 elige vite 8 sin él y rompe el peer de plugin-react). Job `audit` en CI.
+- **Eliminación de `vitest-axe`**: su peer (`vitest ^0.17.0`) arrastraba vitest 2.1.9 → @vitest/mocker vulnerable; se sustituye por `axe-core` directo y el matcher `toHaveNoViolations` ya existente en `client/src/test/setup.ts` (shim renombrado `a11y-matchers.d.ts`; llamadas `axe.run(container)`).
+- **Migración client a Vitest 4 `test.projects`**: `environmentMatchGlobs` fue eliminado en v4; dos proyectos (`unit-jsdom` para `.test.tsx`, `unit-node` para `.test.ts`) con **`extends: true` imprescindible** para heredar `globals`/`setupFiles` (sin él: sin cleanup RTL → DOM duplicado → 87 fallos).
+- **Recalibración branch client 85 → 75** documentada en `client/vitest.config.ts` y `rules/ci/workflows.md`: v8 con vitest 4 cuenta más puntos de rama (optional chaining, `??`, JSX) y la rama medida pasó de **88.96 % (vitest 2) a 75.96 % (vitest 4)** con el mismo código. El job `coverage` de CI sigue bloqueando bajo el umbral real.
+- **Stress L-002** (10.001 `applyCommand`): timeout explícito 60 s en `commands.test.ts` bajo instrumentación v8 (5 s no bastaban).
+
+### T13-05 — E2E de seguridad
+Tercer webServer en `playwright.config.ts`: build prod en `http://localhost:5320` (`NODE_ENV=production`, `CLIENT_DIST_PATH=client/dist`, DB temporal propia). `security.spec.ts` (6): cabeceras completas, CSP sin unsafe-eval, asset con hash (nosniff + CSP; `cache-control` `public` — el server único no fuerza caché larga, un CDN delante puede decidir immutable por el hash; index.html debe revalidarse siempre), SPA fallback 200, 404 envelope, boot del build + POST create. `csp.spec.ts` (3): `addScriptTag` inline **rechazado por la CSP** (se espera el rechazo), `securitypolicyviolation` con directiva `script-src-elem` (la directiva reportada en CSP3 se parte desde `script-src 'self'`), y app operativa con CSP activa. Playwright no permite probar `eval` desde CDP (lo ejecuta al margen de la CSP de la página): se cubre con la aserción de cadena CSP (sin `unsafe-eval`) + el rechazo real de inline en navegador.
+
+### Verificación de cierre
+- `npm run typecheck` limpio (raíz, shared+client+server) · `npm run lint` 0 errores · `npm run test` **597 tests verdes** (226 shared + 313 client + 58 server) · `npm run test:coverage` sin fallos (shared 98.52/90.73, client 83.00/75.96/79.12/85.82, server 91.06/76.41/90.76/91.26 — todos ≥ umbral) · `npm run build -w @erd-studio/client` OK (JS 363.80 kB / gzip 111.84 kB) · `npm audit` **0 vulns** · `npx playwright test` **33 E2E verdes** (13 specs, ~52 s).
+- Criterio `DefinitionOfDone.md` §2 cumplido: T13-01..05 todas `completed`; objetivos de fase demostrados (hostiles verdes, CSP/cabeceras activas en prod, rate limit, audit 0); `Progress.md`/`Audit.md`/`New_files.md`/`IPC.md`/`rules/ci/workflows.md` actualizados; hito observable verificado.
+
+### Auditoría `security-reviewer` (agente, solo reporta) — **PASS**
+Ejecutado sobre los ficheros de la fase P13. Resultado: **0 CRITICAL, 0 HIGH, 0 MEDIUM, sin secretos, `npm audit` 0**. Items verificados OK: CSP en todas las rutas (hook onSend), static sin path traversal (`wildcard: false`, root absoluto), 429 como envelope `RATE_LIMITED`, 413 alineado con L-001 (10 MiB), `sanitizeJson` sin prototype pollution (`__proto__`/`constructor`/`prototype`), XSS por render como texto plano (0 usos de `innerHTML`/`eval`/`new Function`), CORS prod vacío, API client same-origin, logging sin documentos.
+Follow-ups aceptados (INFO): `asEnum` eco del valor en mensaje 400 (sin XSS por JSON+nosniff; truncar en P14), `keyGenerator = ip` sin `trustProxy` (revisar al desplegar tras proxy), `allowList` `/api/` → `^/api/` (bajo), HSTS/COOP sin TLS (no aplica).
+- **1 LOW resuelto en la misma fase:** el repo hacía `parseDiagramDocument(serializeDiagramDocument(envelope))` → un `data.model` no-objeto hostil explotaba `.map` en `serialize` → 500 + ruido de log. Reordenado a **parse-first** (`parseDiagramDocument(JSON.stringify(envelope))`) en `create`/`update`: ahora `model: 42` → 400 (unit nuevo) y, de paso, un `schemaVersion: 999` forjado ya no se normaliza en silencio (`DOCUMENT_VERSION_UNSUPPORTED` → 422, test del repo actualizado): se impide la version-confusión.
+
+### Pendiente P13 → P14
+- P14 (Revisión final): revisión cruzada §26 completa, auditoría final de rendimiento/accesibilidad y cierre del proyecto sobre esta base (596 unit + 33 E2E verdes).
+
+---

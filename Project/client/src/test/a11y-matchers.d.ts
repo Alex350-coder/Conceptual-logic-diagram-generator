@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type, @typescript-eslint/no-unused-vars */
-// Shim de tipos: vitest-axe publica `extend-expect` vacio y reexporta el matcher
-// como tipo, asi que el matcher se registra a mano en `test/setup.ts` y aqui se
-// declara la firma que Vitest debe reconocer en `expect(...)`.
+// El matcher `toHaveNoViolations` se registra a mano en `test/setup.ts` y opera
+// sobre el resultado de `axe-core` (`axe(container) -> { violations, ... }`). Aqui
+// se declara la firma que Vitest debe reconocer en `expect(...)`.
 declare module 'vitest' {
   interface A11yMatchers {
     toHaveNoViolations(): {

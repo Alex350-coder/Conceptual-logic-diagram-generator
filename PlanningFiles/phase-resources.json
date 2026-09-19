@@ -3,7 +3,7 @@
   "product": "erd-studio",
   "docType": "phase-resources",
   "updatedAt": "2026-09-18",
-  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits); fase P11 cerrada (UI/UX completa); fase P12 cerrada (Testing integral, 12 commits).",
+  "notes": "Recursos ECC seleccionados y cargados por fase. Fase P2 fue la primera de ejecucion; fase P3 agrega recursos de monorepo/CI; fase P4 agrega recursos de persistencia/server; fase P5 cerrada (editor engine client); fase P6 cerrada (elementos conceptuales basicos); fase P7 cerrada (relaciones, cardinalidades, restricciones, especializacion ISA); fase P8 cerrada (gestion multi-diagrama + persistencia del cliente); fase P9 cerrada (clipboard de dominio); fase P10 cerrada (transformacion conceptual a logico, 10 commits); fase P11 cerrada (UI/UX completa); fase P12 cerrada (Testing integral, 12 commits); fase P13 en curso (Seguridad y endurecimiento, rama phase/12-security).",
 
   "phases": {
     "P2": {
@@ -436,6 +436,43 @@
           { "name": "typescript/security", "target": "PlanningFiles/rules/typescript/security.md", "reuse_from": "P2" }
         ]
       }
+    },
+
+    "P13": {
+      "label": "Fase 12 de ejecucion — Seguridad y endurecimiento",
+      "branch": "phase/12-security",
+      "status": "in_progress",
+      "purpose": "Tests de inputs hostiles refinados (shared+server+client), CSP y cabeceras de seguridad en el servido de produccion (mismo origen, IPC.md §6), rate limiting basico con envelope RATE_LIMITED (429), auditoria de dependencias y pinning (npm audit a 0, react-router 7 / vite 6.4 / vitest 4.1.11) y E2E de seguridad (XSS texto plano + CSP build).",
+      "resources": {
+        "skills": [
+          { "name": "security-hardening", "target": "PlanningFiles/skills/security-hardening/SKILL.md", "source": "proyecto (skill propria de la fase)" },
+          { "name": "security-review", "target": "PlanningFiles/skills/security-review/SKILL.md", "source": "ecc-library/skills/ecc/security-review/SKILL.md" },
+          { "name": "error-handling", "target": "PlanningFiles/skills/error-handling/SKILL.md", "reuse_from": "P2" },
+          { "name": "server-persistence", "target": "PlanningFiles/skills/server-persistence/SKILL.md", "reuse_from": "P4" },
+          { "name": "e2e-testing", "target": "PlanningFiles/skills/e2e-testing/SKILL.md", "reuse_from": "P6" },
+          { "name": "tdd-workflow", "target": "PlanningFiles/skills/tdd-workflow/SKILL.md", "reuse_from": "P2" },
+          { "name": "coding-standards", "target": "PlanningFiles/skills/coding-standards/SKILL.md", "reuse_from": "P2" }
+        ],
+        "agents": [
+          { "name": "security-reviewer", "target": "PlanningFiles/agents/security-reviewer.md", "source": "~/.claude/agents/security-reviewer.md (plus .opencode/agent/security-reviewer.md runtime)" },
+          { "name": "typescript-reviewer", "target": "PlanningFiles/agents/typescript-reviewer.md", "reuse_from": "P2" }
+        ],
+        "commands": [
+          { "name": "security-verify", "target": "PlanningFiles/commands/security-verify.md", "source": "proyecto (adaptado de ECC verification-loop + security-review)" },
+          { "name": "build-fix", "target": "PlanningFiles/commands/build-fix.md", "reuse_from": "P2" },
+          { "name": "checkpoint", "target": "PlanningFiles/commands/checkpoint.md", "reuse_from": "P2" },
+          { "name": "test-coverage", "target": "PlanningFiles/commands/test-coverage.md", "reuse_from": "P2" }
+        ],
+        "rules": [
+          { "name": "security/hardening", "target": "PlanningFiles/rules/security/hardening.md", "source": "proyecto (derivada de Security.md/Testing.md/IPC.md de la fase)" },
+          { "name": "typescript/server", "target": "PlanningFiles/rules/typescript/server.md", "reuse_from": "P4" },
+          { "name": "typescript/security", "target": "PlanningFiles/rules/typescript/security.md", "reuse_from": "P2" },
+          { "name": "react/security", "target": "PlanningFiles/rules/react/security.md", "reuse_from": "P6" },
+          { "name": "typescript/testing", "target": "PlanningFiles/rules/typescript/testing.md", "reuse_from": "P2" },
+          { "name": "ci/workflows", "target": "PlanningFiles/rules/ci/workflows.md", "reuse_from": "P3" },
+          { "name": "typescript/coding-style", "target": "PlanningFiles/rules/typescript/coding-style.md", "reuse_from": "P2" }
+        ]
+      }
     }
   },
 
@@ -446,7 +483,8 @@
     "rules_paths": [
       "PlanningFiles/rules/typescript",
       "PlanningFiles/rules/ci",
-      "PlanningFiles/rules/ui"
+      "PlanningFiles/rules/ui",
+      "PlanningFiles/rules/security"
     ],
     "instructions": [
       "PlanningFiles/rules/typescript/coding-style.md",

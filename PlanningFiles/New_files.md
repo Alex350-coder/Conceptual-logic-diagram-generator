@@ -255,6 +255,43 @@ Modificaciones clave en la fase (sin archivos 100 % nuevos):
 - `Project/client/src/store/sessionStore.ts` + `EditorPage.tsx` + `api/diagrams.ts` + `Project/server/src/routes/diagrams.routes.ts` + `repositories/diagrams.repo.ts` + tests: flujo 21 documento inválido (endpoint `GET /raw` + `sessionStore.invalid` + panel de recuperación; sin spec Playwright propio).
 - `PlanningFiles/rules/ci/workflows.md`: documentación del job coverage y envs e2e.
 
+## Fase P13 (2026-09-18) — Seguridad y endurecimiento (`Project/shared`, `Project/server`, `Project/client`)
+
+```text
+Project/client/src/render/xss.test.tsx                 (T13-01: XSS texto plano, `<model _xss= eval(${xss})`, css-less, 3/3)
+Project/client/e2e/security.spec.ts                    (T13-05: 6 tests sobre el build prod en http://localhost:5320 — cabeceras,
+                                                        CSP sin unsafe-eval, asset con hash, SPA fallback, envelope 404, boot + POST)
+Project/client/e2e/csp.spec.ts                         (T13-05: 3 tests — addScriptTag rechazado por CSP, securitypolicyviolation
+                                                        con directiva script-src(-elem), app operativa con CSP activa)
+Project/server/src/plugins/static-assets.ts            (T13-02: servido de client/dist en prod + fallback SPA solo HTML)
+Project/server/src/plugins/security-headers.ts         (T13-02: CSP_PRODUCTION exacta + cabeceras de seguridad en onSend global)
+Project/server/src/plugins/rate-limit.ts               (T13-03: @fastify/rate-limit, scope /api, exceso → DomainError RATE_LIMITED)
+Project/server/src/__tests__/security-headers.test.ts  (T13-02)
+Project/server/src/__tests__/static-assets.test.ts     (T13-02: build prod sintético + fallback + 404 JSON)
+Project/server/src/__tests__/rate-limit.test.ts        (T13-03: max=2 → 429, allowList no-/api, envelope RATE_LIMITED)
+Project/server/src/__tests__/diagrams.hostile.test.ts  (T13-01: versión incorrecta 409, payload inválido 422/400, 413, 404, 500, model no-objeto 400)
+Project/shared/src/__tests__/serialize.security.test.ts(T13-01: parse hostil — nombres inválidos, `__proto__`/constructor/prototype,
+                                                        otros DOM tokens, dtype UNDEFINED no válido en parse, NaN en layout)
+PlanningFiles/rules/security/*.md                       (T13-00: reglas de fase — T1/T2/T3)
+PlanningFiles/skills/security-hardening/SKILL.md        (T13-00: skill de endurecimiento CSP/cabeceras/rate-limit/estático)
+PlanningFiles/skills/security-review/SKILL.md           (T13-00: skill de auditoría de seguridad para P13/P14)
+PlanningFiles/agents/security-reviewer.md               (T13-00: agente de revisión de seguridad)
+PlanningFiles/commands/security-verify.md               (T13-00: comando de verificación de cierre de la fase)
+```
+
+Modificaciones clave en la fase (sin archivos 100 % nuevos):
+- `Project/server/src/app.ts` + `config.ts` + `routes/errors.ts`: registro de plugins de seguridad, `setNotFoundHandler` único con `spaIndexFile` opcional (SPA fallback), traducción a envelope `RATE_LIMITED`.
+- `Project/server/src/repositories/diagrams.repo.ts`: 409 CONFLICT_VERSION previo a escribir (una sola transacción; el 413 de payload se resolvió vía `preSerialization` en `diagrams.routes.ts`).
+- `Project/shared/src/__tests__/commands.test.ts`: timeout 60 s explícito en el stress L-002 (10.001 comandos) bajo instrumentación v8.
+- `Project/shared/src/validate/index.ts` + `serialize/` (sin cambios nuevos en P13; los test hostiles verifican la decisión): un nombre `<script>alert("xss")</script>` se persiste literal — el server no sanea, el render lo escapa como texto plano (XSS por render, `xss.test.tsx`/`diagrams.hostile.test.ts`).
+- `Project/client/package.json` + `Project/server/package.json` + `Project/shared/package.json` + raíz: upgrades T13-04 (vite 6.4.3, vitest 4.1.11, react-router-dom 7.18.4, @vitejs/plugin-react 4.7.0, axe-core 4.13.0), se elimina `vitest-axe` (peer roto), override raíz `vite 6.4.3`, lock regenerado limpio (`npm audit` = 0).
+- `Project/client/vitest.config.ts`: migración a Vitest 4 `test.projects` (`unit-jsdom`/`unit-node` con `extends: true`); umbral branch client recalibrado 85 → 75 (v8 cuenta más puntos de rama: 88.96 % medido en vitest 2 → 75.96 % en vitest 4 con el mismo código).
+- `Project/client/src/test/a11y.test.tsx` + shim renombrado `a11y-matchers.d.ts` (antes `vitest-axe.d.ts`): `axe` desde `axe-core` directo, llamadas `axe.run(container)` (el matcher `toHaveNoViolations` ya vivía en `setup.ts`).
+- `Project/client/playwright.config.ts`: tercer webServer (build prod en `http://localhost:5320`, `NODE_ENV=production`, DB temporal propia) y `RATE_LIMIT_MAX=100000` en los dos servers (la suite completa supera 100 req/min/IP; el 429 se cubre en unit de rate-limit).
+- `.github/workflows/ci.yml`: job `audit` (`npm ci` + `npm audit`) y paso `npm run build -w @erd-studio/client` previo a `npm run e2e`.
+- `PlanningFiles/rules/ci/workflows.md`: recalibración del umbral branch client (75) + justificación T13-04.
+- `PlanningFiles/IPC.md` §4/§6: envelope `RATE_LIMITED` + entorno `RATE_LIMIT_MAX`/`RATE_LIMIT_WINDOW_MS`/`CLIENT_DIST_PATH`.
+
 ## Normas de uso
 - Añadir una entrada por archivo nuevo de **implementación** (no por cada cambio), con fecha y fase.
 - Los archivos de scaffolding masivo se anotan como grupo (p. ej. "migración de BD 002").

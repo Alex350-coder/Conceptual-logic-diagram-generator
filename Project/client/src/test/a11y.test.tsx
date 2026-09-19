@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, MemoryRouter, Route, Routes, RouterProvider } from 'react-router-dom'
-import { axe } from 'vitest-axe'
+import axe from 'axe-core'
 import { createEmptyConceptualModel, toDiagramId, newId } from '@erd-studio/shared'
 import type { DocumentEnvelope } from '@erd-studio/shared'
 import { DashboardPage } from '../app/dashboard/DashboardPage'
@@ -78,7 +78,7 @@ describe('a11y (axe): sin violaciones', () => {
     )
     const { container } = renderDashboard()
     await screen.findByText('Personas')
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe.run(container)).toHaveNoViolations()
   })
 
   it('DashboardPage con ConfirmDialog abierto', async () => {
@@ -89,7 +89,7 @@ describe('a11y (axe): sin violaciones', () => {
     await screen.findByText('Personas')
     await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }))
     expect(await screen.findByRole('dialog')).toBeDefined()
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe.run(container)).toHaveNoViolations()
   })
 
   it('EditorPage en estado listo', async () => {
@@ -112,7 +112,7 @@ describe('a11y (axe): sin violaciones', () => {
     await waitFor(() => {
       expect(screen.getByText('Personas')).toBeDefined()
     })
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe.run(container)).toHaveNoViolations()
   })
 
   it('ShortcutPalette abierta', async () => {
@@ -120,6 +120,6 @@ describe('a11y (axe): sin violaciones', () => {
       <ShortcutPalette open onClose={() => undefined} ctx={ctx} />,
     )
     expect(await screen.findByRole('dialog')).toBeDefined()
-    expect(await axe(container)).toHaveNoViolations()
+    expect(await axe.run(container)).toHaveNoViolations()
   })
 })

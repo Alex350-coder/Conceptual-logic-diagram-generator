@@ -19,6 +19,7 @@
     "PlanningFiles/rules/typescript/relationships.md",
     "PlanningFiles/rules/typescript/client-persistence.md",
     "PlanningFiles/rules/typescript/transform.md",
-    "PlanningFiles/rules/ui/design-system.md"
+    "PlanningFiles/rules/ui/design-system.md",
+    "PlanningFiles/rules/security/hardening.md"
   ]
 }

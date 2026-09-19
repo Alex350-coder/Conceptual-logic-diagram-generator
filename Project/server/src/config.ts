@@ -12,6 +12,10 @@ export interface ServerConfig {
   nodeEnv: 'development' | 'production'
   /** Límite de body HTTP. Alineado con L-001 (10 MB). */
   bodyLimitBytes: number
+  /** Directorio del build del cliente (solo producción; IPC.md §6). */
+  clientDistPath: string
+  /** Máximas peticiones por IP y minuto sobre /api (default 100; Security.md §3.5). */
+  rateLimitMax: number
 }
 
 function parsePort(raw: string | undefined): number {
@@ -39,16 +43,28 @@ function parseCorsOrigin(raw: string | undefined, nodeEnv: ServerConfig['nodeEnv
   return ['http://localhost:5173']
 }
 
+function parseRateLimitMax(raw: string | undefined): number {
+  if (raw === undefined || raw === '') return 100
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 1 || n > 100000) {
+    throw new Error(`Invalido RATE_LIMIT_MAX: "${raw}" (esperado entero 1-100000)`)
+  }
+  return n
+}
+
 /** Carga la configuracion de entorno con defaults documentados (IPC.md §6). Never hardcoded secrets. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const nodeEnv: ServerConfig['nodeEnv'] =
     env.NODE_ENV === 'production' ? 'production' : 'development'
   const dbPath = env.DB_PATH ?? path.join(SERVER_ROOT, 'data', 'erd-studio.db')
+  const clientDistPath = env.CLIENT_DIST_PATH ?? path.join(SERVER_ROOT, '..', 'client', 'dist')
   return {
     port: parsePort(env.PORT),
     dbPath,
     corsOrigin: parseCorsOrigin(env.CORS_ORIGIN, nodeEnv),
     nodeEnv,
     bodyLimitBytes: LIMITS.documentMaxBytes,
+    clientDistPath,
+    rateLimitMax: parseRateLimitMax(env.RATE_LIMIT_MAX),
   }
 }

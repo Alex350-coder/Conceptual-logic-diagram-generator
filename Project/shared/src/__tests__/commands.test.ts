@@ -532,7 +532,9 @@ describe('applyCommand: rutas de error', () => {
     })
     expect(rejected.result.ok).toBe(false)
     expect(rejected.result.ok === false && rejected.result.error.code).toBe('MODEL_INVALID')
-  })
+    // Test de estres: 10.001 applyCommand; bajo instrumentacion de cobertura v8 el
+    // bucle es mas lento y el timeout por defecto de 5s no basta.
+  }, 60_000)
 })
 
 describe('applyCommand: inmutabilidad y errores', () => {

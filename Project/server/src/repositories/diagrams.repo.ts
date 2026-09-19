@@ -184,8 +184,8 @@ export function createDiagramsRepository(db: Database.Database): DiagramsReposit
     create(name: string, document?: DocumentEnvelope): DiagramFull {
       const normalized = normalizeName(name)
       const envelope = document ?? makeEnvelope(createEmptyConceptualModel(), null)
-      const serialized = serializeDiagramDocument(envelope)
-      const canonical = parseDiagramDocument(serialized)
+      const canonical = parseDiagramDocument(JSON.stringify(envelope))
+      const serialized = serializeDiagramDocument(canonical)
       const timestamp = nowIso()
       const id = randomUUID() as DiagramId
       const diagram: InsertableDiagram = {
@@ -216,8 +216,8 @@ export function createDiagramsRepository(db: Database.Database): DiagramsReposit
     update(id: DiagramId, expectedVersion: number, input: UpdateDiagramInput): DiagramFull {
       const current = requireRow(id)
       const name = input.name === undefined ? current.name : normalizeName(input.name)
-      const serialized = serializeDiagramDocument(input.document)
-      const canonical = parseDiagramDocument(serialized)
+      const canonical = parseDiagramDocument(JSON.stringify(input.document))
+      const serialized = serializeDiagramDocument(canonical)
       const now = nowIso()
       const result = db
         .prepare(
