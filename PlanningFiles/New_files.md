@@ -292,6 +292,35 @@ Modificaciones clave en la fase (sin archivos 100 % nuevos):
 - `PlanningFiles/rules/ci/workflows.md`: recalibración del umbral branch client (75) + justificación T13-04.
 - `PlanningFiles/IPC.md` §4/§6: envelope `RATE_LIMITED` + entorno `RATE_LIMIT_MAX`/`RATE_LIMIT_WINDOW_MS`/`CLIENT_DIST_PATH`.
 
+## Fase P14 — Revisión final (2026-09-19)
+
+```text
+PlanningFiles/tools/verify-docs.mjs                    (T14-01: verificador de la revisión cruzada §26 — paridad phase-plan/Tasks,
+                                                        links internos, codificación U+FFFD, endpoints IPC↔rutas, estado de fase,
+                                                        specs E2E; Node ESM sin dependencias)
+PlanningFiles/skills/final-review/SKILL.md             (T14-00: skill propia de la fase — revisión cruzada + gate DoD §2 + cierre doc)
+PlanningFiles/skills/production-audit/SKILL.md         (T14-00: adaptada de ECC production-audit)
+PlanningFiles/skills/verification-loop/SKILL.md        (T14-00: adaptada de ECC verification-loop)
+PlanningFiles/agents/architect.md                      (T14-00: adaptado de ECC agents/architect)
+PlanningFiles/agents/a11y-architect.md                 (T14-00: adaptado de ECC agents/a11y-architect)
+PlanningFiles/agents/doc-updater.md                    (T14-00: adaptado de ECC agents/doc-updater)
+PlanningFiles/commands/final-review-verify.md          (T14-00: comando de gate de cierre de la fase)
+PlanningFiles/rules/project/final-review.md            (T14-00: regla normativa de P14)
+.opencode/agent/architect.md                           (runtime opencode, espejo de PlanningFiles/agents/architect.md)
+.opencode/agent/a11y-architect.md                      (runtime opencode)
+.opencode/agent/doc-updater.md                         (runtime opencode)
+.opencode/command/final-review-verify.md               (runtime opencode)
+```
+
+Modificaciones clave en la fase (sin archivos 100 % nuevos):
+- `Project/client/src/test/a11y.test.tsx`: +2 tests del editor (`error` y panel de recuperación `invalid`) → 6 tests axe, cero violations.
+- `Project/shared/src/serialize/decode.ts`: `asEnum` ya no hace eco del valor crudo en el mensaje 400 (follow-up INFO de P13).
+- `PlanningFiles/IPC.md`: §2.9 `GET /api/v1/diagrams/:id/raw` (endpoint implementado en P12 y no documentado).
+- `PlanningFiles/README_Project.md`: estado real (P14, implementación MVP completa) en lugar del obsoleto "P1".
+- `PlanningFiles/phase-plan.json` + `PlanningFiles/phase-resources.json`: P14 `completed`; reparado el mojibake preexistente de P9/P10/P13.
+- `PlanningFiles/Audit.md` + `PlanningFiles/Progress.md` + `PlanningFiles/Tasks.md`: mojibake eliminado y cierre de fase P14.
+- `opencode.json`: `instructions` += `PlanningFiles/rules/project/final-review.md`.
+
 ## Normas de uso
 - Añadir una entrada por archivo nuevo de **implementación** (no por cada cambio), con fecha y fase.
 - Los archivos de scaffolding masivo se anotan como grupo (p. ej. "migración de BD 002").

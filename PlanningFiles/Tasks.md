@@ -111,9 +111,9 @@ Rama `phase/06-relations`, commits `ef974` → `d6c52` (+ fixes de cierre). Suit
 
 | ID | Tarea | Depende de | Estado |
 |---|---|---|---|
-| T9-01 | Serializaci�n de rama + regeneraci�n/remapeo de IDs | P7 | ✅ |
+| T9-01 | Serialización de rama + regeneración/remapeo de IDs | P7 | ✅ |
 | T9-02 | Pegar (mismo diagrama / otro diagrama) con offset y auto-renombres (D-CL-02) | T9-01 | ✅ |
-| T9-03 | Integraci�n Clipboard API (MIME propio + text/plain) + validaci�n hostil (L-005/L-006) | T9-02 | ✅ |
+| T9-03 | Integración Clipboard API (MIME propio + text/plain) + validación hostil (L-005/L-006) | T9-02 | ✅ |
 | T9-04 | Cortar (cut) | T9-02 | ✅ |
 | T9-05 | E2E 12–13 | T9-03 | ✅ |
 
@@ -164,13 +164,15 @@ Rama `phase/10-ui-ux`, commits `2a9d5` → `15ddf` + cierre (12 commits pactados
 
 Rama `phase/12-security`, 12 commits pactados. Suite final: **226 shared + 313 client + 58 server = 597 unit**; **33 E2E verdes** (13 specs, servidor dev + vite + build prod). Detalles en `Audit.md` (P13) y `New_files.md` (Fase P13).
 
-## FASE P14 — Revisión final
+## FASE P14 — Revisión final *(cerrada 2026-09-19)*
 
-| ID | Tarea | Depende de |
-|---|---|---|
-| T14-01 | Revisión cruzada completa (§26) | P13 |
-| T14-02 | Auditoría final de rendimiento/accesibilidad | P13 |
-| T14-03 | Cierre: estado final en `Progress.md`/`Audit.md`, README de proyecto actualizado | T14-01, T14-02 |
+| ID | Tarea | Depende de | Estado |
+|---|---|---|---|
+| T14-01 | Revisión cruzada completa (§26) | P13 | ✓ |
+| T14-02 | Auditoría final de rendimiento/accesibilidad | P13 | ✓ |
+| T14-03 | Cierre: estado final en `Progress.md`/`Audit.md`, README de proyecto actualizado | T14-01, T14-02 | ✓ |
+
+Rama `phase/13-final-review`, 12 commits pactados. Suite final: **230 shared + 315 client + 58 server = 603 unit**; **33 E2E verdes** (13 specs). Revisión cruzada reproducible con `PlanningFiles/tools/verify-docs.mjs` (**0 FAIL**). Detalles en `Audit.md` (P14) y `New_files.md` (Fase P14).
 
 ---
 

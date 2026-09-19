@@ -7,7 +7,7 @@ metadata:
 
 # Clipboard de Dominio - erd-studio
 
-Patrones y contratos de la fase P9 para el portapapeles de ramas del modelo. Fuentes normativas: `Architecture.md` �8.4 (D-CL-01/02), `Validation.md` �6 (L-005, L-006), `Security.md` �3.2, `UI.md` �5.
+Patrones y contratos de la fase P9 para el portapapeles de ramas del modelo. Fuentes normativas: `Architecture.md` §8.4 (D-CL-01/02), `Validation.md` §6 (L-005, L-006), `Security.md` §3.2, `UI.md` §5.
 
 ## MIME y payload (D-CL-01)
 
@@ -54,8 +54,8 @@ pasteSubtree(context, payload, options): Result    // T9-02 en commands/
 
 ## Referencias
 
-- `PlanningFiles/Architecture.md` �8.4 (D-CL-01/02)
-- `PlanningFiles/Validation.md` �6 (L-005, L-006)
-- `PlanningFiles/Security.md` �3.2
-- `PlanningFiles/UI.md` �5
+- `PlanningFiles/Architecture.md` §8.4 (D-CL-01/02)
+- `PlanningFiles/Validation.md` §6 (L-005, L-006)
+- `PlanningFiles/Security.md` §3.2
+- `PlanningFiles/UI.md` §5
 - Skill: `editor-engine`
