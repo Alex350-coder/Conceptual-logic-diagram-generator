@@ -124,16 +124,20 @@ e2e:
   La cota 60 fps es 16.7 ms; los 3.3 ms extra toleran el jitter de rAF del runner
   compartido y siguen detectando un vsync perdido real (~33 ms).
 - `VISUAL_MAX_DIFF_RATIO=0.004`: margen de *ratio del área* para el runner de CI.
-  Desde el fix del run #41 (Audit.md P14.2) los baselines se generan con Inter
-  embelemble (`client/public/fonts/InterVariable.woff2` + `@font-face` en
-  `tokens.css`) y el texto del canvas usa `var(--font-ui)`, por lo que el render
-  es idéntico entre el SO del desarrollador y Linux (Chromium rasteriza el mismo
-  archivo de fuente igual en ambas). El ratio queda solo como seguro frente a
-  ruido residual de AA del runner, ya no como compensación de diferencias de
-  fuentes: un cambio real de layout sigue rompiendo una fracción muchísimo mayor
-  de la imagen. 0.004 del área (≈3.7 kpx en 1280×720) está muy por debajo de esa
-  cota. Local queda estricto (0 px). Playwright aplica ambos límites si se pasan
-  los dos, por lo que solo se configura uno.
+  El determinismo se garantiza por dos capas (Audit.md P14.2): (1) Inter embelemble
+  (`client/public/fonts/InterVariable.woff2` + `@font-face` en `tokens.css`) y el texto
+  del canvas usando `var(--font-ui)` — mismos contornos en todas las plataformas — y
+  (2) rasterizador de texto neutralizado con `launchOptions.args
+  ['--disable-lcd-text','--font-render-hinting=none']` en `playwright.config.ts`, que deja
+  a Windows y Linux en AA grayscale sin hinting (ClearType/subpixel y hinting cuantizado
+  producían formas de glifo distintas del mismo archivo a 13-14px). El ratio queda solo
+  como seguro frente a ruido residual de AA del runner, no como compensación de diferencias
+  de fuentes ni de layout: un cambio real de layout sigue rompiendo una fracción muchísimo
+  mayor de la imagen. 0.004 del área (≈3.7 kpx en 1280×720) está muy por debajo de esa
+  cota. Local queda estricto (0 px). Playwright aplica ambos límites si se pasan los dos,
+  por lo que solo se configura uno.
+- El job `e2e` sube `test-results/**` y `playwright-report/**` como artefacto (`if: always()`)
+  para diagnosticar cualquier fallo de captura (imágenes actual/esperada/diff).
 
 ## Reglas
 

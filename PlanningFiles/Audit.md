@@ -462,9 +462,21 @@ estructural (Audit Memorandum, decisiones 2026-09-20):
 - `visual.spec.ts`: espera `document.fonts.ready` antes de cada screenshot (con
   `font-display: swap` el render capturado antes de resolver la @font-face usaría el fallback del SO).
 - Baselines regenerados con Inter: el diff es solo de glifos y los PNG crecen ~11-14 kB.
-- Con Inter embebido, Chromium rasteriza los mismos contornos en el SO del desarrollador y en
-  Linux → CI queda ~0 px; `VISUAL_MAX_DIFF_RATIO=0.004` se conserva solo como margen de ruido AA
-  del runner, sin compensar diferencias de fuente (ya no existen).
+- **Los runs siguieron fallando igual** (run #42-43, `d9ff5db`) en los 2 screenshots de editor
+  (~mismo ratio 0.01): el blob de la fuente estaba intacto en git (wOF2, 352.240 bytes), así que
+  el diferencial restante NO era el asset, sino **la rasterización del mismo @font-face**:
+  Windows/Chromium usa ClearType (AA subpixel) y Linux grayscale, y con hinting cuantizado a
+  13-14px los glifos de Inter salen con formas distintas por backend (DirectWrite vs FreeType).
+  Los dashboard pasan porque tienen mucho menos texto que el canvas del editor.
+- Fix definitivo del rasterizador (no más tolerancia, no más fuente):
+  `launchOptions.args: ['--disable-lcd-text', '--font-render-hinting=none']` en
+  `client/playwright.config.ts` — apaga el subpixel (Windows) y neutraliza el hinting (FreeType),
+  dejando a ambas plataformas en **AA grayscale sin hinting**: Chromium rasteriza los mismos
+  contornos de Inter con el mismo rasterizer en el SO del desarrollador y en Linux.
+- Baselines regenerados con ese rasterizador. `VISUAL_MAX_DIFF_RATIO=0.004` sigue como margen de
+  ruido AA del runner compartido, sin compensar diferencias de fuente ni de layout.
+- El job `e2e` del CI ahora sube `test-results/**` y `playwright-report/**` como artefacto (con
+  `if: always()`), de modo que un fallo futuro entregue las imágenes actual/esperada/diff reales.
 
 Verificación local en Windows con los valores exactos de CI
 (`RENDER_BUDGET_MS=1100`/`FRAME_BUDGET_MS=20`/`VISUAL_MAX_DIFF_RATIO=0.004`): perf y visual
