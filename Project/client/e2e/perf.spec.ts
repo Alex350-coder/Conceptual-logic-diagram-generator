@@ -18,8 +18,11 @@ import { buildProfile, LARGE_PROFILE, type BuiltProfile } from '../src/test/perf
  * verdad se registra como gap de ~33 ms, muy por encima de este umbral, por lo
  * que la tolerancia no enmascara caídas de frame: mide la cadencia real del
  * renderer, no el ruido de reloj del navegador (Testing.md §6, Architecture §11).
+ * Configurable vía `FRAME_BUDGET_MS`, igual que `RENDER_BUDGET_MS`: CI lo fija a
+ * un entero (20 ms) porque el runner compartido de GitHub mide ruido de CPU en la
+ * cadencia de rAF; local conserva el default nominal.
  */
-const FRAME_BUDGET_MS = 1000 / 60 + 0.4
+const FRAME_BUDGET_MS = Number(process.env.FRAME_BUDGET_MS ?? 1000 / 60 + 0.4)
 
 /**
  * Objetivo de render inicial (Architecture §11): <= 800 ms hasta primer paint
