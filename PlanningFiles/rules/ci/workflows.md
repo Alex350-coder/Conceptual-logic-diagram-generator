@@ -123,14 +123,17 @@ e2e:
 - `FRAME_BUDGET_MS=20`: mediana de gaps de rAF en pan/zoom por debajo de 20 ms.
   La cota 60 fps es 16.7 ms; los 3.3 ms extra toleran el jitter de rAF del runner
   compartido y siguen detectando un vsync perdido real (~33 ms).
-- `VISUAL_MAX_DIFF_RATIO=0.004`: tolerancia de diff por *ratio del área* en modo
-  CI. Los baselines se generan en el SO del desarrollador y el antialiasing de
-  texto Windows→Linux desplaza un número de píxeles que crece con el área de la
-  captura, imposible de cubrir con un conteo absoluto (el antiguo
-  `VISUAL_MAX_DIFF_PIXELS=250` era insuficiente). 0.004 del área (≈3.7 kpx en
-  1280×720) sigue muy por debajo de un cambio real de layout, que rompe decenas
-  de miles. Local queda estricto (0 px). Playwright aplica ambos límites si se
-  pasan los dos, por lo que solo se configura uno.
+- `VISUAL_MAX_DIFF_RATIO=0.004`: margen de *ratio del área* para el runner de CI.
+  Desde el fix del run #41 (Audit.md P14.2) los baselines se generan con Inter
+  embelemble (`client/public/fonts/InterVariable.woff2` + `@font-face` en
+  `tokens.css`) y el texto del canvas usa `var(--font-ui)`, por lo que el render
+  es idéntico entre el SO del desarrollador y Linux (Chromium rasteriza el mismo
+  archivo de fuente igual en ambas). El ratio queda solo como seguro frente a
+  ruido residual de AA del runner, ya no como compensación de diferencias de
+  fuentes: un cambio real de layout sigue rompiendo una fracción muchísimo mayor
+  de la imagen. 0.004 del área (≈3.7 kpx en 1280×720) está muy por debajo de esa
+  cota. Local queda estricto (0 px). Playwright aplica ambos límites si se pasan
+  los dos, por lo que solo se configura uno.
 
 ## Reglas
 
