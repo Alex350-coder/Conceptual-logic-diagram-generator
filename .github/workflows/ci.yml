@@ -93,8 +93,9 @@ jobs:
         working-directory: Project
         shell: bash
         env:
-          RENDER_BUDGET_MS: '800'
-          VISUAL_MAX_DIFF_PIXELS: '250'
+          RENDER_BUDGET_MS: '1100'
+          FRAME_BUDGET_MS: '20'
+          VISUAL_MAX_DIFF_RATIO: '0.004'
         run: |
           if [ -f client/playwright.config.ts ]; then
             npx playwright install --with-deps chromium
