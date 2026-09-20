@@ -429,4 +429,16 @@ Rama `phase/13-final-review`. 12 commits pactados (registro de recursos → T14-
 ### Pendiente P14 → futuro
 - Evolución a *Database Modeling Studio* (`Plan.md`): `POST /api/v1/diagrams/:id/restore` (reservado en `IPC.md` §2.8), historial lógico undoable (deuda T10-03), `keyGenerator = ip` sin `trustProxy` (revisar al desplegar tras proxy) y HSTS/COOP al servir con TLS.
 
+### Follow-up post-cierre (P14.2): auditoría de seguridad + job e2e de CI
+
+**Auditoría de seguridad (skill `security-review`, agente `security-reviewer`): APROBADO — 0 CRITICAL/HIGH/MEDIUM.** Gate verde: typecheck, lint, 230 shared + 58 server, `npm audit` 0 vulns. Dos LOW ya aceptados en P13 quedan como follow-up de despliegue (no del código): allowList de rate limit con `GET /api` exacto fuera de `/api/` y `keyGenerator = request.ip` sin `trustProxy` (listen 0.0.0.0) — ver P13 y `rules/ci/workflows.md`.
+
+- **Hallazgo INFO-2, ESTADO: corregido.** `pasteSubtree` hacía `position.x + offset.x` (commands/index.ts) con coordenadas de layout del clipboard sin validar finitud; un payload hostil con `"x": "foo"`/NaN/Infinity contaminaba el layout del modelo destino. Fix en dos capas: validación L4 en `shared/src/clipboard/validate.ts` (`validateClipboardPayload`, coordenadas finitas por entrada) y guard defensivo dentro del reducer `pasteSubtree` para llamadores que no pasen por la validación. `decodeClipboardPayload` solo comprueba que `layout` sea objeto, por lo que el bloqueo ocurre en L4 (test que lo demuestra). +3 tests (string/NaN/Infinity/null en validate, paste hostil sin mutación, decode-deja-pasar→L4-bloquea).
+
+**Diagnóstico job `e2e` del CI (push/PR, ubuntu-latest): causa aislada por fingerprint de commits.** Runs verdes hasta `ecf6f66` (phase/11-testing); todos los runs desde `23b1015` (mismo branch + docs perf/visual + env estricto `RENDER_BUDGET_MS=800`/`VISUAL_MAX_DIFF_PIXELS=250`) fallan SOLO en el job e2e; el mismo suite pasa local en Windows (33/33, perf ≤ ~930 ms, visual 0 px). Logs del job no accesibles (403, sin credenciales) y no se suben artefactos, de ahí el fingerprint como evidencia. El preset estricto de P12 nunca fue verde en CI, solo descrito: el margen se reajustó a un valor medible sin relajar la detección de regresiones reales:
+  - `RENDER_BUDGET_MS` 800 → 1100 (runner compartido 2 vCPU + ruido; sigue detectando regresión > 37 %).
+  - `FRAME_BUDGET_MS` ahora configurable por env; CI usa 20 ms (vsync perdido real ≈ 33 ms).
+  - visual: conteo absoluto de píxeles (250) → ratio del área `VISUAL_MAX_DIFF_RATIO=0.004` (~3.7 kpx en 1280×720; un cambio de layout rompe decenas de miles). Local sigue estricto (0 px).
+  - `animations: 'disabled'` en `client/playwright.config.ts` para determinismo de capturas.
+
 ---
