@@ -144,6 +144,34 @@ export function validateClipboardPayload(
     }
   }
 
+  // Layout coordinates must be finite numbers (Security.md §3.2 — INFO-2 de la
+  // auditoría P14). Un layout hostil con `"x": "NaN"`/string contamina el aritmético
+  // de offset del pasteSubtree en el modelo destino.
+  const layout = data.layout
+  if (layout === null || typeof layout !== 'object' || Array.isArray(layout)) {
+    violations.push({
+      code: 'CLIPBOARD_INVALID',
+      message: 'Layout del subgrafo con forma inesperada.',
+    })
+  } else {
+    for (const [nodeId, point] of Object.entries(layout)) {
+      if (
+        point === null ||
+        typeof point !== 'object' ||
+        typeof (point as { x?: unknown }).x !== 'number' ||
+        typeof (point as { y?: unknown }).y !== 'number' ||
+        !Number.isFinite((point as { x: number }).x) ||
+        !Number.isFinite((point as { y: number }).y)
+      ) {
+        violations.push({
+          code: 'CLIPBOARD_INVALID',
+          message: `Coordenada no finita para ${nodeId} en el layout.`,
+          nodeId: nodeId as NodeId,
+        })
+      }
+    }
+  }
+
   return { ok: violations.length === 0, violations }
 }
 

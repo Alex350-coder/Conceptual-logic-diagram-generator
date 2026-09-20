@@ -1,3 +1,18 @@
+/*
+ * Inter variable (OFL, rsms/inter v4.1) embelemble en `public/fonts`. Hace que
+ * `--font-ui` resuelva a los mismos contornos en Windows y Linux (y en CI): el
+ * texto rinde idéntico en todas las plataformas, lo que mantiene byte-exactos
+ * los baselines de regresión visual (Audit.md P14.2). CSP prod permite
+ * `font-src 'self'`, así que el recurso same-origin /fonts/ es válido.
+ */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   /* Typography — UI y mono */
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

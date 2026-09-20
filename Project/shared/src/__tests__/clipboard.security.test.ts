@@ -7,6 +7,7 @@ import {
   decodeClipboardPayload,
   type ClipboardPayload,
 } from '../clipboard/index'
+import { validateClipboardPayload } from '../clipboard/validate'
 
 const EMPTY_COLLECTIONS = '"attributes":[],"relationships":[],"specializations":[],"layout":{}'
 
@@ -191,5 +192,53 @@ describe('clipboard.security: pasteSubtree frente a payload hostil', () => {
     expect(new Set(second.model.attributes.map((attribute) => attribute.id)).size).toBe(
       second.model.attributes.length,
     )
+  })
+
+  it('rechaza layout con coordenadas no finitas sin mutar el modelo (auditoría P14, INFO-2)', () => {
+    const layouts: Array<Record<string, unknown>> = [
+      { [toNodeId('e1')]: { x: 'no-number', y: 0 } },
+      { [toNodeId('e1')]: { x: Number.NaN, y: 0 } },
+      { [toNodeId('e1')]: { x: 0, y: Number.NEGATIVE_INFINITY } },
+    ]
+    for (const layout of layouts) {
+      const model = createEmptyConceptualModel()
+      const outcome = applyCommand(model, {
+        type: 'pasteSubtree',
+        payload: {
+          offset: { x: 20, y: 20 },
+          clipboard: {
+            version: CLIPBOARD_VERSION,
+            kind: 'erd-studio/subtree',
+            data: {
+              entities: [{ id: toNodeId('e1'), name: 'A', kind: 'STRONG' }],
+              relationships: [],
+              specializations: [],
+              attributes: [],
+              layout: layout as unknown as ClipboardPayload['data']['layout'],
+            },
+          },
+        },
+      })
+      expect(outcome.result.ok).toBe(false)
+      const error = 'error' in outcome.result ? outcome.result.error : undefined
+      const details = error?.details as { violations?: Array<{ code: string }> } | undefined
+      expect(details?.violations?.map((v) => v.code)).toContain('CLIPBOARD_INVALID')
+      expect(outcome.model.entities).toHaveLength(0)
+      expect(outcome.model.layout).toEqual({})
+    }
+  })
+
+  it('un layout no finito sobrevive al decode y es bloqueado en la validación L4', () => {
+    const raw = envelopeWithData(
+      '{"entities":[{"id":"e1","name":"A","kind":"STRONG"}],"attributes":[],' +
+        '"relationships":[],"specializations":[],' +
+        '"layout":{"e1":{"x":"no-number","y":0}}}',
+    )
+    const decoded = decodeClipboardPayload(raw)
+    expect(decoded).not.toBeNull()
+    // El bloqueo ocurre en validateClipboardPayload ANTES de llegar al reducer.
+    const result = validateClipboardPayload(decoded!, raw.length)
+    expect(result.ok).toBe(false)
+    expect(result.violations.map((v) => v.code)).toContain('CLIPBOARD_INVALID')
   })
 })

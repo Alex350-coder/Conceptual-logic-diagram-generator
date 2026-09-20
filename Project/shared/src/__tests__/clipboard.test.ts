@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyCommand } from '../commands/index'
 import { createEmptyConceptualModel, type ConceptualModel } from '../domain/conceptual'
-import { toNodeId } from '../domain/ids'
+import { toNodeId, type NodeId } from '../domain/ids'
 import {
   selectTree,
   countSubgraphElements,
@@ -224,6 +224,34 @@ describe('validateClipboardPayload: límites L-005/L-006 (L4)', () => {
     const result = validateClipboardPayload(payload, 500)
     expect(result.ok).toBe(false)
     expect(result.violations.map((v) => v.code)).toContain('CLIPBOARD_INVALID')
+  })
+
+  it('rechaza layout con coordenadas no finitas (auditoría P14, INFO-2)', () => {
+    const entity = { id: toNodeId('e1'), name: 'A', kind: 'STRONG' as const }
+    const nonFinitePoints: Array<Record<string, unknown>> = [
+      { x: 'no-number', y: 0 },
+      { x: Number.NaN, y: 0 },
+      { x: 0, y: Number.POSITIVE_INFINITY },
+      { x: 0, y: null },
+    ]
+    for (const point of nonFinitePoints) {
+      const payload = {
+        version: CLIPBOARD_VERSION,
+        kind: 'erd-studio/subtree',
+        data: {
+          entities: [entity],
+          attributes: [],
+          relationships: [],
+          specializations: [],
+          layout: {
+            [toNodeId('e1')]: point as unknown as ClipboardPayload['data']['layout'][NodeId],
+          },
+        },
+      } as ClipboardPayload
+      const result = validateClipboardPayload(payload, 500)
+      expect(result.ok).toBe(false)
+      expect(result.violations.map((v) => v.code)).toContain('CLIPBOARD_INVALID')
+    }
   })
 
   it('rechaza IDs duplicados dentro del subgrafo', () => {

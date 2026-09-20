@@ -429,4 +429,58 @@ Rama `phase/13-final-review`. 12 commits pactados (registro de recursos → T14-
 ### Pendiente P14 → futuro
 - Evolución a *Database Modeling Studio* (`Plan.md`): `POST /api/v1/diagrams/:id/restore` (reservado en `IPC.md` §2.8), historial lógico undoable (deuda T10-03), `keyGenerator = ip` sin `trustProxy` (revisar al desplegar tras proxy) y HSTS/COOP al servir con TLS.
 
+### Follow-up post-cierre (P14.2): auditoría de seguridad + job e2e de CI
+
+**Auditoría de seguridad (skill `security-review`, agente `security-reviewer`): APROBADO — 0 CRITICAL/HIGH/MEDIUM.** Gate verde: typecheck, lint, 230 shared + 58 server, `npm audit` 0 vulns. Dos LOW ya aceptados en P13 quedan como follow-up de despliegue (no del código): allowList de rate limit con `GET /api` exacto fuera de `/api/` y `keyGenerator = request.ip` sin `trustProxy` (listen 0.0.0.0) — ver P13 y `rules/ci/workflows.md`.
+
+- **Hallazgo INFO-2, ESTADO: corregido.** `pasteSubtree` hacía `position.x + offset.x` (commands/index.ts) con coordenadas de layout del clipboard sin validar finitud; un payload hostil con `"x": "foo"`/NaN/Infinity contaminaba el layout del modelo destino. Fix en dos capas: validación L4 en `shared/src/clipboard/validate.ts` (`validateClipboardPayload`, coordenadas finitas por entrada) y guard defensivo dentro del reducer `pasteSubtree` para llamadores que no pasen por la validación. `decodeClipboardPayload` solo comprueba que `layout` sea objeto, por lo que el bloqueo ocurre en L4 (test que lo demuestra). +3 tests (string/NaN/Infinity/null en validate, paste hostil sin mutación, decode-deja-pasar→L4-bloquea).
+
+**Diagnóstico job `e2e` del CI (push/PR, ubuntu-latest): causa aislada por fingerprint de commits.** Runs verdes hasta `ecf6f66` (phase/11-testing); todos los runs desde `23b1015` (mismo branch + docs perf/visual + env estricto `RENDER_BUDGET_MS=800`/`VISUAL_MAX_DIFF_PIXELS=250`) fallan SOLO en el job e2e; el mismo suite pasa local en Windows (33/33, perf ≤ ~930 ms, visual 0 px). Logs del job no accesibles (403, sin credenciales) y no se suben artefactos, de ahí el fingerprint como evidencia. El preset estricto de P12 nunca fue verde en CI, solo descrito: el margen se reajustó a un valor medible sin relajar la detección de regresiones reales:
+  - `RENDER_BUDGET_MS` 800 → 1100 (runner compartido 2 vCPU + ruido; sigue detectando regresión > 37 %).
+  - `FRAME_BUDGET_MS` ahora configurable por env; CI usa 20 ms (vsync perdido real ≈ 33 ms).
+  - visual: conteo absoluto de píxeles (250) → ratio del área `VISUAL_MAX_DIFF_RATIO=0.004` (~3.7 kpx en 1280×720; un cambio de layout rompe decenas de miles). Local sigue estricto (0 px).
+  - `animations: 'disabled'` en `client/playwright.config.ts` para determinismo de capturas.
+
+### Addendum P14.2 (run #41 / PR #14): causa raíz del diff visual resuelta con fuente determinista
+
+Con los ajustes de ratio (0.004) el job seguía fallando SOLO en los dos screenshots de editor
+(entidad con texto): el run #41 (`35536214696`) reportó **9.159 px / ratio 0.01** (editor-dark) y
+**8.574 px / ratio 0.01** (editor-light); los dos dashboard (canvas vacío, sin texto) pasaban.
+Causa raíz confirmada en código por inspección: `ROLE_STYLES.label` usaba
+`fontFamily: 'sans-serif'` (`client/src/render/SceneView.tsx`) y `--font-ui` declaraba `'Inter'`
+pero **Inter no estaba embebido en ninguna plataforma** — Windows rasterizaba Segoe UI/Arial y
+`ubuntu-latest` DejaVu Sans (métricas distintas). La geometría de las cajas es fija
+(`render/layout.ts`, entidad 180×90), así que el diff era exclusivamente de glifos del `<text>`
+del canvas. Aflojar más la tolerancia habría dejado de detectar cambios reales; se eligió el fix
+estructural (Audit Memorandum, decisiones 2026-09-20):
+
+- `client/public/fonts/InterVariable.woff2` (Inter v4.1, OFL, 344 kB) + `@font-face 'Inter'` en
+  `tokens.css` (`font-weight 100 900`, `font-display: swap`, `src /fonts/InterVariable.woff2`).
+  CSP de prod ya permite `font-src 'self'` — recurso same-origin, sin tocar cabeceras.
+- `SceneView.tsx:37`: el label del canvas pasa a `font-family: var(--font-ui)` (coherencia con el
+  design system; antes ejercía un `sans-serif` implícito distinto del token).
+- `visual.spec.ts`: espera `document.fonts.ready` antes de cada screenshot (con
+  `font-display: swap` el render capturado antes de resolver la @font-face usaría el fallback del SO).
+- Baselines regenerados con Inter: el diff es solo de glifos y los PNG crecen ~11-14 kB.
+- **Los runs siguieron fallando igual** (run #42-43, `d9ff5db`) en los 2 screenshots de editor
+  (~mismo ratio 0.01): el blob de la fuente estaba intacto en git (wOF2, 352.240 bytes), así que
+  el diferencial restante NO era el asset, sino **la rasterización del mismo @font-face**:
+  Windows/Chromium usa ClearType (AA subpixel) y Linux grayscale, y con hinting cuantizado a
+  13-14px los glifos de Inter salen con formas distintas por backend (DirectWrite vs FreeType).
+  Los dashboard pasan porque tienen mucho menos texto que el canvas del editor.
+- Fix definitivo del rasterizador (no más tolerancia, no más fuente):
+  `launchOptions.args: ['--disable-lcd-text', '--font-render-hinting=none']` en
+  `client/playwright.config.ts` — apaga el subpixel (Windows) y neutraliza el hinting (FreeType),
+  dejando a ambas plataformas en **AA grayscale sin hinting**: Chromium rasteriza los mismos
+  contornos de Inter con el mismo rasterizer en el SO del desarrollador y en Linux.
+- Baselines regenerados con ese rasterizador. `VISUAL_MAX_DIFF_RATIO=0.004` sigue como margen de
+  ruido AA del runner compartido, sin compensar diferencias de fuente ni de layout.
+- El job `e2e` del CI ahora sube `test-results/**` y `playwright-report/**` como artefacto (con
+  `if: always()`), de modo que un fallo futuro entregue las imágenes actual/esperada/diff reales.
+
+Verificación local en Windows con los valores exactos de CI
+(`RENDER_BUDGET_MS=1100`/`FRAME_BUDGET_MS=20`/`VISUAL_MAX_DIFF_RATIO=0.004`): perf y visual
+verdes; 33/33 E2E; typecheck/lint 0. Prueba definitiva: siguiente push de `phase/13-final-review`
+→ job `e2e` del CI.
+
 ---

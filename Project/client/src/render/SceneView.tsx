@@ -34,7 +34,7 @@ const ROLE_STYLES: Record<PrimitiveRole, CSSProperties> = {
   relationship: { stroke: '#16a34a', strokeWidth: 1.5, fill: '#dcfce7' },
   attribute: { stroke: '#0284c7', strokeWidth: 1.5, fill: '#e0f2fe' },
   specialization: { stroke: '#a21caf', strokeWidth: 1.5, fill: '#fae8ff' },
-  label: { stroke: 'none', fill: '#111827', fontSize: 14, fontFamily: 'sans-serif' },
+  label: { stroke: 'none', fill: '#111827', fontSize: 14, fontFamily: 'var(--font-ui)' },
   selection: { stroke: '#2563eb', strokeWidth: 1.5, fill: 'none', strokeDasharray: '4 4' },
   marquee: {
     stroke: '#2563eb',
