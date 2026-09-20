@@ -27,6 +27,10 @@ export default defineConfig({
     baseURL: 'http://localhost:5317',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Determinismo de regresión visual (T12-04): CSS animations/transitions y
+    // smooth-scroll desactivados para que las capturas no dependan del estado de
+    // una transición a medio correr en runners con carga distinta.
+    animations: 'disabled',
   },
   webServer: [
     {
