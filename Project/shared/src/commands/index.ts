@@ -812,6 +812,35 @@ function reduce(model: ConceptualModel, command: DomainCommand): NextState {
         ])
       }
 
+      // Guard defensivo (Security.md §3.2, auditoría P14 INFO-2): un clipboard
+      // hostil con coordenadas de layout no finitas contaminaría el aritmético
+      // `position + offset` de abajo. La validación L4 ya lo bloquea en
+      // validateClipboardPayload; este guard protege a quien llame al reducer sin pasar por ella.
+      const layoutValue = data.layout
+      if (
+        layoutValue === null ||
+        typeof layoutValue !== 'object' ||
+        Array.isArray(layoutValue)
+      ) {
+        throw modelInvalid('Layout del clipboard inválido.', [
+          { code: 'CLIPBOARD_INVALID', message: 'Layout con forma inesperada' },
+        ])
+      }
+      for (const point of Object.values(layoutValue)) {
+        if (
+          point === null ||
+          typeof point !== 'object' ||
+          typeof (point as { x?: unknown }).x !== 'number' ||
+          typeof (point as { y?: unknown }).y !== 'number' ||
+          !Number.isFinite((point as { x: number }).x) ||
+          !Number.isFinite((point as { y: number }).y)
+        ) {
+          throw modelInvalid('Coordenadas del clipboard no finitas.', [
+            { code: 'CLIPBOARD_INVALID', message: 'Layout con coordenadas no finitas' },
+          ])
+        }
+      }
+
       const idMap = new Map<string, NodeId>()
       const existingEntityNames = new Set(model.entities.map((e) => e.name))
       const existingRelationshipNames = new Set(model.relationships.map((r) => r.name))
