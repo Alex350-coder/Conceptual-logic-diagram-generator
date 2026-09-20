@@ -11,6 +11,16 @@ import { expect, test, type Page } from '@playwright/test'
 const THEME_STORAGE_KEY = 'erd-studio-theme'
 
 /**
+ * Espera a que el navegador termine de resolver las @font-face (Inter variable
+ * embemible). Con `font-display: swap` un screenshot tomado antes de cargar la
+ * fuente capturaría el fallback del SO; al resolver Inter explícitamente el
+ * render es idéntico entre Windows y Linux/CI (Audit.md P14.2).
+ */
+async function waitForFonts(page: Page): Promise<void> {
+  await page.evaluate(() => document.fonts.ready)
+}
+
+/**
  * Tolerancia de diff. Por píxel (`VISUAL_MAX_DIFF_PIXELS`, local = 0 = estricto) o
  * por ratio del área (`VISUAL_MAX_DIFF_RATIO`). Playwright aplica AMBOS límites si se
  * pasan los dos, así que se activa solo el que corresponda: el ratio es el modo CI,
@@ -38,6 +48,7 @@ async function openDashboard(page: Page, theme: 'dark' | 'light'): Promise<void>
   await expect(page.getByRole('heading', { name: 'ERD Studio' })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
   await expect(page.locator('.dashboard-empty')).toBeVisible()
+  await waitForFonts(page)
 }
 
 async function openEditor(page: Page, theme: 'dark' | 'light'): Promise<void> {
@@ -50,6 +61,7 @@ async function openEditor(page: Page, theme: 'dark' | 'light'): Promise<void> {
   await page.getByRole('button', { name: 'Nuevo diagrama' }).click()
   await expect(page.getByTestId('scene')).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+  await waitForFonts(page)
 }
 
 test('regresión visual: dashboard dark', async ({ page }) => {
