@@ -31,6 +31,16 @@ export default defineConfig({
     // smooth-scroll desactivados para que las capturas no dependan del estado de
     // una transición a medio correr en runners con carga distinta.
     animations: 'disabled',
+    // Igualar rasterización de texto entre SO (Audit.md P14.2, runs #41/#42):
+    // ClearType/Windows rasteriza con subpixel AA y Linux con grayscale, y con
+    // hinting ya cuantizado los glifos del mismo @font-face de 14px salen con
+    // formas distintas (por eso el diff residual de los 2 screenshots de editor
+    // persistía con Inter embebido). Apagar subpixel y neutralizar el hinting
+    // deja a ambas plataformas en AA grayscale sin hinting: Chromium rasteriza
+    // los mismos contornos con el mismo rasterizer.
+    launchOptions: {
+      args: ['--disable-lcd-text', '--font-render-hinting=none'],
+    },
   },
   webServer: [
     {
