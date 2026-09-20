@@ -104,3 +104,13 @@ jobs:
           else
             echo "playwright config not present yet (ships in P6 UI phase); skipping e2e"
           fi
+      - name: Upload Playwright artifacts (para diagnosticar el job e2e)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-e2e-results
+          path: |
+            Project/client/test-results/**
+            Project/client/playwright-report/**
+          if-no-files-found: ignore
+          retention-days: 7
