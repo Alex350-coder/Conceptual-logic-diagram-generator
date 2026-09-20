@@ -441,4 +441,34 @@ Rama `phase/13-final-review`. 12 commits pactados (registro de recursos → T14-
   - visual: conteo absoluto de píxeles (250) → ratio del área `VISUAL_MAX_DIFF_RATIO=0.004` (~3.7 kpx en 1280×720; un cambio de layout rompe decenas de miles). Local sigue estricto (0 px).
   - `animations: 'disabled'` en `client/playwright.config.ts` para determinismo de capturas.
 
+### Addendum P14.2 (run #41 / PR #14): causa raíz del diff visual resuelta con fuente determinista
+
+Con los ajustes de ratio (0.004) el job seguía fallando SOLO en los dos screenshots de editor
+(entidad con texto): el run #41 (`35536214696`) reportó **9.159 px / ratio 0.01** (editor-dark) y
+**8.574 px / ratio 0.01** (editor-light); los dos dashboard (canvas vacío, sin texto) pasaban.
+Causa raíz confirmada en código por inspección: `ROLE_STYLES.label` usaba
+`fontFamily: 'sans-serif'` (`client/src/render/SceneView.tsx`) y `--font-ui` declaraba `'Inter'`
+pero **Inter no estaba embebido en ninguna plataforma** — Windows rasterizaba Segoe UI/Arial y
+`ubuntu-latest` DejaVu Sans (métricas distintas). La geometría de las cajas es fija
+(`render/layout.ts`, entidad 180×90), así que el diff era exclusivamente de glifos del `<text>`
+del canvas. Aflojar más la tolerancia habría dejado de detectar cambios reales; se eligió el fix
+estructural (Audit Memorandum, decisiones 2026-09-20):
+
+- `client/public/fonts/InterVariable.woff2` (Inter v4.1, OFL, 344 kB) + `@font-face 'Inter'` en
+  `tokens.css` (`font-weight 100 900`, `font-display: swap`, `src /fonts/InterVariable.woff2`).
+  CSP de prod ya permite `font-src 'self'` — recurso same-origin, sin tocar cabeceras.
+- `SceneView.tsx:37`: el label del canvas pasa a `font-family: var(--font-ui)` (coherencia con el
+  design system; antes ejercía un `sans-serif` implícito distinto del token).
+- `visual.spec.ts`: espera `document.fonts.ready` antes de cada screenshot (con
+  `font-display: swap` el render capturado antes de resolver la @font-face usaría el fallback del SO).
+- Baselines regenerados con Inter: el diff es solo de glifos y los PNG crecen ~11-14 kB.
+- Con Inter embebido, Chromium rasteriza los mismos contornos en el SO del desarrollador y en
+  Linux → CI queda ~0 px; `VISUAL_MAX_DIFF_RATIO=0.004` se conserva solo como margen de ruido AA
+  del runner, sin compensar diferencias de fuente (ya no existen).
+
+Verificación local en Windows con los valores exactos de CI
+(`RENDER_BUDGET_MS=1100`/`FRAME_BUDGET_MS=20`/`VISUAL_MAX_DIFF_RATIO=0.004`): perf y visual
+verdes; 33/33 E2E; typecheck/lint 0. Prueba definitiva: siguiente push de `phase/13-final-review`
+→ job `e2e` del CI.
+
 ---
