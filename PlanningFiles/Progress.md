@@ -1,6 +1,6 @@
 # Progress.md — Estado Real del Proyecto
 
-**Última actualización:** 2026-09-19 (cierre P14)
+**Última actualización:** 2026-09-21 (cierre P14.3 QA + docs)
 Este documento refleja el estado **real** (R-01): solo se marca lo que efectivamente se ha hecho y verificado.
 
 ---
@@ -20,7 +20,7 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 **P11 — UI/UX completa**: `completed` (T11-01…T11-06, cerrada el 2026-09-16, rama `phase/10-ui-ux`).
 **P12 — Testing integral**: `completed` (T12-01…T12-04, cerrada el 2026-09-18, rama `phase/11-testing`, 12/12 commits).
 **P13 — Seguridad y endurecimiento**: `completed` (T13-01…T13-05, cerrada el 2026-09-18, rama `phase/12-security`, 12/12 commits).
-**P14 — Revisión final**: `completed` (T14-01…T14-03, cerrada el 2026-09-19, rama `phase/13-final-review`, 12/12 commits). Proyecto MVP cerrado.
+**P14 — Revisión final**: `completed` (T14-01…T14-03, cerrada el 2026-09-19, rama `phase/13-final-review`, 12/12 commits). Proyecto MVP cerrado. **P14.3 QA + docs** (hallazgos B1–B5, drag libre de atributos, sceneDelta, `README.md` raíz, `SystemDocumentation.md`) en rama `phase/14-bugfix-docs`.
 
 ## 2. Documentos de planificación
 
@@ -270,3 +270,11 @@ Este documento refleja el estado **real** (R-01): solo se marca lo que efectivam
 - **T14-02 — Auditoría final:** `client/src/test/a11y.test.tsx` cubre los 3 estados de `Testing.md` §7 (ready/error/invalid) con axe y cero violations; harness `client/e2e/perf.spec.ts` verde en el gate (render dentro de presupuesto, pan/zoom ≥60 fps). Cerrado el follow-up INFO de P13: `asEnum` (`shared/src/serialize/decode.ts`) ya no hace eco del valor crudo en el mensaje 400.
 - **T14-03 — Cierre documental:** `Progress.md`/`Tasks.md`/`Audit.md`/`README_Project.md`/`New_files.md`/`phase-plan.json`/`phase-resources.json` al estado final (`completedAt 2026-09-19`).
 - **Resultado verificado:** `npm run typecheck` limpio · `npm run lint` 0 errores · `npm run test` **603 tests verdes** (230 shared + 315 client + 58 server) · `npm run build -w @erd-studio/client` OK · `npm audit` **0 vulns** · `npx playwright test` **33 E2E verdes** (13 specs) · `node PlanningFiles/tools/verify-docs.mjs` **0 FAIL**. Criterio `DefinitionOfDone.md` §2 cumplido.
+
+## 4m. Tareas completadas de P14.3 (QA complementaria + docs, rama `phase/14-bugfix-docs`)
+
+- **Hallazgos B1–B5 (ver `Audit.md` §P14.3):** B1 (salto al arrastrar nodo) no reproducible de forma aislada — se añade guard E2E de regresión (`selection-regression.spec.ts`); B2 (auto-layout solapa entidades) **bug real** corregido en `editor/placement.ts` (`findFreeSpot`: probe diagonal en pasos de `SNAP_STEP`, bbox respeta `SHAPE_SIZES`, rehusa celda colisionada hasta salir del alto del contenido); B3 (duplicar desde lista) no bug — `POST /api/v1/diagrams/:id/duplicate` existe y está E2E-testado; B4 (árbol Modelo muerto) corregido: Nodos clicables (`button.inspector-tree-item`) → `setSelection([id])` cuando `selection.size <= 1`, mensaje condicional "No hay nada seleccionado." solo si el árbol está vacío o la multiselección no tiene árbol; B5 (traza lógica cortada) corregido: `title={column.derivedFrom}` en `LogicalPanel` + grid `minmax(8rem,1fr) auto minmax(6rem,1fr)` con `min-width:0` en `editor.css`.
+- **Drag libre de atributos (ERDplus):** `editor/dragBasis.ts` (`dragBasis(model)`: layout explícito + `autoAttributeBounds`), `drag.ts` (`snapLayout`, `applyDelta(draft, moveIds, delta, false)` sin snap; al soltar, snap solo de `commitIds = moveIds.filter(id => nextSel.has(id) || !isAttribute(id))` — atributos arrastrados solo por transitividad NO se fijan a la grilla), `editorInteractions.ts` (DragState puro con `coalescedDelta`, commit al soltar convierte layout→comandos). Tests unit `placement.test.ts` (4), `dragBasis.test.ts` (3) y `drag.test.ts` +2.
+- **Render quirúrgico del drag (perf):** `render/sceneDelta.ts` (`translateScene(content, moveIds, delta)`) translada solo primitivas movidas — aristas por extremo en `readLayout`, texto/cardinalidad/ISA anclados por `mix 0.35`, nodos por prefijo `label-`/`sel-`/`isa-do-` y roles selectables — y devuelve el mismo objeto con delta 0. `EditorPage.tsx` memoiza `content` (`[model, selection, interactions.marquee]`) y `scene = applyViewport(interactions.drag?.delta ? translateScene(...) : content, viewport, size)`; se elimina el override por `dragLayout`. Tests `sceneDelta.test.ts` (7).
+- **Rama `phase/14-bugfix-docs`; 10 commits (cierre documental con `README.md` raíz + `PlanningFiles/SystemDocumentation.md` y veredictos en `Audit.md` §P14.3).**
+- **Resultado verificado:** `npm run typecheck` limpio · `npm run lint` 0 errores · `npm run test` **622 tests verdes** (233 shared + 331 client + 58 server) · `npm run build -w @erd-studio/client` OK · `npx playwright test` **37 E2E verdes** (15 specs)
