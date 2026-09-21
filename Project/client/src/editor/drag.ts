@@ -43,3 +43,14 @@ export function applyDelta(
   }
   return next
 }
+
+/** Redondea a la grilla las posiciones de `moveIds` en un layout (commit del drag). */
+export function snapLayout(layout: Layout, moveIds: readonly NodeId[]): Layout {
+  const next: Layout = { ...layout }
+  for (const id of moveIds) {
+    const current = layout[id]
+    if (current === undefined) continue
+    next[id] = snapPoint(current)
+  }
+  return next
+}
