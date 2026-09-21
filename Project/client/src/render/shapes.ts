@@ -1,3 +1,4 @@
+import type { NodeId } from '@erd-studio/shared'
 import type { Rect } from '../editor/geometry'
 import type { WorldPoint } from '../editor/viewport'
 
@@ -15,6 +16,15 @@ export type PrimitiveRole =
   | 'label'
   | 'selection'
   | 'marquee'
+
+/**
+ * Anclaje de una primitiva derivada a los nodos que la determinan: un drag
+ * quirurgico puede transladar unicamente el extremo que se movio (P14).
+ */
+export interface EdgeAnchors {
+  from: NodeId
+  to: NodeId
+}
 
 interface BasePrimitive {
   id: string
@@ -34,6 +44,8 @@ export interface TextShape extends BasePrimitive {
   text: string
   /** Subrayado para claves (D-CC-03). */
   underlined?: boolean
+  /** Splitting relativo entre los bounds de `from` y `to` (marca de cardinalidad). */
+  anchors?: EdgeAnchors & { mix: number }
 }
 
 export interface PolylineShape extends BasePrimitive {
@@ -41,6 +53,7 @@ export interface PolylineShape extends BasePrimitive {
   points: WorldPoint[]
   /** Doble linea (participación total, supertipo). */
   emphasized?: boolean
+  anchors?: EdgeAnchors
 }
 
 export type Primitive = RectLikeShape | TextShape | PolylineShape
@@ -64,8 +77,11 @@ export function makeText(
   bounds: Rect,
   text: string,
   underlined = false,
+  anchors?: EdgeAnchors & { mix: number },
 ): TextShape {
-  return { kind: 'text', id, bounds, role, text, underlined }
+  return anchors === undefined
+    ? { kind: 'text', id, bounds, role, text, underlined }
+    : { kind: 'text', id, bounds, role, text, underlined, anchors }
 }
 
 export function makePolyline(
@@ -73,20 +89,17 @@ export function makePolyline(
   id: string,
   points: WorldPoint[],
   emphasized = false,
+  anchors?: EdgeAnchors,
 ): PolylineShape {
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
-  return {
-    kind: 'polyline',
-    id,
-    role,
-    points,
-    emphasized,
-    bounds: {
-      x: Math.min(...xs),
-      y: Math.min(...ys),
-      width: Math.max(...xs) - Math.min(...xs),
-      height: Math.max(...ys) - Math.min(...ys),
-    },
+  const bounds: Rect = {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    width: Math.max(...xs) - Math.min(...xs),
+    height: Math.max(...ys) - Math.min(...ys),
   }
+  return anchors === undefined
+    ? { kind: 'polyline', id, role, points, emphasized, bounds }
+    : { kind: 'polyline', id, role, points, emphasized, anchors, bounds }
 }
