@@ -17,9 +17,11 @@ import type {
 } from '@erd-studio/shared'
 import { newId, toNodeId } from '@erd-studio/shared'
 import type { Rect } from '../../editor/geometry'
-import { SNAP_STEP, snapPoint } from '../../editor/grid'
-import { applyDelta, resolveMoveSet } from '../../editor/drag'
+import { applyDelta, resolveMoveSet, snapLayout } from '../../editor/drag'
+import { dragBasis } from '../../editor/dragBasis'
+import { findFreeSpot } from '../../editor/placement'
 import { marqueeRect, marqueeSelect, selectOnly, toggleSelection } from '../../editor/selection'
+import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, SHAPE_SIZES } from '../../render/layout'
 import type { AlignEdge, DistributeAxis, SizeOf } from '../../editor/align'
 import { alignNodes, distributeNodes } from '../../editor/align'
@@ -94,10 +96,19 @@ export function relationshipPlacement(
   return { x: sum.x / centers.length, y: sum.y / centers.length }
 }
 
+export interface DragState {
+  /** Nodos que se mueven en el preview (seleccion + cierre transitivo de atributos). */
+  moveIds: NodeId[]
+  /** Posiciones base (esquina superior-izquierda) de cada nodo del preview. */
+  original: Layout
+  /** Delta aplicado, no snappeado, en mundo. */
+  delta: Point
+}
+
 export interface EditorInteractions {
   marquee: Rect | null
-  /** Layout en vivo durante un drag (override local; se commitea un solo Op al soltar). */
-  dragLayout: Layout | null
+  /** Estado del drag en vivo (preview via translateScene; un solo Op al soltar). */
+  drag: DragState | null
   renamingId: NodeId | null
   renamingValue: string
   setRenamingValue(value: string): void
@@ -145,7 +156,7 @@ export function useEditorInteractions(
   model: ConceptualModel | null,
 ): EditorInteractions {
   const [marquee, setMarquee] = useState<Rect | null>(null)
-  const [dragLayout, setDragLayout] = useState<Layout | null>(null)
+  const [drag, setDrag] = useState<DragState | null>(null)
   const [renaming, setRenaming] = useState<{
     id: NodeId
     value: string
@@ -206,12 +217,24 @@ export function useEditorInteractions(
     s.setSelection([...nextSel])
 
     const moveIds = resolveMoveSet(targetModel, [...nextSel])
-    const original = targetModel.layout
+    const basis = dragBasis(targetModel)
+    const original: Layout = {}
+    for (const mid of moveIds) {
+      const pos = basis.get(mid)
+      if (pos !== undefined) original[mid] = { ...pos }
+    }
     const startWorld = mouseWorld(event.clientX, event.clientY, svg)
     let moved = false
-    let lastDelta: Point = { x: 0, y: 0 }
     let captured = false
+    let pendingDelta: Point = { x: 0, y: 0 }
+    let frameId: number | null = null
 
+    const publish = () => {
+      frameId = null
+      if (moved) {
+        setDrag({ moveIds, original, delta: pendingDelta })
+      }
+    }
     const onMove = (mv: PointerEvent) => {
       const now = mouseWorld(mv.clientX, mv.clientY, svg)
       const delta: Point = { x: now.x - startWorld.x, y: now.y - startWorld.y }
@@ -221,25 +244,33 @@ export function useEditorInteractions(
         svg.setPointerCapture?.(mv.pointerId)
       }
       moved = true
-      lastDelta = delta
-      setDragLayout(applyDelta(original, moveIds, delta))
+      pendingDelta = delta
+      if (frameId === null) frameId = requestAnimationFrame(publish)
     }
     const onUp = () => {
       cleanup()
+      if (frameId !== null) cancelAnimationFrame(frameId)
       if (moved) {
-        const layout = applyDelta(original, moveIds, lastDelta)
-        const commands = layoutToCommands(layout, original, moveIds)
+        // Solo se persiste lo seleccionado directamente y los nodos de geometria;
+        // los atributos arrastrados en transitividad siguen a su contenedor.
+        const isAttribute = (mid: NodeId): boolean =>
+          targetModel.attributes.some((a) => a.id === mid)
+        const commitIds = moveIds.filter((mid) => nextSel.has(mid) || !isAttribute(mid))
+        const free = applyDelta(original, moveIds, pendingDelta, false)
+        const layout = snapLayout(free, commitIds)
+        const commands = layoutToCommands(layout, original, commitIds)
         if (commands.length > 0) {
           sessionStore.getState().sendCommands(commands)
         }
       }
-      setDragLayout(null)
+      setDrag(null)
     }
 
     svg.addEventListener('pointermove', onMove as EventListener)
     svg.addEventListener('pointerup', onUp as EventListener)
     svg.addEventListener('pointercancel', onUp as EventListener)
     cleanupRef.current = () => {
+      if (frameId !== null) cancelAnimationFrame(frameId)
       if (captured && svg.hasPointerCapture?.(event.pointerId)) svg.releasePointerCapture(event.pointerId)
       svg.removeEventListener('pointermove', onMove as EventListener)
       svg.removeEventListener('pointerup', onUp as EventListener)
@@ -353,10 +384,15 @@ export function useEditorInteractions(
     (center: WorldPoint) => {
       const id = newId()
       const s = sessionStore.getState()
-      const snapped = snapPoint(center, SNAP_STEP)
+      const m = s.session?.model ?? null
+      const bounds =
+        m === null
+          ? new Map<NodeId, Rect>()
+          : autoAttributeBounds(m, modelToBounds(m))
+      const spot = findFreeSpot(bounds, center, SHAPE_SIZES.entity)
       s.sendCommands([
         { type: 'createEntity', payload: { id, name: 'Entidad' } },
-        { type: 'moveNode', payload: { id, x: snapped.x, y: snapped.y } },
+        { type: 'moveNode', payload: { id, x: spot.x, y: spot.y } },
       ])
       s.setSelection([id])
     },
@@ -637,7 +673,7 @@ export function useEditorInteractions(
 
   return {
     marquee,
-    dragLayout,
+    drag,
     renamingId: renaming?.id ?? null,
     renamingValue: renaming?.value ?? '',
     setRenamingValue,
