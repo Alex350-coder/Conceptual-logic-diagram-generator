@@ -7,6 +7,7 @@ import type {
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import type { ColumnId, ColumnType, ConceptualModel, LogicalModel, NodeId, TableId } from '@erd-studio/shared'
 import { applyViewport, buildContentScene } from '../../render/SceneRenderer'
+import { translateScene } from '../../render/sceneDelta'
 import { SceneView } from '../../render/SceneView'
 import { autoAttributeBounds } from '../../render/attributeLayout'
 import { modelToBounds, sceneBounds } from '../../render/layout'
@@ -516,8 +517,10 @@ function ConflictDialog({
 /**
  * Canvas conceptual memoizado (Architecture.md §8.6): el contenido estático
  * (modelo -> primitivas) se memoiza por [model, selection, marquee] y solo se
- * re-aplica el viewport (grid + culling) en cada frame de pan/zoom. Hooks
- * incondicionales: este componente solo se monta con model no-null.
+ * re-aplica el viewport (grid + culling) en cada frame de pan/zoom. Durante un
+ * drag el contenido no se reconstruye: se translada quirurgicamente (sceneDelta)
+ * y luego se reaplica el viewport. Hooks incondicionales: este componente solo
+ * se monta con model no-null.
  */
 function ConceptualCanvas({
   model,
@@ -535,21 +538,22 @@ function ConceptualCanvas({
   onContextMenu: (event: ReactMouseEvent<SVGSVGElement>) => void
 }) {
   const content = useMemo(
-    () => {
-      const renderModel =
-        interactions.dragLayout !== null
-          ? ({ ...model, layout: interactions.dragLayout } as ConceptualModel)
-          : model
-      return buildContentScene(renderModel, {
+    () =>
+      buildContentScene(model, {
         selected: selection,
         marquee: interactions.marquee,
-      })
-    },
-    [model, selection, interactions.marquee, interactions.dragLayout],
+      }),
+    [model, selection, interactions.marquee],
   )
   const scene = useMemo(
-    () => applyViewport(content, viewport, size),
-    [content, viewport, size],
+    () => {
+      const base =
+        interactions.drag !== null
+          ? translateScene(content, new Set(interactions.drag.moveIds), interactions.drag.delta)
+          : content
+      return applyViewport(base, viewport, size)
+    },
+    [content, viewport, size, interactions.drag],
   )
   return (
     <SceneView

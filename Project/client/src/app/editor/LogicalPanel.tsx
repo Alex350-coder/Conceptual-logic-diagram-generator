@@ -85,7 +85,7 @@ export function LogicalPanel({
                         onSetType({ tableId: table.id, columnId: column.id, dataType })
                       }
                     />
-                    <span className="logical-column-trace">{column.derivedFrom}</span>
+                    <span className="logical-column-trace" title={column.derivedFrom}>{column.derivedFrom}</span>
                   </li>
                 )
               })}

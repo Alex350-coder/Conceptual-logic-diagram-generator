@@ -6,7 +6,7 @@ import {
   type ConceptualModel,
   type NodeId,
 } from '@erd-studio/shared'
-import { applyDelta, resolveMoveSet } from './drag'
+import { applyDelta, resolveMoveSet, snapLayout } from './drag'
 import { SNAP_STEP } from './grid'
 
 const id = (n: number): NodeId => toNodeId(`n-${n}`)
@@ -101,5 +101,20 @@ describe('applyDelta', () => {
     const next = applyDelta(layout, [id(0)], { x: 100, y: 50 }, true)
     expect(next[id(0)]).toEqual({ x: 96, y: 48 })
     expect(SNAP_STEP).toBe(12)
+  })
+})
+
+describe('snapLayout', () => {
+  it('rounds only the given ids to the snapping grid', () => {
+    const layout = { [id(1)]: { x: 100, y: 50 }, [id(2)]: { x: 13, y: 14 } }
+    const next = snapLayout(layout, [id(1)])
+    expect(next[id(1)]).toEqual({ x: 96, y: 48 })
+    expect(next[id(2)]).toEqual({ x: 13, y: 14 })
+  })
+
+  it('does not mutate the input layout', () => {
+    const layout = { [id(1)]: { x: 100, y: 50 } }
+    snapLayout(layout, [id(1)])
+    expect(layout[id(1)]).toEqual({ x: 100, y: 50 })
   })
 })

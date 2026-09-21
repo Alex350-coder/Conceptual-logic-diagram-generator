@@ -505,6 +505,26 @@
   font-weight: 600;
 }
 
+.inspector-tree-item {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.inspector-tree-item:hover {
+  color: var(--color-primary);
+}
+
+.inspector-tree-item:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .inspector-badge {
   font-size: 0.7rem;
   color: var(--color-primary);
@@ -616,7 +636,7 @@
 
 .logical-column-row {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) auto 1fr;
+  grid-template-columns: minmax(8rem, 1fr) auto minmax(6rem, 1fr);
   gap: var(--space-sm);
   align-items: center;
   padding: var(--space-sm) var(--space-md);
@@ -641,6 +661,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .logical-column-pk {
@@ -660,6 +681,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
+  min-width: 0;
 }
 
 .logical-type-select {

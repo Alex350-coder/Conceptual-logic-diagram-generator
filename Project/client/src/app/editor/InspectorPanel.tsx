@@ -462,22 +462,29 @@ function SpecializationInspector({
   )
 }
 
-function ModelTree({ model }: { model: ConceptualModel }) {
+function ModelTree({ model, hasSelection }: { model: ConceptualModel; hasSelection: boolean }) {
+  const select = (id: NodeId) => {
+    sessionStore.getState().setSelection([id])
+  }
   return (
     <section className="inspector-section" aria-label="Modelo">
       <h2 className="inspector-title">Modelo</h2>
-      <p className="inspector-empty">No hay nada seleccionado.</p>
+      {hasSelection ? null : <p className="inspector-empty">No hay nada seleccionado.</p>}
       <ul className="inspector-list">
         {model.entities.map((e) => {
           const owned = model.attributes.filter((a) => a.ownerId === e.id && a.parentId === null)
           return (
             <li key={e.id} className="inspector-item">
-              <span className="inspector-entity-name">{e.name}</span>
+              <button type="button" className="inspector-tree-item" onClick={() => select(e.id)}>
+                {e.name}
+              </button>
               {owned.length > 0 ? (
                 <ul className="inspector-nested">
                   {owned.map((a) => (
                     <li key={a.id} className="inspector-item">
-                      <span>{a.name}</span>
+                      <button type="button" className="inspector-tree-item" onClick={() => select(a.id)}>
+                        {a.name}
+                      </button>
                       <span className="inspector-badge">{ATTRIBUTE_KIND_LABELS[a.kind]}</span>
                     </li>
                   ))}
@@ -488,13 +495,17 @@ function ModelTree({ model }: { model: ConceptualModel }) {
         })}
         {model.relationships.map((r) => (
           <li key={r.id} className="inspector-item">
-            <span className="inspector-relationship-name">{r.name}</span>
+            <button type="button" className="inspector-tree-item" onClick={() => select(r.id)}>
+              {r.name}
+            </button>
             {r.isIdentifying ? <span className="inspector-badge">Identificadora</span> : null}
           </li>
         ))}
         {model.specializations.map((s) => (
           <li key={s.id} className="inspector-item">
-            <span className="inspector-relationship-name">ISA</span>
+            <button type="button" className="inspector-tree-item" onClick={() => select(s.id)}>
+              ISA
+            </button>
           </li>
         ))}
       </ul>
@@ -543,7 +554,7 @@ export function InspectorPanel({
           interactions={interactions}
         />
       ) : (
-        <ModelTree model={model} />
+        <ModelTree model={model} hasSelection={selection.size > 0} />
       )}
     </aside>
   )

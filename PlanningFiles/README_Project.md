@@ -44,4 +44,4 @@ Monorepo npm workspaces · Dominio `shared` en TypeScript puro · Cliente React 
 
 ## Siguiente paso
 
-Cerrar P14 (revisión final): reparar los hallazgos de la revisión cruzada (§26 de `Architecture.md`), completar la auditoría de rendimiento y accesibilidad, y actualizar este README, `Progress.md`, `Tasks.md` y `Audit.md` al estado final del MVP.
+Cerrar P14 (revisión final). La fase P14.3 de QA ya aplicó las correcciones halladas (drag libre de atributos + render quirúrgico, creación de entidades sin solapes, árbol Modelo navegable, tooltip de traza lógica; ver `Audit.md`) y generó las dos guías nuevas de entrada al repositorio: `README.md` (raíz) y `SystemDocumentation.md`. Resta el cierre documental final de `Progress.md` y el gate completo (typecheck/lint/unit/E2E/coverage/build/docs).

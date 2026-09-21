@@ -19,5 +19,8 @@ Project/client/test-results/
 # Allow OpenAI config
 !opencode.json
 
+# Allow root README (repo landing on GitHub)
+!README.md
+
 # Allow own gitignore + config
 !.gitignore

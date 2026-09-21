@@ -99,7 +99,15 @@ export function buildEdgeLayer(
     const a = boundsById.get(from)
     const b = boundsById.get(to)
     if (a === undefined || b === undefined) return
-    items.push(makePolyline('edge', `edge-${from}-${to}`, [positionOf(a), positionOf(b)], emphasized))
+    items.push(
+      makePolyline(
+        'edge',
+        `edge-${from}-${to}`,
+        [positionOf(a), positionOf(b)],
+        emphasized,
+        { from, to },
+      ),
+    )
   }
 
   for (const r of model.relationships) {
@@ -172,8 +180,9 @@ export function buildLabelLayer(
     at: Point,
     text: string,
     role: PrimitiveRole = 'label',
+    anchors?: { from: NodeId; to: NodeId; mix: number },
   ): void => {
-    items.push(makeText(role, id, { x: at.x, y: at.y, width: 0, height: 0 }, text))
+    items.push(makeText(role, id, { x: at.x, y: at.y, width: 0, height: 0 }, text, false, anchors))
   }
   for (const e of model.entities) label(e.id, e.name, 'label')
   for (const r of model.relationships) label(r.id, r.name, 'label')
@@ -198,7 +207,13 @@ export function buildLabelLayer(
       const from = positionOf(ent)
       const to = positionOf(rel)
       const at = { x: from.x + (to.x - from.x) * 0.35, y: from.y + (to.y - from.y) * 0.35 }
-      floatingText(`card-${r.id}-${ep.entityId}`, at, ep.cardinality)
+      floatingText(
+        `card-${r.id}-${ep.entityId}`,
+        at,
+        ep.cardinality,
+        'label',
+        { from: ep.entityId, to: r.id, mix: 0.35 },
+      )
     }
   }
   return items
