@@ -484,3 +484,36 @@ verdes; 33/33 E2E; typecheck/lint 0. Prueba definitiva: siguiente push de `phase
 → job `e2e` del CI.
 
 ---
+
+## 2026-09-21 — P14.3 QA: hallazgos B1–B5, arrastre libre de atributos y docs
+
+Rama `phase/14-bugfix-docs`.
+
+### Veredictos de la revisión QA (B1–B5)
+
+- **B1 "la entidad no queda en la posición del drag" — NO reproducible.** La suite E2E 33/33 cubre click/drag/dblclick/shift-click/menú contextual sin `pointer-events:none` en el repo; el drag sí seguía al puntero con commit a grilla (UI.md §3.1). Se añade un guard de regresión E2E explícito (`selection-regression.spec.ts`, B1): posiciona la entidad arrastrando +200/+40 px y asevera desplazamiento ≈ delta dentro de la tolerancia de snap (16 px). ESTADO: sin defecto; test de guard agregado.
+- **B2 "crear una entidad nueva la coloca sobre otra" — BUG REAL, corregido.** `createEntity` colocaba la entidad en el centro del viewport + un desplazamiento fijo (≈80 px) sin comprobar colisiones (`editorInteractions.ts`). Fix: **`editor/placement.ts` `findFreeSpot`** — snap inicial a grilla + probe diagonal por pasos de la grilla (bloqueo solo por intersección de rects) y eso como posición del nodo (comando `moveNode`). E2E B2: dos entidades creadas desde el toolbar no se solapan. Referencia: D-CC/R derivada de la propia invariante de layout, sin nueva regla V.
+- **B3 "falta endpoint duplicate" — NO es bug.** `POST /api/v1/diagrams/:id/duplicate` existe y está cubierto por E2E (flujo 18, `persistencia.spec.ts`). ESTADO: sin acción.
+- **B4 "árbol Modelo no clicable + mensaje fijo" — PARCIAL, corregido.** El Inspector solo mostraba el árbol en estado vacío (o multiselección), con el mensaje "No hay nada seleccionado." fijo aun con selección múltiple. Fix: cada nodo del árbol es `<button>` clicable (`select(id)` vía `sessionStore.setSelection`) y el mensaje es condicional (`hasSelection` → solo cuando la selección es vacía). E2E B4: desde el estado vacío se seleccionan entidad y atributo por el árbol. Nota: el árbol sigue siendo el estado por defecto (vacío/multiselección); la navegación entidad→atributo requiere deseleccionar entre ellas (comportamiento confirmado y testeado).
+- **B5 "error de tipografía/ellipsis en la traza del lógico" — BUG REAL, corregido.** `.logical-column-trace` truncaba con ellipsis sin dar acceso al texto completo. Fix: `title={column.derivedFrom}` + CSS: `grid-template-columns: minmax(8rem,1fr) auto minmax(6rem,1fr)` y `min-width:0` en nombre y traza para que la ellipsis actúe dentro de la grilla.
+
+### Arrastre libre de atributos (ERDplus) + rendimiento de drag
+
+- Nuevo **`editor/dragBasis.ts`**: base del drag = layout explícito + `autoAttributeBounds` (atributos sin posición viajan con su dueño, estilo ERDplus: el atributo se mueve por su cuenta sin arrastrar a la entidad).
+- `editorInteractions.ts` reescrito para **preview libre (sin snap) coalescido por rAF** durante el drag y **commit al soltar**: `snapLayout` (snap a grilla solo de ids fijados) + `layoutToCommands`. **`commitIds`**: solo lo seleccionado directamente y nodos de geometría; los atributos arrastrados por transitividad siguen a su contenedor y no se fijan (`isAttribute`).
+- Nuevo **`render/sceneDelta.ts` `translateScene`**: render quirúrgico durante el drag (sin reconstruir el modelo ni re-auto-posicionar atributos): translada solo primitivas de nodos movidos (rects/labels/selection por prefijos `label-`/`sel-`/`isa-do-`, aristas por extremo movido, marcas de cardinalidad por interpolación `mix 0.35`). `shapes.ts` gana `anchors` (`EdgeAnchors { from, to }`; texto con `mix`) y `EditorPage` memoiza contenido estático y aplica `translateScene` + viewport. Primer render de drag en O(nodes afectados) en vez de O(modelo completo) — perf objetivo mantenido.
+- `shapes.ts`: con `exactOptionalPropertyTypes: true` el constructor omite la clave cuando no hay anclajes.
+
+### Tests y verificación
+
+- Unit nuevos (16): `placement` (4), `dragBasis` (3), `snapLayout` (2, en `drag.test`), `sceneDelta` (7). Suite: shared 233 + client 331 + server 58 = **622**.
+- E2E nuevos (4): `attribute-drag.spec.ts` (arrastre de atributo sin mover la entidad + persistencia tras Ctrl+S/reload) y `selection-regression.spec.ts` (B1/B2/B4). Suite E2E: **37/37**.
+- Typecheck y lint a 0; build de producción (Vite) OK.
+
+### Documentación nueva (esta fase)
+
+- `README.md` (raíz del repo): presentación, características, quickstart y comandos.
+- `PlanningFiles/SystemDocumentation.md`: documentación técnica del sistema (capas, dominio, transformación, editor/renderer, servidor, API, BD, seguridad, operación y calidad).
+- Este `Audit.md` §P14.3 completa el cierre documental de P14 junto con `README_Project.md` y `Progress.md`.
+
+---
