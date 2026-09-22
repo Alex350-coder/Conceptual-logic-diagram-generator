@@ -9,18 +9,21 @@ import {
   type Attribute,
   type ConceptualModel,
   type Entity,
+  type Point,
   type Relationship,
   type RelationshipEndpoint,
   type Specialization,
 } from '../domain/conceptual'
 import {
   DATA_TYPES,
+  REL_KINDS,
   UNDEFINED_TYPE,
   type DataType,
   type ForeignKey,
   type LogicalColumn,
   type LogicalModel,
   type LogicalTable,
+  type RelKind,
   type TableSource,
 } from '../domain/logical'
 import type { CURRENT_SCHEMA_VERSION } from '../constants'
@@ -186,12 +189,19 @@ function decodeAttribute(value: unknown): Attribute {
   }
 }
 
-function decodeLayout(value: unknown): ConceptualModel['layout'] {
+const readOptional = (record: Record<string, unknown>, key: string): unknown => {
+  if (!(key in record)) {
+    return undefined
+  }
+  return record[key]
+}
+
+function decodePointMap(value: unknown): Record<string, Point> {
   const record = asRecord(value, 'Layout')
-  const layout: ConceptualModel['layout'] = {}
+  const layout: Record<string, Point> = {}
   for (const [key, pointValue] of Object.entries(record)) {
     const point = asRecord(pointValue, `Layout['${key}']`)
-    layout[key as NodeId] = {
+    layout[key] = {
       x: asFiniteNumber(readMap(point, 'x'), `Layout['${key}'].x`),
       y: asFiniteNumber(readMap(point, 'y'), `Layout['${key}'].y`),
     }
@@ -213,7 +223,7 @@ export function decodeConceptualModel(value: unknown): ConceptualModel {
     attributes: asArray(readMap(record, 'attributes'), 'ConceptualModel.attributes').map(
       decodeAttribute,
     ),
-    layout: decodeLayout(readMap(record, 'layout')),
+    layout: decodePointMap(readMap(record, 'layout')) as ConceptualModel['layout'],
   }
 }
 
@@ -248,7 +258,7 @@ function decodeForeignKey(value: unknown): ForeignKey {
   const record = asRecord(value, 'ForeignKey')
   const fromValue = readMap(record, 'from')
   const toValue = asRecord(readMap(record, 'to'), 'ForeignKey.to')
-  return {
+  const foreignKey: ForeignKey = {
     from: asArray(fromValue, 'ForeignKey.from').map((id) => asColumnId(id, 'ForeignKey.from[]')),
     to: {
       tableId: asTableId(readMap(toValue, 'tableId'), 'ForeignKey.to.tableId'),
@@ -257,6 +267,11 @@ function decodeForeignKey(value: unknown): ForeignKey {
       ),
     },
   }
+  const kindValue = readOptional(record, 'kind')
+  if (kindValue !== undefined) {
+    foreignKey.kind = asEnum(kindValue, REL_KINDS, 'ForeignKey.kind') as RelKind
+  }
+  return foreignKey
 }
 
 function decodeTable(value: unknown): LogicalTable {
@@ -282,6 +297,7 @@ function decodeTable(value: unknown): LogicalTable {
 
 export function decodeLogicalModel(value: unknown): LogicalModel {
   const record = asRecord(value, 'LogicalModel')
+  const layoutValue = readOptional(record, 'layout')
   return {
     schemaVersion: asInteger(
       readMap(record, 'schemaVersion'),
@@ -289,6 +305,10 @@ export function decodeLogicalModel(value: unknown): LogicalModel {
     ) as typeof CURRENT_SCHEMA_VERSION,
     logicalVersion: asInteger(readMap(record, 'logicalVersion'), 'LogicalModel.logicalVersion'),
     tables: asArray(readMap(record, 'tables'), 'LogicalModel.tables').map(decodeTable),
+    layout:
+      layoutValue === undefined
+        ? {}
+        : (decodePointMap(layoutValue) as LogicalModel['layout']),
   }
 }
 
