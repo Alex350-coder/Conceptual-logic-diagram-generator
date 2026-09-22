@@ -2,11 +2,14 @@ import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  RefObject,
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import type { ColumnId, ColumnType, ConceptualModel, LogicalModel, NodeId, TableId } from '@erd-studio/shared'
 import { applyViewport, buildContentScene } from '../../render/SceneRenderer'
+import { buildLogicalScene, logicalSceneBounds } from '../../render/logicalScene'
 import { translateScene } from '../../render/sceneDelta'
 import { SceneView } from '../../render/SceneView'
 import { autoAttributeBounds } from '../../render/attributeLayout'
@@ -23,6 +26,11 @@ import {
   closestShapeId,
   type EditorInteractions,
 } from './editorInteractions'
+import {
+  useLogicalInteractions,
+  type LogicalDragState,
+  type LogicalInteractions,
+} from './logicalInteractions'
 import { useClipboardActions } from './clipboardActions'
 import { DiagramMenu } from './DiagramMenu'
 import { InspectorPanel } from './InspectorPanel'
@@ -132,6 +140,27 @@ export function EditorPage() {
 
   const interactions = useEditorInteractions(viewport, size, model)
 
+  const [selectedLogicalTable, setSelectedLogicalTable] = useState<TableId | null>(null)
+
+  const handleModeChange = (next: EditorMode) => {
+    setMode(next)
+    if (next !== 'logical') return
+    const current = sessionStore.getState().logical
+    if (current !== null && current.tables.length > 0) {
+      setSelectedLogicalTable((prev) => {
+        if (prev !== null && current.tables.some((t) => t.id === prev)) return prev
+        return current.tables[0]!.id
+      })
+    }
+  }
+
+  const logicalInteractions = useLogicalInteractions(
+    viewport,
+    size,
+    mode === 'logical' ? logical : null,
+    setSelectedLogicalTable,
+  )
+
   const { copy, cut, paste } = useClipboardActions(interactions.deleteSelected)
 
   const shortcutContext = useMemo<ShortcutContext>(
@@ -220,14 +249,14 @@ export function EditorPage() {
         canRedo={canRedo}
         viewport={viewport}
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={handleModeChange}
         canTransform={status === 'ready' && model !== null}
         onTransform={() => {
           const store = sessionStore.getState()
           const result =
             store.logical !== null ? store.recomputeLogical() : store.transformToLogical()
           if (result.ok && !sessionStore.getState().logicalRecalculationPending) {
-            setMode('logical')
+            handleModeChange('logical')
           }
         }}
       />
@@ -242,6 +271,9 @@ export function EditorPage() {
           interactions={interactions}
           mode={mode}
           logical={logical}
+          logicalInteractions={logicalInteractions}
+          selectedLogicalTable={selectedLogicalTable}
+          onSelectLogicalTable={setSelectedLogicalTable}
           onContextMenu={handleCanvasContextMenu}
           onSetColumnType={(payload) => {
             void sessionStore.getState().setColumnType(payload)
@@ -569,6 +601,100 @@ function ConceptualCanvas({
   )
 }
 
+function LogicalCanvas({
+  logical,
+  size,
+  viewport,
+  selected,
+  drag,
+  onPointerDown,
+}: {
+  logical: LogicalModel
+  size: ViewportSize
+  viewport: Viewport
+  selected: TableId | null
+  drag: LogicalDragState | null
+  onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void
+}) {
+  const base = useMemo(
+    () =>
+      buildLogicalScene(logical, {
+        selected,
+        drag,
+        marquee: null,
+      }),
+    [logical, selected, drag],
+  )
+  const scene = useMemo(() => applyViewport(base, viewport, size), [base, viewport, size])
+  return (
+    <SceneView
+      scene={scene}
+      viewport={viewport}
+      size={size}
+      onWheel={handleWheel}
+      onPointerDown={onPointerDown}
+    />
+  )
+}
+
+/**
+ * Vista del modo Lógico: un lienzo SVG que se mide a sí mismo (el panel lateral
+ * es un hermano flex, no un overlay) y un fit inicial sobre las tablas. El fit
+ * se dispara una sola vez por montaje y con el tamaño medido real; los cambios
+ * de layout posteriores (moveTable) mantienen el viewport del usuario.
+ */
+function LogicalEditorView({
+  logical,
+  viewport,
+  selectedLogicalTable,
+  interactions,
+  onSelectLogicalTable,
+  onSetColumnType,
+}: {
+  logical: LogicalModel
+  viewport: Viewport
+  selectedLogicalTable: TableId | null
+  interactions: LogicalInteractions
+  onSelectLogicalTable: (id: TableId | null) => void
+  onSetColumnType: (payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }) => void
+}) {
+  const [canvasRef, canvasSize] = useMeasuredElementSize<HTMLDivElement>()
+  const fittedRef = useRef(false)
+
+  useEffect(() => {
+    if (fittedRef.current || canvasSize.width === DEFAULT_SIZE.width) return
+    fittedRef.current = true
+    const bounds = logicalSceneBounds(logical)
+    if (bounds !== null) {
+      const viewportSize = sessionStore.getState().viewport
+      sessionStore.getState().setViewport(fitRect(viewportSize, canvasSize, bounds))
+    }
+  }, [logical, canvasSize])
+
+  return (
+    <div className="logical-layout" role="region" aria-label="Modelo lógico">
+      <div className="logical-canvas" ref={canvasRef}>
+        <LogicalCanvas
+          logical={logical}
+          size={canvasSize}
+          viewport={viewport}
+          selected={selectedLogicalTable}
+          drag={interactions.drag}
+          onPointerDown={interactions.handlePointerDown}
+        />
+      </div>
+      <LogicalPanel
+        logical={logical}
+        selectedTable={selectedLogicalTable}
+        onSelectTable={onSelectLogicalTable}
+        onSetType={(payload) => {
+          void onSetColumnType(payload)
+        }}
+      />
+    </div>
+  )
+}
+
 function EditorBody({
   status,
   id,
@@ -579,6 +705,9 @@ function EditorBody({
   interactions,
   mode,
   logical,
+  logicalInteractions,
+  selectedLogicalTable,
+  onSelectLogicalTable,
   onContextMenu,
   onSetColumnType,
 }: {
@@ -591,6 +720,9 @@ function EditorBody({
   interactions: EditorInteractions
   mode: EditorMode
   logical: LogicalModel | null
+  logicalInteractions: LogicalInteractions
+  selectedLogicalTable: TableId | null
+  onSelectLogicalTable: (id: TableId | null) => void
   onContextMenu: (event: ReactMouseEvent<SVGSVGElement>) => void
   onSetColumnType: (payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }) => void
 }) {
@@ -626,11 +758,13 @@ function EditorBody({
       )
     }
     return (
-      <LogicalPanel
+      <LogicalEditorView
         logical={logical}
-        onSetType={(payload) => {
-          void onSetColumnType(payload)
-        }}
+        viewport={viewport}
+        selectedLogicalTable={selectedLogicalTable}
+        interactions={logicalInteractions}
+        onSelectLogicalTable={onSelectLogicalTable}
+        onSetColumnType={onSetColumnType}
       />
     )
   }
@@ -996,4 +1130,24 @@ function useEditorSize(): ViewportSize {
     return () => observer.disconnect()
   }, [])
   return size
+}
+
+/** Mide un elemento vía ref (ResizeObserver); util para lienzos dentro de un layout flex. */
+function useMeasuredElementSize<T extends HTMLElement>(): [RefObject<T>, ViewportSize] {
+  const ref = useRef<T | null>(null)
+  const [size, setSize] = useState<ViewportSize>(DEFAULT_SIZE)
+  useEffect(() => {
+    const el = ref.current
+    if (el === null || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry === undefined) return
+      const { width, height } = entry.contentRect
+      if (width === 0 || height === 0) return
+      setSize({ width, height })
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  return [ref as RefObject<T>, size]
 }
