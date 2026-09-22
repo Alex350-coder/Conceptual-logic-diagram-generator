@@ -84,6 +84,7 @@ export interface SessionActions {
   sendCommands(commands: DomainCommand[]): CommandResult
   transformToLogical(): LogicalCommandResult
   setColumnType(payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType }): LogicalCommandResult
+  moveTable(payload: { tableId: TableId; x: number; y: number }): LogicalCommandResult
   recomputeLogical(confirm?: boolean): LogicalCommandResult
   resolveLogicalRecalculation(decision: 'recompute' | 'keep'): void
   undo(): void
@@ -282,6 +283,27 @@ export function createSessionStore(): SessionStoreApi {
       const outcome = applyLogicalCommand(session.model, logical, {
         type: 'setColumnType',
         payload: { tableId, columnId, dataType },
+      })
+      if (!outcome.result.ok) {
+        return outcome.result
+      }
+      const nextRevision = get().revision + 1
+      set({
+        logical: outcome.logical,
+        revision: nextRevision,
+        isDirty: nextRevision !== get().lastPersistedRevision,
+      })
+      return outcome.result
+    },
+
+    moveTable: ({ tableId, x, y }) => {
+      const { session, logical } = get()
+      if (session === null || logical === null) {
+        return { ok: false, error: new DomainError('INTERNAL', 'Sin plano lógico.') }
+      }
+      const outcome = applyLogicalCommand(session.model, logical, {
+        type: 'moveTable',
+        payload: { tableId, position: { x, y } },
       })
       if (!outcome.result.ok) {
         return outcome.result

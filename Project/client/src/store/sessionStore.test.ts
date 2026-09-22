@@ -666,6 +666,31 @@ it('exposes the raw session for engine consumers', () => {
       if (!result.ok) expect(result.error.code).toBe('INTERNAL')
     })
 
+    it('moveTable actualiza layout, conserva el resto y marca dirty', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      conceptualWithPersona()
+      api.getState().transformToLogical()
+      const id = api.getState().logical!.tables[0]!.id
+      const layoutBefore = api.getState().logical!.layout[id]
+
+      const result = api.getState().moveTable({ tableId: id, x: 240, y: 160 })
+
+      expect(result.ok).toBe(true)
+      const s = api.getState()
+      expect(s.logical?.layout[id]?.x).toBe(240)
+      expect(s.logical?.layout[id]?.y).toBe(160)
+      expect(layoutBefore?.x).not.toBe(240)
+      expect(s.revision).toBe(3)
+      expect(s.isDirty).toBe(true)
+    })
+
+    it('moveTable sin plano lógico devuelve error INTERNAL', () => {
+      api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
+      const result = api.getState().moveTable({ tableId: 't:e:x' as never, x: 0, y: 0 })
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error.code).toBe('INTERNAL')
+    })
+
     it('recomputeLogical sin cambios no requiere confirmación y actualiza el plano', () => {
       api.getState().loadFromEnvelope(diagramId, 'Personas', envelope())
       conceptualWithPersona()
