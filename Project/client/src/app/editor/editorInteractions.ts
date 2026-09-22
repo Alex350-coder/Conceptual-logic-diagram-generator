@@ -251,11 +251,14 @@ export function useEditorInteractions(
       cleanup()
       if (frameId !== null) cancelAnimationFrame(frameId)
       if (moved) {
-        // Solo se persiste lo seleccionado directamente y los nodos de geometria;
-        // los atributos arrastrados en transitividad siguen a su contenedor.
+        // Solo se persiste lo seleccionado directamente, los nodos de geometria y
+        // los atributos con posicion explicita (arrastre libre previo); los atributos
+        // sin layout siguen recomputados por autoAttributeBounds (T6-04).
         const isAttribute = (mid: NodeId): boolean =>
           targetModel.attributes.some((a) => a.id === mid)
-        const commitIds = moveIds.filter((mid) => nextSel.has(mid) || !isAttribute(mid))
+        const commitIds = moveIds.filter(
+          (mid) => nextSel.has(mid) || !isAttribute(mid) || targetModel.layout[mid] !== undefined,
+        )
         const free = applyDelta(original, moveIds, pendingDelta, false)
         const layout = snapLayout(free, commitIds)
         const commands = layoutToCommands(layout, original, commitIds)

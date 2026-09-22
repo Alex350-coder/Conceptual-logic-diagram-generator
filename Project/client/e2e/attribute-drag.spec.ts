@@ -85,3 +85,54 @@ test('arrastre libre de atributo: se mueve solo, la entidad queda quieta y se pe
   expect(Math.abs(reloadedBox.x - attrAfter.x)).toBeLessThan(16)
   expect(Math.abs(reloadedBox.y - attrAfter.y)).toBeLessThan(16)
 })
+
+test('atributo con posicion libre sigue a su entidad al arrastrarla y persiste', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Nuevo diagrama' }).click()
+  const scene = page.getByTestId('scene')
+  await expect(scene).toBeVisible()
+  const shapes = scene.locator('[data-layer="shapes"]')
+  const labels = scene.locator('[data-layer="labels"]')
+  const editUrl = page.url()
+
+  await createEntity(page, 'Cliente')
+  const entity = shapes.locator('[data-id] rect').first()
+
+  await page.getByRole('button', { name: 'Nuevo atributo' }).click()
+  const nameInput = page.getByRole('textbox', { name: 'Nombre', exact: true })
+  await expect(nameInput).toBeVisible()
+  await nameInput.fill('codigo')
+  await nameInput.press('Enter')
+  await expect(labels.locator('text', { hasText: 'codigo' })).toBeVisible()
+
+  const attribute = await ellipseByName(shapes, labels, 'codigo')
+  // 1) posicionar el atributo libremente (queda una posicion guardada en layout)
+  await drag(page, attribute, 160, 90)
+
+  // 2) arrastrar la ENTIDAD: el atributo posicionado debe moverse con ella
+  const entityBefore = await entity.boundingBox()
+  const attrBefore = await attribute.boundingBox()
+  if (entityBefore === null || attrBefore === null) throw new Error('Sin boundingBox inicial')
+  await drag(page, entity, 120, 60)
+  const entityAfter = await entity.boundingBox()
+  const attrAfter = await attribute.boundingBox()
+  if (entityAfter === null || attrAfter === null) throw new Error('Sin boundingBox tras drag')
+  expect(entityAfter.x - entityBefore.x).toBeGreaterThanOrEqual(100)
+  expect(entityAfter.y - entityBefore.y).toBeGreaterThanOrEqual(40)
+  expect(attrAfter.x - attrBefore.x).toBeGreaterThanOrEqual(100)
+  expect(attrAfter.y - attrBefore.y).toBeGreaterThanOrEqual(40)
+
+  // 3) persistencia: Ctrl+S + reload conservan la posicion relativa al entidad
+  await page.keyboard.press('Control+s')
+  await expect(page.locator('.editor-save-indicator')).toHaveText('Guardado', { timeout: 10_000 })
+  await page.goto(editUrl)
+  await expect(scene).toBeVisible()
+  await expect(labels.locator('text', { hasText: 'Cliente' })).toBeVisible()
+  const reloadedAttr = await ellipseByName(shapes, labels, 'codigo')
+  const reloadedBox = await reloadedAttr.boundingBox()
+  if (reloadedBox === null) throw new Error('Sin boundingBox al reabrir')
+  expect(Math.abs(reloadedBox.x - attrAfter.x)).toBeLessThan(16)
+  expect(Math.abs(reloadedBox.y - attrAfter.y)).toBeLessThan(16)
+})
