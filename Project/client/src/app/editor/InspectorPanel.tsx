@@ -255,81 +255,99 @@ function RelationshipInspector({
       </button>
 
       <h3 className="inspector-subtitle">Extremos ({relationship.endpoints.length})</h3>
+      <p className="inspector-endpoint-summary" data-testid="relationship-endpoint-summary">
+        {relationship.endpoints
+          .map((ep) => {
+            const entity = model.entities.find((e) => e.id === ep.entityId)
+            return `${entity?.name ?? '—'} ${ep.cardinality}`
+          })
+          .join(' — ')}
+      </p>
       <ul className="inspector-list">
         {relationship.endpoints.map((ep, index) => {
           const entity = model.entities.find((e) => e.id === ep.entityId)
-          const labelled = relationship.endpoints.filter(
-            (o) => o.entityId === ep.entityId && o.roleName !== null && o.roleName !== '',
-          )
+          const recursive = relationship.endpoints.filter((o) => o.entityId === ep.entityId).length > 1
           return (
-            <li key={`${relationship.id}-${index}`} className="inspector-item inspector-endpoint">
-              <span className="inspector-entity-name">
-                {entity?.name ?? '—'}
-                {ep.roleName ? ` (${ep.roleName})` : ''}
-              </span>
-              <select
-                aria-label={`Cardinalidad extremo ${index + 1}`}
-                value={ep.cardinality}
-                onChange={(e) =>
-                  interactions.setEndpointCardinality(
-                    relationship.id,
-                    index,
-                    e.target.value as CardinalityLabel,
-                  )
-                }
-              >
-                {(Object.keys(CARDINALITY_LABELS) as CardinalityLabel[]).map((cardinality) => (
-                  <option key={cardinality} value={cardinality}>
-                    {CARDINALITY_LABELS[cardinality]}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label={`Participación extremo ${index + 1}`}
-                value={ep.participation}
-                onChange={(e) =>
-                  interactions.setEndpointParticipation(
-                    relationship.id,
-                    index,
-                    e.target.value as Participation,
-                  )
-                }
-              >
-                {(Object.keys(PARTICIPATION_LABELS) as Participation[]).map((participation) => (
-                  <option key={participation} value={participation}>
-                    {PARTICIPATION_LABELS[participation]}
-                  </option>
-                ))}
-              </select>
-              <label className="inspector-field">
-                Rol (recursiva)
-                <input
-                  type="text"
-                  aria-label={`Rol extremo ${index + 1}`}
-                  defaultValue={ep.roleName ?? ''}
-                  placeholder={labelled.length > 1 ? 'obligatorio (V-012)' : ''}
-                  onBlur={(e) => {
-                    const role = e.target.value.trim()
-                    interactions.setEndpointRole(
-                      relationship.id,
-                      index,
-                      role.length > 0 ? role : null,
-                    )
-                  }}
-                  onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
-                    if (e.key === 'Enter') e.currentTarget.blur()
-                  }}
-                />
-              </label>
-              {relationship.endpoints.length > 2 ? (
-                <button
-                  type="button"
-                  className="inspector-button"
-                  aria-label={`Quitar extremo ${index + 1}`}
-                  onClick={() => interactions.removeRelationEndpoint(relationship.id, index)}
-                >
-                  Quitar
-                </button>
+            <li key={`${relationship.id}-${index}`} className="inspector-endpoint">
+              <div className="inspector-endpoint-head">
+                <span className="inspector-entity-name">
+                  {entity?.name ?? '—'}
+                  {ep.roleName ? ` (${ep.roleName})` : ''}
+                </span>
+                {relationship.endpoints.length > 2 ? (
+                  <button
+                    type="button"
+                    className="inspector-button"
+                    aria-label={`Quitar extremo ${index + 1}`}
+                    onClick={() => interactions.removeRelationEndpoint(relationship.id, index)}
+                  >
+                    Quitar
+                  </button>
+                ) : null}
+              </div>
+              <div className="inspector-endpoint-grid">
+                <label className="inspector-field">
+                  Cardinalidad
+                  <select
+                    aria-label={`Cardinalidad extremo ${index + 1}`}
+                    value={ep.cardinality}
+                    onChange={(e) =>
+                      interactions.setEndpointCardinality(
+                        relationship.id,
+                        index,
+                        e.target.value as CardinalityLabel,
+                      )
+                    }
+                  >
+                    {(Object.keys(CARDINALITY_LABELS) as CardinalityLabel[]).map((cardinality) => (
+                      <option key={cardinality} value={cardinality}>
+                        {CARDINALITY_LABELS[cardinality]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="inspector-field">
+                  Participación
+                  <select
+                    aria-label={`Participación extremo ${index + 1}`}
+                    value={ep.participation}
+                    onChange={(e) =>
+                      interactions.setEndpointParticipation(
+                        relationship.id,
+                        index,
+                        e.target.value as Participation,
+                      )
+                    }
+                  >
+                    {(Object.keys(PARTICIPATION_LABELS) as Participation[]).map((participation) => (
+                      <option key={participation} value={participation}>
+                        {PARTICIPATION_LABELS[participation]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {recursive ? (
+                <label className="inspector-field inspector-endpoint-role">
+                  Rol
+                  <input
+                    type="text"
+                    aria-label={`Rol extremo ${index + 1}`}
+                    defaultValue={ep.roleName ?? ''}
+                    placeholder="obligatorio (V-012)"
+                    onBlur={(e) => {
+                      const role = e.target.value.trim()
+                      interactions.setEndpointRole(
+                        relationship.id,
+                        index,
+                        role.length > 0 ? role : null,
+                      )
+                    }}
+                    onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                    }}
+                  />
+                </label>
               ) : null}
             </li>
           )
