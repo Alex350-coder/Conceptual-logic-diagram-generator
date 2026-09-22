@@ -1,4 +1,5 @@
 import type { ConceptualModel } from '../domain/conceptual'
+import type { TableId } from '../domain/ids'
 import type { LogicalColumn, LogicalModel } from '../domain/logical'
 import { UNDEFINED_TYPE } from '../domain/logical'
 import { transformConceptualToLogical } from './engine'
@@ -40,8 +41,26 @@ export function recomputeLogical(
   }
 
   return {
-    logical: { ...fresh, logicalVersion: mergedLogicalVersion },
+    logical: { ...fresh, logicalVersion: mergedLogicalVersion, layout: mergePreservedLayout(fresh, current) },
     requiresConfirmation: false,
+  }
+}
+
+/**
+ * Conserva en la recomputación las posiciones puestas a mano por el usuario para
+ * tablas que siguen existiendo; las nuevas tablas reciben el default determinista.
+ */
+function mergePreservedLayout(fresh: LogicalModel, current: LogicalModel): LogicalModel['layout'] {
+  const freshIds = new Set(fresh.tables.map((t) => t.id))
+  const preserved: LogicalModel['layout'] = {}
+  for (const [tableId, position] of Object.entries(current.layout)) {
+    if (freshIds.has(tableId as TableId)) {
+      preserved[tableId as TableId] = position
+    }
+  }
+  return {
+    ...fresh.layout,
+    ...preserved,
   }
 }
 
@@ -61,6 +80,7 @@ function mergeWithPreservedTypes(
   return {
     ...fresh,
     logicalVersion,
+    layout: mergePreservedLayout(fresh, current),
     tables: fresh.tables.map((freshTable) => ({
       ...freshTable,
       columns: freshTable.columns.map((freshCol) => preserveType(freshCol, indexByDerivedFrom)),

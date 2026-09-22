@@ -6,7 +6,7 @@ import { toNodeId } from '../domain/ids'
 import type { LogicalModel } from '../domain/logical'
 import { transformConceptualToLogical } from './engine'
 import { recomputeLogical } from './recompute'
-import { toColumnId } from './types'
+import { toColumnId, toTableId } from './types'
 
 type Cmd = Parameters<typeof applyCommand>[1]
 
@@ -48,6 +48,18 @@ describe('recomputeLogical D-TR-12: no sobrescribir sin confirmación', () => {
     expect(result.requiresConfirmation).toBe(false)
     expect(result.logical.tables).toEqual(current.tables)
     expect(result.logical.logicalVersion).toBe(current.logicalVersion + 1)
+  })
+
+  it('preserva el layout puesto a mano en la recomputación', () => {
+    const conceptual = baseModel()
+    const current = transformConceptualToLogical(conceptual)
+    const moved: LogicalModel = {
+      ...current,
+      layout: { ...current.layout, [toTableId('t:e:e1')]: { x: 300, y: 150 } },
+    }
+    const result = recomputeLogical(conceptual, moved, false)
+    expect(result.logical.layout[toTableId('t:e:e1')]).toEqual({ x: 300, y: 150 })
+    expect(result.logical.layout).not.toEqual(current.layout)
   })
 
   it('con tipos editados y sin confirm → requiresConfirmation: true y NO muta', () => {

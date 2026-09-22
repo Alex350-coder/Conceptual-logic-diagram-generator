@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { LogicalColumn, LogicalModel, LogicalTable } from '../../domain/logical'
+import type { LogicalColumn, LogicalModel, LogicalTable, RelKind } from '../../domain/logical'
 import { CURRENT_SCHEMA_VERSION } from '../../constants'
 import { toNodeId } from '../../domain/ids'
 import { toColumnId, toTableId } from '../types'
 import { transformConceptualToLogical } from '../engine'
+import { buildDefaultLogicalLayout } from '../logical-layout'
 import { buildPersonaConceptual } from './fixtures/persona'
 
 function col(
@@ -15,10 +16,11 @@ function col(
   return { id: toColumnId(id), name, dataType: dataType ?? 'UNDEFINED', nullable: false, derivedFrom }
 }
 
-function fk(column: string, targetTableId: string, toColumns: string[]) {
+function fk(column: string, targetTableId: string, toColumns: string[], kind?: RelKind) {
   return {
     from: [toColumnId(column)],
     to: { tableId: toTableId(targetTableId), columns: toColumns.map(toColumnId) },
+    ...(kind === undefined ? {} : { kind }),
   }
 }
 
@@ -50,6 +52,7 @@ describe('golden: transform persona (T1-T10)', () => {
     const expected: LogicalModel = {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       logicalVersion: 0,
+      layout: {},
       tables: [
         // T1/T2/T3/T4: Persona fuerte — id, simple, key, hojas de compuesto; derivado omitido
         table(
@@ -127,7 +130,7 @@ describe('golden: transform persona (T1-T10)', () => {
             col('c:t:e:e_empleado:2', 'fecha_desde', 'T7:relationship trabaja_en.fecha_desde'),
           ],
           ['c:t:e:e_empleado:0'],
-          [fk('c:t:e:e_empleado:1', 't:e:e_departamento', ['c:t:e:e_departamento:0'])],
+          [fk('c:t:e:e_empleado:1', 't:e:e_departamento', ['c:t:e:e_departamento:0'], 'ONE_TO_MANY')],
         ),
         // T1: Pais fuerte
         table(
@@ -149,7 +152,7 @@ describe('golden: transform persona (T1-T10)', () => {
             col('c:t:e:e_capital:1', 'pais_id', 'T8:relationship capital_de.#fk Pais'),
           ],
           ['c:t:e:e_capital:0'],
-          [fk('c:t:e:e_capital:1', 't:e:e_pais', ['c:t:e:e_pais:0'])],
+          [fk('c:t:e:e_capital:1', 't:e:e_pais', ['c:t:e:e_pais:0'], 'ONE_TO_ONE')],
         ),
         // T1: Alumno fuerte
         table(
@@ -241,8 +244,8 @@ describe('golden: transform persona (T1-T10)', () => {
           ],
           ['c:t:r:r_inscribe:0', 'c:t:r:r_inscribe:1'],
           [
-            fk('c:t:r:r_inscribe:0', 't:e:e_alumno', ['c:t:e:e_alumno:0']),
-            fk('c:t:r:r_inscribe:1', 't:e:e_curso', ['c:t:e:e_curso:0']),
+            fk('c:t:r:r_inscribe:0', 't:e:e_alumno', ['c:t:e:e_alumno:0'], 'MANY_TO_MANY'),
+            fk('c:t:r:r_inscribe:1', 't:e:e_curso', ['c:t:e:e_curso:0'], 'MANY_TO_MANY'),
           ],
         ),
         // T9: n-aria suministra — PK = todas las FK
@@ -262,15 +265,22 @@ describe('golden: transform persona (T1-T10)', () => {
             'c:t:r:r_suministra:2',
           ],
           [
-            fk('c:t:r:r_suministra:0', 't:e:e_proveedor', ['c:t:e:e_proveedor:0']),
-            fk('c:t:r:r_suministra:1', 't:e:e_pieza', ['c:t:e:e_pieza:0']),
-            fk('c:t:r:r_suministra:2', 't:e:e_proyecto', ['c:t:e:e_proyecto:0']),
+            fk('c:t:r:r_suministra:0', 't:e:e_proveedor', ['c:t:e:e_proveedor:0'], 'MANY_TO_MANY'),
+            fk('c:t:r:r_suministra:1', 't:e:e_pieza', ['c:t:e:e_pieza:0'], 'MANY_TO_MANY'),
+            fk('c:t:r:r_suministra:2', 't:e:e_proyecto', ['c:t:e:e_proyecto:0'], 'MANY_TO_MANY'),
           ],
         ),
       ],
     }
 
-    expect(result).toEqual(expected)
+    expect(result).toEqual({ ...expected, layout: buildDefaultLogicalLayout(expected.tables) })
+  })
+
+  it('emite un layout de rejilla determinista para las tablas', () => {
+    const first = transformConceptualToLogical(buildPersonaConceptual())
+    const expected = buildDefaultLogicalLayout(first.tables)
+    expect(first.layout).toEqual(expected)
+    expect(first.layout[toTableId('t:e:e_persona')]).toEqual({ x: 40, y: 40 })
   })
 
   it('es determinístico para la misma entrada', () => {
