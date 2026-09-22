@@ -180,3 +180,43 @@ describe('applyLogicalCommand: recomputeLogical', () => {
     expect(outcome.logical.tables[0]!.columns[1]!.dataType).toBe('UNDEFINED')
   })
 })
+
+describe('applyLogicalCommand: moveTable', () => {
+  it('mueve una tabla existente sin mutar el modelo de entrada', () => {
+    const conceptual = baseModel()
+    const logical = transformConceptualToLogical(conceptual)
+    const command: LogicalCommand = {
+      type: 'moveTable',
+      payload: { tableId: toTableId('t:e:e1'), position: { x: 240, y: 120 } },
+    }
+    const outcome = applyLogicalCommand(conceptual, logical, command)
+    expect(outcome.result.ok).toBe(true)
+    expect(outcome.logical.layout[toTableId('t:e:e1')]).toEqual({ x: 240, y: 120 })
+    expect(logical.layout[toTableId('t:e:e1')]).not.toEqual({ x: 240, y: 120 })
+  })
+
+  it('mueve conservando el resto del layout', () => {
+    const conceptual = baseModel()
+    const logical = transformConceptualToLogical(conceptual)
+    const first = applyLogicalCommand(conceptual, logical, {
+      type: 'moveTable',
+      payload: { tableId: toTableId('t:e:e1'), position: { x: 240, y: 120 } },
+    })
+    const second = applyLogicalCommand(conceptual, first.logical, {
+      type: 'moveTable',
+      payload: { tableId: toTableId('t:e:e1'), position: { x: 0, y: 0 } },
+    })
+    expect(Object.keys(second.logical.layout)).toHaveLength(1)
+    expect(second.logical.layout[toTableId('t:e:e1')]).toEqual({ x: 0, y: 0 })
+  })
+
+  it('rechaza tabla inexistente con MODEL_INVALID', () => {
+    const conceptual = baseModel()
+    const logical = transformConceptualToLogical(conceptual)
+    const outcome = applyLogicalCommand(conceptual, logical, {
+      type: 'moveTable',
+      payload: { tableId: toTableId('t:e:zz'), position: { x: 0, y: 0 } },
+    })
+    expect(outcome.result.ok).toBe(false)
+  })
+})
