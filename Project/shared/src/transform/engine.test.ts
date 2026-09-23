@@ -373,6 +373,7 @@ describe('transform engine T7: relación 1:N', () => {
       {
         from: [colId('t:e:e2', 1)],
         to: { tableId: t('t:e:e1'), columns: [colId('t:e:e1', 0)] },
+        kind: 'ONE_TO_MANY',
       },
     ])
     expect(empleado.columns[1]?.derivedFrom).toBe('T7:relationship trabaja_en.#fk Departamento')
@@ -466,6 +467,7 @@ describe('transform engine T7: relación 1:N', () => {
       {
         from: [colId('t:e:e1', 1)],
         to: { tableId: t('t:e:e1'), columns: [colId('t:e:e1', 0)] },
+        kind: 'ONE_TO_MANY',
       },
     ])
   })
@@ -494,6 +496,7 @@ describe('transform engine T8: relación 1:1', () => {
       {
         from: [colId('t:e:e2', 1)],
         to: { tableId: t('t:e:e1'), columns: [colId('t:e:e1', 0)] },
+        kind: 'ONE_TO_ONE',
       },
     ])
   })
@@ -519,6 +522,7 @@ describe('transform engine T8: relación 1:1', () => {
       {
         from: [colId('t:e:e2', 1)],
         to: { tableId: t('t:e:e1'), columns: [colId('t:e:e1', 0)] },
+        kind: 'ONE_TO_ONE',
       },
     ])
   })
@@ -586,10 +590,12 @@ describe('transform engine T9: relación N:M y n-aria', () => {
       {
         from: [colId('t:r:r1', 0)],
         to: { tableId: t('t:e:e1'), columns: [colId('t:e:e1', 0)] },
+        kind: 'MANY_TO_MANY',
       },
       {
         from: [colId('t:r:r1', 1)],
         to: { tableId: t('t:e:e2'), columns: [colId('t:e:e2', 0)] },
+        kind: 'MANY_TO_MANY',
       },
     ])
   })

@@ -13,8 +13,10 @@ import type {
   LogicalModel,
   LogicalTable,
   TableSource,
+  RelKind,
 } from '../domain/logical'
 import type { Violation } from '../validate/index'
+import { buildDefaultLogicalLayout } from './logical-layout'
 import { toSnakeCase, uniqueLogicalName } from './naming'
 import {
   attributeTableId,
@@ -32,6 +34,7 @@ import {
 interface FkPlan {
   from: ColumnId
   toTableId: TableId
+  kind?: RelKind
 }
 
 interface TableB {
@@ -87,8 +90,8 @@ function addId(b: TableB, ownerName: string): ColumnId {
   return addColumn(b, 'id', `T1:entity ${ownerName}.id`).id
 }
 
-function registerFk(b: TableB, columnId: ColumnId, toTableId: TableId): void {
-  b.fkPlans.push({ from: columnId, toTableId })
+function registerFk(b: TableB, columnId: ColumnId, toTableId: TableId, kind?: RelKind): void {
+  b.fkPlans.push(kind === undefined ? { from: columnId, toTableId } : { from: columnId, toTableId, kind })
 }
 
 /** Nombre de la columna FK hacia el extremo referenciado: rol si existe, si no <nombreTabla>_id. */
@@ -176,6 +179,7 @@ function finalizeTable(st: PassState, builder: TableB): LogicalTable {
       tableId: plan.toTableId,
       columns: st.pkById.get(plan.toTableId) ?? [],
     },
+    ...(plan.kind === undefined ? {} : { kind: plan.kind }),
   }))
   const unique = builder.keyColIds.length > 0 ? [builder.keyColIds] : []
   return {
@@ -334,8 +338,6 @@ function buildEntityTable(st: PassState, entity: Entity): void {
 }
 
 /** Clasifica una relación binaria: 1:1, 1:N o N:M. */
-type RelKind = 'ONE_TO_ONE' | 'ONE_TO_MANY' | 'MANY_TO_MANY'
-
 function classifyBinary(endpoints: RelationshipEndpoint[]): RelKind {
   const [a, b] = endpoints
   const aMany = isMany(a!.cardinality)
@@ -368,7 +370,7 @@ function applyOneToMany(st: PassState, rel: Relationship, nSide: RelationshipEnd
     fkColumnName(oneSide, oneTableName),
     `T7:relationship ${rel.name}.#fk ${oneEntity?.name ?? oneTableName}`,
   )
-  registerFk(receiver, fk.id, entityTableId(oneSide.entityId))
+  registerFk(receiver, fk.id, entityTableId(oneSide.entityId), 'ONE_TO_MANY')
   const ctx: OwnerCtx = {
     ownerKind: 'relationship',
     ownerName: rel.name,
@@ -412,7 +414,7 @@ function applyOneToOne(st: PassState, rel: Relationship): void {
     fkColumnName(otherEndpoint, otherTableName),
     `T8:relationship ${rel.name}.#fk ${otherEntity?.name ?? otherTableName}`,
   )
-  registerFk(receiver, fk.id, entityTableId(otherEndpoint.entityId))
+  registerFk(receiver, fk.id, entityTableId(otherEndpoint.entityId), 'ONE_TO_ONE')
   const ctx: OwnerCtx = {
     ownerKind: 'relationship',
     ownerName: rel.name,
@@ -452,7 +454,7 @@ function applyJunction(st: PassState, rel: Relationship): void {
       fkColumnName(endpoint, participantTableName),
       `T9:relationship ${rel.name}.#fk ${participant?.name ?? participantTableName}`,
     )
-    registerFk(b, fk.id, entityTableId(endpoint.entityId))
+    registerFk(b, fk.id, entityTableId(endpoint.entityId), 'MANY_TO_MANY')
     b.junctionFkColIds.push(fk.id)
   }
   st.pkById.set(tableId, [...b.junctionFkColIds])
@@ -522,6 +524,7 @@ export function transformConceptualToLogical(model: ConceptualModel): LogicalMod
     schemaVersion: CURRENT_SCHEMA_VERSION,
     logicalVersion: 0,
     tables,
+    layout: buildDefaultLogicalLayout(tables),
   }
 }
 

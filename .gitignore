@@ -11,6 +11,10 @@
 
 # Playwright artifacts
 Project/client/test-results/
+Project/client/playwright-report/
+
+# SQLite runtime data (default DB_PATH: server/data/erd-studio.db)
+Project/server/data/
 
 # Allow planning docs (P11+: re-track, restores audit trail)
 !PlanningFiles/

@@ -1,4 +1,4 @@
-import type { ConceptualModel } from '../domain/conceptual'
+import type { ConceptualModel, Point } from '../domain/conceptual'
 import type { ColumnId, TableId } from '../domain/ids'
 import {
   DATA_TYPES,
@@ -16,6 +16,7 @@ export type LogicalCommand =
   | { type: 'transformToLogical' }
   | { type: 'setColumnType'; payload: { tableId: TableId; columnId: ColumnId; dataType: ColumnType } }
   | { type: 'recomputeLogical'; payload?: { confirm?: boolean } }
+  | { type: 'moveTable'; payload: { tableId: TableId; position: Point } }
 
 export type LogicalCommandResult =
   | { ok: true; requiresConfirmation?: boolean }
@@ -76,6 +77,27 @@ export function applyLogicalCommand(
         dataType: command.payload.dataType,
       })
       return { conceptual, logical: next, result: { ok: true } }
+    }
+
+    case 'moveTable': {
+      const table = logical.tables.find((t) => t.id === command.payload.tableId)
+      if (table === undefined) {
+        return {
+          conceptual,
+          logical,
+          result: { ok: false, error: invalid('Tabla lógica inexistente.') },
+        }
+      }
+      const { tableId, position } = command.payload
+      const layout = {
+        ...logical.layout,
+        [tableId]: { x: position.x, y: position.y },
+      }
+      return {
+        conceptual,
+        logical: { ...logical, layout },
+        result: { ok: true },
+      }
     }
 
     case 'recomputeLogical': {

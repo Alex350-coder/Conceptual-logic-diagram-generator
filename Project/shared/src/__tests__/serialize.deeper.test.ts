@@ -6,8 +6,10 @@ import { toNodeId } from '../domain/ids'
 import type { ColumnId, TableId } from '../domain/ids'
 import type { LogicalModel } from '../domain/logical'
 import { isDomainError } from '../errors'
+import { decodeLogicalModel } from '../serialize/decode'
 import { parseDiagramDocument, serializeDiagramDocument } from '../serialize/index'
 import { schemaVersionOf } from '../serialize/migrations/index'
+import { toTableId } from '../transform/types'
 
 function fullLogicalModel(): LogicalModel {
   const tableId = 't:e:e1' as TableId
@@ -46,10 +48,11 @@ function fullLogicalModel(): LogicalModel {
           },
         ],
         primaryKey: [pkColumn],
-        foreignKeys: [{ from: [fkColumn], to: { tableId, columns: [pkColumn] } }],
+        foreignKeys: [{ from: [fkColumn], to: { tableId, columns: [pkColumn] }, kind: 'ONE_TO_MANY' }],
         unique: [[nameColumn]],
       },
     ],
+    layout: { [tableId]: { x: 40, y: 40 } },
   }
 }
 
@@ -105,6 +108,19 @@ describe('serialize: modelo lógico completo', () => {
     const envelope = makeEnvelope(specializedEnvelope().data.model, fullLogicalModel())
     const parsed = parseDiagramDocument(serializeDiagramDocument(envelope))
     expect(parsed.data.logical).toEqual(fullLogicalModel())
+  })
+
+  it('kind de FK y layout de tablas sobreviven el round-trip (aditivo P13-14)', () => {
+    const envelope = makeEnvelope(specializedEnvelope().data.model, fullLogicalModel())
+    const parsed = parseDiagramDocument(serializeDiagramDocument(envelope))
+    expect(parsed.data.logical?.tables[0]?.foreignKeys[0]?.kind).toBe('ONE_TO_MANY')
+    expect(parsed.data.logical?.layout[toTableId('t:e:e1')]).toEqual({ x: 40, y: 40 })
+  })
+
+  it('modelo lógico legacy sin layout ni kind decodifica con layout vacío', () => {
+    const decoded = decodeLogicalModel({ schemaVersion: 1, logicalVersion: 0, tables: [] })
+    expect(decoded.layout).toEqual({})
+    expect(decoded.logicalVersion).toBe(0)
   })
 
   it('un logical con FK huérfana (V-014) se rechaza en parse', () => {

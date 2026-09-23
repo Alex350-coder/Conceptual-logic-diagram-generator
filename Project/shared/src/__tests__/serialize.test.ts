@@ -54,9 +54,9 @@ describe('serialize: round-trip', () => {
 
   it('persiste el modelo lógico cuando existe', () => {
     const envelope = validEnvelope()
-    envelope.data.logical = { schemaVersion: 1, logicalVersion: 3, tables: [] }
+    envelope.data.logical = { schemaVersion: 1, logicalVersion: 3, tables: [], layout: {} }
     const parsed = parseDiagramDocument(serializeDiagramDocument(envelope))
-    expect(parsed.data.logical).toEqual({ schemaVersion: 1, logicalVersion: 3, tables: [] })
+    expect(parsed.data.logical).toEqual({ schemaVersion: 1, logicalVersion: 3, tables: [], layout: {} })
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import {
   applyCommand,
   createEmptyConceptualModel,
@@ -35,21 +35,52 @@ describe('LogicalPanel', () => {
       schemaVersion: 1,
       logicalVersion: 0,
       tables: [],
+      layout: {},
     }
-    render(<LogicalPanel logical={logical} onSetType={vi.fn()} />)
+    render(
+      <LogicalPanel
+        logical={logical}
+        selectedTable={null}
+        onSelectTable={vi.fn()}
+        onSetType={vi.fn()}
+      />,
+    )
     expect(screen.getByRole('status')).toHaveTextContent(/aún no hay tablas/i)
   })
 
-  it('renderiza tablas, columnas y trazas de derivedFrom', () => {
+  it('renderiza la tabla seleccionada, columnas y trazas de derivedFrom', () => {
     const logical = transformConceptualToLogical(buildModel(ENTITY_NOMBRE))
 
-    render(<LogicalPanel logical={logical} onSetType={vi.fn()} />)
+    render(
+      <LogicalPanel
+        logical={logical}
+        selectedTable={logical.tables[0]!.id}
+        onSelectTable={vi.fn()}
+        onSetType={vi.fn()}
+      />,
+    )
 
-    expect(screen.getByText('persona')).toBeDefined()
-    expect(screen.getByText('T1')).toBeDefined()
-    expect(screen.getByText('id')).toBeDefined()
-    expect(screen.getByText('T1:entity Persona.id')).toBeDefined()
+    const card = within(screen.getByTestId('logical-table-persona'))
+    expect(card.getByText('persona')).toBeDefined()
+    expect(card.getByText('T1')).toBeDefined()
+    expect(card.getByText('id')).toBeDefined()
+    expect(card.getByText('T1:entity Persona.id')).toBeDefined()
     expect(screen.getByText('Versión lógica v0')).toBeDefined()
+  })
+
+  it('muestra un aviso cuando no hay tabla seleccionada', () => {
+    const logical = transformConceptualToLogical(buildModel(ENTITY_NOMBRE))
+
+    render(
+      <LogicalPanel
+        logical={logical}
+        selectedTable={null}
+        onSelectTable={vi.fn()}
+        onSetType={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/selecciona una tabla/i)).toBeDefined()
   })
 
   it('muestra el selector de tipo y notifica cambios al cambiarlo', () => {
@@ -64,7 +95,14 @@ describe('LogicalPanel', () => {
     const column = logical.tables[0]!.columns[1]!
     const onSetType = vi.fn()
 
-    render(<LogicalPanel logical={logical} onSetType={onSetType} />)
+    render(
+      <LogicalPanel
+        logical={logical}
+        selectedTable={logical.tables[0]!.id}
+        onSelectTable={vi.fn()}
+        onSetType={onSetType}
+      />,
+    )
 
     const select = screen.getAllByRole('combobox')[1]!
     expect(select).toHaveValue('UNDEFINED')

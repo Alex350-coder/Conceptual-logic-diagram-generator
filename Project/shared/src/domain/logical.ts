@@ -1,4 +1,5 @@
 import { CURRENT_SCHEMA_VERSION } from '../constants'
+import type { Point } from './conceptual'
 import type { ColumnId, NodeId, TableId } from './ids'
 
 export const DATA_TYPES = [
@@ -24,12 +25,21 @@ export interface TableSource {
   nodeId: NodeId
 }
 
+/** Clasificación de una relación binaria (transform T7/T8/T9). Se registra en la FK para el render de pata de pollo. */
+export const REL_KINDS = ['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_MANY'] as const
+export type RelKind = (typeof REL_KINDS)[number]
+
 export interface ForeignKey {
   from: ColumnId[]
   to: {
     tableId: TableId
     columns: ColumnId[]
   }
+  /**
+   * Semántica de la relación que origina la FK (T7/T8/T9). Opcional y aditivo:
+   * FKs de T5/T6/T10 y documentos legacy no lo llevan; el render dibuja línea plana.
+   */
+  kind?: RelKind
 }
 
 /** En MVP se ajusta el campo `dataType`; el resto de la forma se deriva de la transformación. */
@@ -59,6 +69,8 @@ export interface LogicalModel {
   /** Se incrementa al recomputar desde cero; permite detectar recomputación sin tocar schemaVersion. */
   logicalVersion: number
   tables: LogicalTable[]
+  /** Posiciones de las tablas en el mundo (solo extremo superior-izquierdo). Aditivo y opcional. */
+  layout: Partial<Record<TableId, Point>>
 }
 
 export function createEmptyLogicalModel(): LogicalModel {
@@ -66,5 +78,6 @@ export function createEmptyLogicalModel(): LogicalModel {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     logicalVersion: 0,
     tables: [],
+    layout: {},
   }
 }
