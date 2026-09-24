@@ -16,12 +16,10 @@ Project/client/playwright-report/
 # SQLite runtime data (default DB_PATH: server/data/erd-studio.db)
 Project/server/data/
 
-# Allow planning docs (P11+: re-track, restores audit trail)
-!PlanningFiles/
-!PlanningFiles/**
-
-# Allow OpenAI config
-!opencode.json
+# Developer-local tooling (fuera del repositorio):
+# - PlanningFiles/ (planificacion y sistema de skills/reglas)
+# - opencode.json (config local del agente)
+# Ambos quedan cubiertos por el ignore-all de arriba (no se whitelistean).
 
 # Allow root README (repo landing on GitHub)
 !README.md
