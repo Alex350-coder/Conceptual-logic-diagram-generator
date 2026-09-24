@@ -24,7 +24,15 @@
     "z-dialog": "100",
     "duration-fast": "120ms",
     "duration-base": "200ms",
-    "ease-out": "cubic-bezier(0.2, 0, 0, 1)"
+    "ease-out": "cubic-bezier(0.2, 0, 0, 1)",
+    "color-entity-grad-top": "#fff9ec",
+    "color-entity-grad-bottom": "#f3cf74",
+    "color-entity-stroke": "#b45309",
+    "color-entity-shadow": "rgba(146, 64, 14, 0.28)",
+    "color-attribute-grad-top": "#ecf9ff",
+    "color-attribute-grad-bottom": "#a3ddf7",
+    "color-attribute-stroke": "#0369a1",
+    "color-attribute-shadow": "rgba(14, 116, 144, 0.26)"
   },
   "themes": {
     "dark": {

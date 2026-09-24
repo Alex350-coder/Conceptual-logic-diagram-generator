@@ -30,9 +30,19 @@ export interface SceneViewProps {
 const ROLE_STYLES: Record<PrimitiveRole, CSSProperties> = {
   grid: { stroke: '#e5e7eb', strokeWidth: 1, fill: 'none' },
   edge: { stroke: '#94a3b8', strokeWidth: 1.5, fill: 'none' },
-  entity: { stroke: '#b45309', strokeWidth: 1.5, fill: '#fef3c7' },
+  entity: {
+    stroke: 'var(--color-entity-stroke)',
+    strokeWidth: 1.5,
+    fill: 'url(#erd-entity-grad)',
+    filter: 'url(#erd-entity-shadow)',
+  },
   relationship: { stroke: '#16a34a', strokeWidth: 1.5, fill: '#dcfce7' },
-  attribute: { stroke: '#0284c7', strokeWidth: 1.5, fill: '#e0f2fe' },
+  attribute: {
+    stroke: 'var(--color-attribute-stroke)',
+    strokeWidth: 1.5,
+    fill: 'url(#erd-attribute-grad)',
+    filter: 'url(#erd-attribute-shadow)',
+  },
   specialization: { stroke: '#a21caf', strokeWidth: 1.5, fill: '#fae8ff' },
   label: { stroke: 'none', fill: '#111827', fontSize: 14, fontFamily: 'var(--font-ui)' },
   selection: { stroke: '#2563eb', strokeWidth: 1.5, fill: 'none', strokeDasharray: '4 4' },
@@ -42,6 +52,31 @@ const ROLE_STYLES: Record<PrimitiveRole, CSSProperties> = {
     fill: 'rgba(37, 99, 235, 0.08)',
     strokeDasharray: '4 4',
   },
+}
+
+/**
+ * Gradientes y sombras de los nodos (D-CC-08): rellenos con volumen para que no
+ * se vean planos. Los colores salen de tokens CSS, nunca hex hardcodeado.
+ */
+function ShapeDefs() {
+  return (
+    <defs>
+      <linearGradient id="erd-entity-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" style={{ stopColor: 'var(--color-entity-grad-top)' }} />
+        <stop offset="100%" style={{ stopColor: 'var(--color-entity-grad-bottom)' }} />
+      </linearGradient>
+      <radialGradient id="erd-attribute-grad" cx="50%" cy="38%" r="80%">
+        <stop offset="0%" style={{ stopColor: 'var(--color-attribute-grad-top)' }} />
+        <stop offset="100%" style={{ stopColor: 'var(--color-attribute-grad-bottom)' }} />
+      </radialGradient>
+      <filter id="erd-entity-shadow" x="-20%" y="-20%" width="140%" height="150%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" style={{ floodColor: 'var(--color-entity-shadow)' }} />
+      </filter>
+      <filter id="erd-attribute-shadow" x="-20%" y="-20%" width="140%" height="150%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2.5" style={{ floodColor: 'var(--color-attribute-shadow)' }} />
+      </filter>
+    </defs>
+  )
 }
 
 /** Nombre accesible por tipo de nodo (regla ui-ux-system §Foco y teclado). */
@@ -108,18 +143,42 @@ function insetRect(b: Rect, inset = 4): Rect {
   return { x: b.x + inset, y: b.y + inset, width: Math.max(0, b.width - inset * 2), height: Math.max(0, b.height - inset * 2) }
 }
 
+/** Radio de esquina de las entidades (rects): redondeo suave, escalado al bbox. */
+function entityRadius(b: Rect): number {
+  return Math.min(12, b.height * 0.3, b.width * 0.3)
+}
+
 function ShapeGeometry({ prim }: { prim: Extract<Primitive, { kind: string }> }) {
   const style = ROLE_STYLES[prim.role]
+  // El borde doble (débil/derivada/identificadora) se dibuja como contorno
+  // interior sin relleno: doble línea limpia, sin tapar el gradiente de base.
+  const innerStyle = { ...style, fill: 'none', filter: 'none' }
   switch (prim.kind) {
-    case 'rect':
+    case 'rect': {
+      const radius = entityRadius(prim.bounds)
       return (
         <g>
-          <rect x={prim.bounds.x} y={prim.bounds.y} width={prim.bounds.width} height={prim.bounds.height} style={style} />
+          <rect
+            x={prim.bounds.x}
+            y={prim.bounds.y}
+            width={prim.bounds.width}
+            height={prim.bounds.height}
+            rx={radius}
+            ry={radius}
+            style={style}
+          />
           {prim.emphasized ? (
-            <rect {...insetRect(prim.bounds)} style={style} data-emphasized="true" />
+            <rect
+              {...insetRect(prim.bounds)}
+              rx={Math.max(0, radius - 4)}
+              ry={Math.max(0, radius - 4)}
+              style={innerStyle}
+              data-emphasized="true"
+            />
           ) : null}
         </g>
       )
+    }
     case 'ellipse':
       return (
         <g>
@@ -136,7 +195,7 @@ function ShapeGeometry({ prim }: { prim: Extract<Primitive, { kind: string }> })
               cy={centerY(prim.bounds)}
               rx={Math.max(1, prim.bounds.width / 2 - 4)}
               ry={Math.max(1, prim.bounds.height / 2 - 4)}
-              style={style}
+              style={innerStyle}
               data-emphasized="true"
             />
           ) : null}
@@ -147,7 +206,7 @@ function ShapeGeometry({ prim }: { prim: Extract<Primitive, { kind: string }> })
         <g>
           <polygon points={diamondPoints(prim.bounds)} style={style} />
           {prim.emphasized ? (
-            <polygon points={diamondPoints(insetRect(prim.bounds))} style={style} data-emphasized="true" />
+            <polygon points={diamondPoints(insetRect(prim.bounds))} style={innerStyle} data-emphasized="true" />
           ) : null}
         </g>
       )
@@ -238,6 +297,7 @@ export function SceneView({ scene, viewport, size, className, onPointerDown, onC
       onKeyDown={onKeyDown}
       style={{ touchAction: 'none', display: 'block' }}
     >
+      <ShapeDefs />
       <g transform={transform} data-world="true">
         {scene.layers.map((layer) => (
           <g key={layer.id} data-layer={layer.id}>
