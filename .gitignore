@@ -24,5 +24,9 @@ Project/server/data/
 # Allow root README (repo landing on GitHub)
 !README.md
 
+# Allow the screenshots embedded in the root README
+!docs/
+!docs/**
+
 # Allow own gitignore + config
 !.gitignore
